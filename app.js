@@ -6,12 +6,35 @@
 
 const STATUS_ORDER = ['Entwurf', 'Verabschiedung', 'Fördergesuch', 'Abschluss'];
 const MASSNAHME_STATUS = ['Geplant', 'Umsetzung', 'Abschluss'];
-const HANDLUNGSFELDER = ['Wärme- und Kälteversorgung', 'Stromversorgung', 'Energieeffizienz', 'Mobilität', 'Gebäude', 'Erneuerbare Energien', 'Information und Sensibilisierung'];
+const HANDLUNGSFELDER = ['Übergeordnete Massnahmen / Strategien', 'Wärme- und Kälteversorgung', 'Energieeffizienz', 'Ausbaupfad erneuerbare Energien', 'andere'];
 const AKTIVITAETSBEREICHE = ['Strategie / Planung', 'Information', 'Beratung', 'Förderung', 'Vorschrift', 'Vollzug', 'Vorbildfunktion'];
 const PRIORITAETEN = ['Hoch', 'Mittel', 'Tief'];
-const ENERGIETRAEGER_TYPEN = ['Fernwärme', 'Wärmepumpe', 'Photovoltaik', 'Biomasse', 'Erdgas', 'Fernkälte', 'Elektrizität'];
+const ENERGIETRAEGER_TYPEN = [
+  'Hochwertige Abwärme (Vorlauftemperatur >= 60°C)',
+  'Niederwertige Abwärme (Vorlauftemperatur < 60°C)',
+  'Oberflächenwasser',
+  'Grundwasser',
+  'Erdwärme',
+  'Holz',
+  'Umgebungsluft',
+  'Sonne',
+  'Biomasse',
+  'Fossile Energieträger',
+  'Elektrizität',
+  'Massnahme ohne Energieträger',
+  'nicht definiert',
+  'andere',
+  'unbekannt'
+];
 
 const MASSNAHME_VORLAGEN = {
+  'Übergeordnete Massnahmen / Strategien': [
+    { name: 'Energieleitbild der Gemeinde', beschreibung: 'Erarbeitung eines übergeordneten Energie- und Klimaleitbilds für die Gemeinde.' },
+    { name: 'Energieapéro für die Bevölkerung', beschreibung: 'Durchführung jährlicher Informationsanlässe zu Energiethemen.' },
+    { name: 'Schulprojekt Energie und Klima', beschreibung: 'Sensibilisierungsprojekt an der Volksschule zum Thema Energie und Klima.' },
+    { name: 'Newsletter Energieplanung', beschreibung: 'Regelmässige Information der Bevölkerung über den Stand der Energieplanung.' },
+    { name: 'Controlling Energieplanung', beschreibung: 'Jährliches Monitoring und Controlling der Umsetzung der Energieplanungsmassnahmen.' }
+  ],
   'Wärme- und Kälteversorgung': [
     { name: 'Fernwärmeverbund Zentrum', beschreibung: 'Ausbau des Fernwärmenetzes im Ortszentrum zur Ablösung fossiler Heizsysteme.' },
     { name: 'Wärmeverbund Schulanlage', beschreibung: 'Realisierung eines Wärmeverbunds für die Schulanlage und angrenzende Liegenschaften.' },
@@ -19,40 +42,55 @@ const MASSNAHME_VORLAGEN = {
     { name: 'Erdsondenfeld Neubaugebiet', beschreibung: 'Erschliessung eines Erdsondenfelds zur Wärmeversorgung des geplanten Neubaugebiets.' },
     { name: 'Ersatz Ölheizungen Gemeindebauten', beschreibung: 'Ersatz bestehender Ölheizungen in kommunalen Liegenschaften durch Wärmepumpen.' }
   ],
-  'Stromversorgung': [
-    { name: 'Photovoltaik auf Gemeindebauten', beschreibung: 'Installation von Photovoltaikanlagen auf geeigneten kommunalen Dächern.' },
-    { name: 'Solaroffensive Gewerbezone', beschreibung: 'Förderung von Photovoltaikanlagen in der Gewerbezone.' },
-    { name: 'Speicherkonzept erneuerbarer Strom', beschreibung: 'Erarbeitung eines Konzepts für lokale Stromspeicherlösungen.' },
-    { name: 'Netzausbau für Elektromobilität', beschreibung: 'Verstärkung des Verteilnetzes zur Unterstützung der Elektromobilität.' }
-  ],
   'Energieeffizienz': [
     { name: 'Energetische Sanierung Gemeindeliegenschaften', beschreibung: 'Umsetzung energetischer Sanierungen an kommunalen Gebäuden.' },
     { name: 'Energieberatung für Hauseigentümer', beschreibung: 'Aufbau eines Beratungsangebots für energetische Sanierungen bei Privaten.' },
     { name: 'LED-Sanierung Strassenbeleuchtung', beschreibung: 'Umstellung der öffentlichen Strassenbeleuchtung auf LED-Technologie.' },
     { name: 'Minergie-Standard für Neubauten', beschreibung: 'Vorgabe des Minergie-Standards bei kommunalen Neubauprojekten.' }
   ],
-  'Mobilität': [
-    { name: 'Ausbau Ladeinfrastruktur', beschreibung: 'Errichtung öffentlicher Ladestationen für Elektrofahrzeuge.' },
-    { name: 'Förderung Langsamverkehr', beschreibung: 'Ausbau von Velowegen und Fussgängerzonen im Gemeindegebiet.' },
-    { name: 'Mobilitätsmanagement Verwaltung', beschreibung: 'Einführung eines betrieblichen Mobilitätsmanagements für die Gemeindeverwaltung.' },
-    { name: 'Elektrifizierung Gemeindefahrzeuge', beschreibung: 'Ersatz des kommunalen Fuhrparks durch Elektrofahrzeuge.' }
-  ],
-  'Gebäude': [
-    { name: 'GEAK-Kampagne', beschreibung: 'Sensibilisierungskampagne zum Gebäudeenergieausweis der Kantone (GEAK).' },
-    { name: 'Sanierungsverpflichtung Altbauten', beschreibung: 'Prüfung einer Sanierungsverpflichtung für ältere Gebäude im Baubewilligungsverfahren.' },
-    { name: 'Energiekonzept Arealentwicklung', beschreibung: 'Erarbeitung eines Energiekonzepts für ein neues Wohn- und Gewerbeareal.' }
-  ],
-  'Erneuerbare Energien': [
+  'Ausbaupfad erneuerbare Energien': [
+    { name: 'Photovoltaik auf Gemeindebauten', beschreibung: 'Installation von Photovoltaikanlagen auf geeigneten kommunalen Dächern.' },
+    { name: 'Solaroffensive Gewerbezone', beschreibung: 'Förderung von Photovoltaikanlagen in der Gewerbezone.' },
+    { name: 'Speicherkonzept erneuerbarer Strom', beschreibung: 'Erarbeitung eines Konzepts für lokale Stromspeicherlösungen.' },
     { name: 'Potenzialstudie Biomasse', beschreibung: 'Abklärung des lokalen Potenzials zur energetischen Nutzung von Biomasse.' },
     { name: 'Kleinwasserkraft Gemeindebach', beschreibung: 'Prüfung der Realisierbarkeit eines Kleinwasserkraftwerks am Gemeindebach.' },
     { name: 'Potenzialabklärung Tiefengeothermie', beschreibung: 'Untersuchung des Tiefengeothermie-Potenzials im Gemeindegebiet.' }
   ],
-  'Information und Sensibilisierung': [
-    { name: 'Energieapéro für die Bevölkerung', beschreibung: 'Durchführung jährlicher Informationsanlässe zu Energiethemen.' },
-    { name: 'Schulprojekt Energie und Klima', beschreibung: 'Sensibilisierungsprojekt an der Volksschule zum Thema Energie und Klima.' },
-    { name: 'Newsletter Energieplanung', beschreibung: 'Regelmässige Information der Bevölkerung über den Stand der Energieplanung.' }
+  'andere': [
+    { name: 'Ausbau Ladeinfrastruktur', beschreibung: 'Errichtung öffentlicher Ladestationen für Elektrofahrzeuge.' },
+    { name: 'Förderung Langsamverkehr', beschreibung: 'Ausbau von Velowegen und Fussgängerzonen im Gemeindegebiet.' },
+    { name: 'Mobilitätsmanagement Verwaltung', beschreibung: 'Einführung eines betrieblichen Mobilitätsmanagements für die Gemeindeverwaltung.' },
+    { name: 'Elektrifizierung Gemeindefahrzeuge', beschreibung: 'Ersatz des kommunalen Fuhrparks durch Elektrofahrzeuge.' },
+    { name: 'GEAK-Kampagne', beschreibung: 'Sensibilisierungskampagne zum Gebäudeenergieausweis der Kantone (GEAK).' },
+    { name: 'Sanierungsverpflichtung Altbauten', beschreibung: 'Prüfung einer Sanierungsverpflichtung für ältere Gebäude im Baubewilligungsverfahren.' },
+    { name: 'Energiekonzept Arealentwicklung', beschreibung: 'Erarbeitung eines Energiekonzepts für ein neues Wohn- und Gewerbeareal.' }
   ]
 };
+
+const NETTO_NULL_ZIELE = [
+  'Netto-null Treibhausgasemissionen bis spätestens 2050 erreichen.',
+  'Klimaneutrale Gemeindeverwaltung bis 2040 anstreben.',
+  'Reduktion der CO2-Emissionen um 60 % bis 2035.',
+  'Fossilfreie Wärmeversorgung im ganzen Gemeindegebiet bis 2045.',
+  'Netto-null Ziel gemäss kantonaler Energiestrategie 2050.',
+  'CO2-Neutralität der öffentlichen Gebäude bis 2035.'
+];
+const ENERGIEEFFIZIENZ_ZIELE = [
+  'Senkung des Energieverbrauchs pro Kopf um 30 % bis 2035.',
+  'Sanierungsrate der Gebäude auf 2 % pro Jahr erhöhen.',
+  'Energetische Vorbildfunktion der Gemeindebauten stärken.',
+  'Reduktion des Wärmebedarfs im Gebäudepark um 25 %.',
+  'Steigerung der Energieeffizienz in Gewerbe und Industrie.',
+  'Minergie-Standard bei allen Neubauten verbindlich vorschreiben.'
+];
+const STROMPRODUKTION_ZIELE = [
+  'Ausbau der Photovoltaik auf 50 % des Strombedarfs bis 2040.',
+  'Deckung des Gemeindebedarfs durch erneuerbaren Strom bis 2035.',
+  'Verdopplung der lokalen Solarstromproduktion bis 2030.',
+  'Förderung von PV-Anlagen auf allen geeigneten Dachflächen.',
+  'Eigenversorgungsgrad mit erneuerbarem Strom auf 40 % steigern.',
+  'Ausbau erneuerbarer Stromproduktion um 5 GWh bis 2035.'
+];
 
 function makeEnergieplanung(id, gemeinde, status, extra) {
   return Object.assign({
@@ -106,14 +144,19 @@ function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() +
 function buildEnergietraeger(count) {
   const rows = [];
   for (let i = 1; i <= count; i++) {
+    const typ = pick(ENERGIETRAEGER_TYPEN);
     rows.push({
       id: `ET-${i}`,
-      spez: pick(['Zentrum', 'Neubaugebiet', 'Bestand', 'Gewerbezone', 'Schulanlage']),
-      typ: pick(ENERGIETRAEGER_TYPEN),
+      spez: typ, // Spezifikation = Name des Energieträgers
+      typ,
       prioritaet: pick(PRIORITAETEN)
     });
   }
   return rows;
+}
+
+function formatContactLabel(contact) {
+  return contact.organisation !== '-' ? `${contact.vorname} ${contact.nachname} (${contact.organisation})` : `${contact.vorname} ${contact.nachname}`;
 }
 
 function buildMassnahme(index, planung) {
@@ -152,11 +195,10 @@ function buildMassnahme(index, planung) {
     startdatum: formatDate(start),
     faelligkeitsdatum: formatDate(due),
     budget: Math.random() < 0.9 ? formatChf(randomInt(2, 400) * 500) : '-',
-    verantwortlichkeit: contact
-      ? (contact.organisation !== '-' ? `${contact.vorname} ${contact.nachname} (${contact.organisation})` : `${contact.vorname} ${contact.nachname}`)
-      : '-',
+    verantwortlichkeit: contact ? formatContactLabel(contact) : '-',
     bemerkungen: '-',
-    energietraeger: Math.random() < 0.25 ? buildEnergietraeger(randomInt(1, 2)) : []
+    // Energieträger sind nur bei Handlungsfeld "Wärme- und Kälteversorgung" relevant
+    energietraeger: handlungsfeld === 'Wärme- und Kälteversorgung' && Math.random() < 0.6 ? buildEnergietraeger(randomInt(1, 2)) : []
   };
 }
 
@@ -165,6 +207,23 @@ function buildMassnahmen(planung) {
   const list = [];
   for (let i = 0; i < count; i++) list.push(buildMassnahme(i, planung));
   return list;
+}
+
+function fillPlanungDetails(planung) {
+  const beginn = randomDate(planung.jahr - 2, planung.jahr);
+  Object.assign(planung.epaBeratung, {
+    beratungsperson: formatContactLabel(pick(contacts)),
+    datumBeratungsbeginn: formatDate(beginn),
+    bedarfEnergierichtplan: pick(['Ja', 'Nein']),
+    bedarfKoordination: pick(['Ja', 'Nein']),
+    gebieteKoordinationsbedarf: pick(['Ja', 'Nein']),
+  });
+  Object.assign(planung.energieplanungFelder, {
+    verantwortlichkeit: formatContactLabel(pick(contacts)),
+    nettoNullZiel: pick(NETTO_NULL_ZIELE),
+    energieeffizienzZiel: pick(ENERGIEEFFIZIENZ_ZIELE),
+    stromproduktionZiel: pick(STROMPRODUKTION_ZIELE),
+  });
 }
 
 const planungen = [
@@ -178,7 +237,7 @@ const planungen = [
   makeEnergieplanung('EP-839', 'Buchrain', 'Abschluss'),
   makeEnergieplanung('EP-772', 'Buttisholz', 'Entwurf'),
 ];
-planungen.forEach(p => { p.massnahmen = buildMassnahmen(p); });
+planungen.forEach(p => { p.massnahmen = buildMassnahmen(p); fillPlanungDetails(p); });
 
 /* ---------------------- APP STATE ---------------------- */
 
@@ -195,6 +254,12 @@ const state = {
   contactList: { search: '', sortField: 'name', sortDir: 'asc', selected: new Set() },
   layoutMode: 'split',     // map | split | data
   reportView: null,        // null (Menü) | planungen | ueberfaellig | budget | kontakte
+  reportSort: {
+    planungen: { field: 'id', dir: 'asc' },
+    ueberfaellig: { field: 'faelligkeitsdatum', dir: 'asc' },
+    budget: { field: 'budget', dir: 'desc' },
+    kontakte: { field: 'name', dir: 'asc' },
+  },
 };
 
 const BULK_FIELD_LABELS = { prozessstatus: 'Prozessstatus', prioritaet: 'Priorität', umsetzungszeitraum: 'Umsetzungszeitraum' };
@@ -333,7 +398,7 @@ function planungSortHeader(field, label) {
 function renderPlanungList() {
   const list = getFilteredPlanungen();
   $panel.innerHTML = `
-    <h2 class="panel-title">Liste Planungen</h2>
+    <h2 class="panel-title">Planungen</h2>
     <div class="toolbar-row">
       <button class="btn-square" id="btn-add-planung" title="Neue Energieplanung">+</button>
       <div class="search-input-wrap">
@@ -950,6 +1015,7 @@ function renderMassnahmeDetail() {
     ${field('Verantwortlichkeit', m.verantwortlichkeit)}
     ${field('Weitere Bemerkungen', m.bemerkungen)}
 
+    ${m.handlungsfeld === 'Wärme- und Kälteversorgung' ? `
     <h3 class="subheading">Energieträger</h3>
     <table class="data-table">
       <thead><tr>
@@ -964,6 +1030,7 @@ function renderMassnahmeDetail() {
           : m.energietraeger.map(e => `<tr><td>${e.id}</td><td>${e.spez}</td><td>${e.typ}</td><td>${e.prioritaet}</td></tr>`).join('')}
       </tbody>
     </table>
+    ` : ''}
 
     <div class="btn-row">
       <button class="btn btn-danger" id="btn-del-massnahme">Massnahme Löschen</button>
@@ -1309,13 +1376,54 @@ function bindReportMassnahmeRows() {
   });
 }
 
+/* Sortiert Report-Zeilen anhand des in state.reportSort[reportId] hinterlegten Feldes;
+   accessors liefert je Feldname eine Funktion, die den zu vergleichenden Wert (String, Zahl oder Date) liefert. */
+function sortReportRows(reportId, rows, accessors) {
+  const s = state.reportSort[reportId];
+  const get = accessors[s.field];
+  const mul = s.dir === 'desc' ? -1 : 1;
+  return rows.slice().sort((a, b) => {
+    let av = get(a), bv = get(b);
+    if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+    if (av < bv) return -1 * mul;
+    if (av > bv) return 1 * mul;
+    return 0;
+  });
+}
+function reportSortHeader(reportId, field, label) {
+  const s = state.reportSort[reportId];
+  const active = s.field === field;
+  const arrow = active ? (s.dir === 'asc' ? '▲' : '▼') : '↕';
+  return `<th data-rsort="${field}">${label} <span class="sort-arrow">${arrow}</span></th>`;
+}
+function bindReportSort(reportId, renderFn) {
+  $panel.querySelectorAll('[data-rsort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.rsort;
+      const s = state.reportSort[reportId];
+      if (s.field === field) s.dir = s.dir === 'asc' ? 'desc' : 'asc';
+      else { s.field = field; s.dir = 'asc'; }
+      renderFn();
+    });
+  });
+}
+
 function renderReportPlanungen() {
-  const rows = planungen.slice().sort((a, b) => a.id.localeCompare(b.id));
+  const rows = sortReportRows('planungen', planungen, {
+    id: p => p.id, name: p => p.name, gemeinde: p => p.gemeinde,
+    status: p => p.status, count: p => p.massnahmen.length
+  });
   $panel.innerHTML = `
     ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Alle Energieplanungen' }])}
     <h2 class="panel-title">Alle Energieplanungen</h2>
     <div class="table-scroll"><table class="data-table report-table">
-      <thead><tr><th>ID</th><th>Name</th><th>Gemeinden</th><th>Status</th><th>Anzahl Massnahmen</th></tr></thead>
+      <thead><tr>
+        ${reportSortHeader('planungen', 'id', 'ID')}
+        ${reportSortHeader('planungen', 'name', 'Name')}
+        ${reportSortHeader('planungen', 'gemeinde', 'Gemeinden')}
+        ${reportSortHeader('planungen', 'status', 'Status')}
+        ${reportSortHeader('planungen', 'count', 'Anzahl Massnahmen')}
+      </tr></thead>
       <tbody>
         ${rows.map(p => `
           <tr data-open-report-planung="${p.id}">
@@ -1330,6 +1438,7 @@ function renderReportPlanungen() {
     </table></div>
   `;
   bindNavRow(reportBack, [reportBack]);
+  bindReportSort('planungen', renderReportPlanungen);
   $panel.querySelectorAll('[data-open-report-planung]').forEach(row => {
     row.addEventListener('click', () => {
       state.tab = 'planungen';
@@ -1345,17 +1454,29 @@ function renderReportPlanungen() {
 
 function renderReportUeberfaellig() {
   const today = new Date();
-  const rows = getUeberfaelligeMassnahmen().sort((a, b) => parseSwissDate(a.faelligkeitsdatum) - parseSwissDate(b.faelligkeitsdatum));
+  const unsorted = getUeberfaelligeMassnahmen();
+  const rows = sortReportRows('ueberfaellig', unsorted, {
+    id: m => m.id, name: m => m.name, planungId: m => m.planungId, gemeinde: m => m.gemeinde,
+    prozessstatus: m => m.prozessstatus, faelligkeitsdatum: m => parseSwissDate(m.faelligkeitsdatum),
+    tageUeberfaellig: m => Math.round((today - parseSwissDate(m.faelligkeitsdatum)) / 86400000)
+  });
   $panel.innerHTML = `
     ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Überfällige Massnahmen' }])}
     <h2 class="panel-title">Überfällige Massnahmen</h2>
     ${rows.length === 0 ? `<div class="empty-state">Keine überfälligen Massnahmen gefunden.</div>` : `
     <div class="table-scroll"><table class="data-table report-table">
-      <thead><tr><th>ID</th><th>Name</th><th>Energieplanung</th><th>Gemeinde</th><th>Prozessstatus</th><th>Fälligkeitsdatum</th><th>Tage überfällig</th></tr></thead>
+      <thead><tr>
+        ${reportSortHeader('ueberfaellig', 'id', 'ID')}
+        ${reportSortHeader('ueberfaellig', 'name', 'Name')}
+        ${reportSortHeader('ueberfaellig', 'planungId', 'Energieplanung')}
+        ${reportSortHeader('ueberfaellig', 'gemeinde', 'Gemeinde')}
+        ${reportSortHeader('ueberfaellig', 'prozessstatus', 'Prozessstatus')}
+        ${reportSortHeader('ueberfaellig', 'faelligkeitsdatum', 'Fälligkeitsdatum')}
+        ${reportSortHeader('ueberfaellig', 'tageUeberfaellig', 'Tage überfällig')}
+      </tr></thead>
       <tbody>
         ${rows.map(m => {
-          const due = parseSwissDate(m.faelligkeitsdatum);
-          const daysOverdue = Math.round((today - due) / 86400000);
+          const daysOverdue = Math.round((today - parseSwissDate(m.faelligkeitsdatum)) / 86400000);
           return `
           <tr data-open-report-massnahme="${m.planungId}|${m.id}">
             <td>${m.id}</td>
@@ -1371,17 +1492,28 @@ function renderReportUeberfaellig() {
     </table></div>`}
   `;
   bindNavRow(reportBack, [reportBack]);
+  bindReportSort('ueberfaellig', renderReportUeberfaellig);
   bindReportMassnahmeRows();
 }
 
 function renderReportBudget() {
-  const rows = getGrossbudgetMassnahmen().sort((a, b) => parseChfAmount(b.budget) - parseChfAmount(a.budget));
+  const unsorted = getGrossbudgetMassnahmen();
+  const rows = sortReportRows('budget', unsorted, {
+    id: m => m.id, name: m => m.name, planungId: m => m.planungId, gemeinde: m => m.gemeinde,
+    budget: m => parseChfAmount(m.budget)
+  });
   $panel.innerHTML = `
     ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Massnahmen mit hohem Budget' }])}
     <h2 class="panel-title">Massnahmen mit Budget &gt; 100'000 CHF</h2>
     ${rows.length === 0 ? `<div class="empty-state">Keine Massnahmen gefunden.</div>` : `
     <div class="table-scroll"><table class="data-table report-table">
-      <thead><tr><th>ID</th><th>Name</th><th>Energieplanung</th><th>Gemeinde</th><th>Budget</th></tr></thead>
+      <thead><tr>
+        ${reportSortHeader('budget', 'id', 'ID')}
+        ${reportSortHeader('budget', 'name', 'Name')}
+        ${reportSortHeader('budget', 'planungId', 'Energieplanung')}
+        ${reportSortHeader('budget', 'gemeinde', 'Gemeinde')}
+        ${reportSortHeader('budget', 'budget', 'Budget')}
+      </tr></thead>
       <tbody>
         ${rows.map(m => `
           <tr data-open-report-massnahme="${m.planungId}|${m.id}">
@@ -1396,17 +1528,25 @@ function renderReportBudget() {
     </table></div>`}
   `;
   bindNavRow(reportBack, [reportBack]);
+  bindReportSort('budget', renderReportBudget);
   bindReportMassnahmeRows();
 }
 
 function renderReportKontakte() {
-  const rows = getUnassignedContacts();
+  const unsorted = getUnassignedContacts();
+  const rows = sortReportRows('kontakte', unsorted, {
+    name: c => `${c.vorname} ${c.nachname}`, organisation: c => c.organisation, email: c => c.email
+  });
   $panel.innerHTML = `
     ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Nicht zugeordnete Kontakte' }])}
     <h2 class="panel-title">Nicht zugeordnete Kontakte</h2>
     ${rows.length === 0 ? `<div class="empty-state">Alle Kontakte sind zugeordnet.</div>` : `
     <div class="table-scroll"><table class="data-table report-table">
-      <thead><tr><th>Name</th><th>Firma</th><th>E-Mail</th></tr></thead>
+      <thead><tr>
+        ${reportSortHeader('kontakte', 'name', 'Name')}
+        ${reportSortHeader('kontakte', 'organisation', 'Firma')}
+        ${reportSortHeader('kontakte', 'email', 'E-Mail')}
+      </tr></thead>
       <tbody>
         ${rows.map(c => `
           <tr data-open-report-contact="${c.__idx}">
@@ -1419,6 +1559,7 @@ function renderReportKontakte() {
     </table></div>`}
   `;
   bindNavRow(reportBack, [reportBack]);
+  bindReportSort('kontakte', renderReportKontakte);
   $panel.querySelectorAll('[data-open-report-contact]').forEach(row => {
     row.addEventListener('click', () => {
       state.tab = 'kontakte';

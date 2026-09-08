@@ -23,6 +23,7 @@
     const p = makeEnergieplanung(id, gemeinde, pick(STATUS_WEIGHTED));
     p.jahr = pick(JAHR_WEIGHTED);
     p.massnahmen = buildMassnahmen(p);
+    fillPlanungDetails(p);
     planungen.push(p);
   });
 

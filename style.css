@@ -310,6 +310,8 @@ select.select-input{
 .report-card-title{font-size:15.5px; font-weight:700; color:var(--navy); margin-bottom:3px;}
 .report-card-desc{font-size:13px; color:var(--gray-600);}
 .report-card-arrow{width:18px; height:18px; fill:none; stroke:var(--gray-400); stroke-width:2; flex-shrink:0;}
+.report-table th[data-rsort]{cursor:pointer; user-select:none;}
+.report-table th[data-rsort]:hover{color:var(--blue-primary);}
 .report-table tbody tr{cursor:pointer;}
 .report-table tbody tr:hover{background:var(--blue-light-bg);}
 .report-table td:first-child{white-space:nowrap; color:var(--gray-600); font-weight:600;}
