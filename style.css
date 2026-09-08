@@ -67,7 +67,7 @@ input,select,textarea{font-family:inherit; font-size: 14px;}
 }
 .geo-test-badge{background:var(--red); color:#fff;}
 .logo-sep{width:1px; height:30px; background:rgba(255,255,255,0.5);}
-.app-title{font-size:19px; font-weight:700; color:#0f2f4d;}
+.app-title{font-size:19px; font-weight:700; color:#fff;}
 
 .topbar-right{display:flex; align-items:center; gap:6px;}
 .icon-btn{
