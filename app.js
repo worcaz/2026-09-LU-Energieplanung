@@ -215,13 +215,47 @@ document.querySelectorAll('[data-toast]').forEach(el => {
 
 /* ---------------------- ANSICHT: KARTE / BEIDES / DATEN ---------------------- */
 const $appBody = document.querySelector('.app-body');
+const $sidePanel = document.querySelector('.side-panel');
+let panelWidth = 840;
+$sidePanel.style.minWidth = '0';
+$sidePanel.style.maxWidth = 'none';
+
 document.querySelectorAll('#view-toggle [data-view-mode]').forEach(btn => {
   btn.addEventListener('click', () => {
     state.layoutMode = btn.dataset.viewMode;
     document.querySelectorAll('#view-toggle [data-view-mode]').forEach(b => b.classList.toggle('active', b === btn));
     $appBody.className = `app-body mode-${state.layoutMode}`;
+    $sidePanel.style.width = state.layoutMode === 'split' ? `${panelWidth}px` : '';
     if (state.layoutMode !== 'data') setTimeout(() => map.invalidateSize(), 0);
   });
+});
+
+/* ---------------------- SPLITTER: DATENPANEL-BREITE ---------------------- */
+const $resizer = document.getElementById('panel-resizer');
+$sidePanel.style.width = `${panelWidth}px`;
+
+$resizer.addEventListener('mousedown', e => {
+  e.preventDefault();
+  $resizer.classList.add('dragging');
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'col-resize';
+
+  const onMouseMove = ev => {
+    const min = 420;
+    const max = Math.min(1400, window.innerWidth - 480);
+    panelWidth = Math.min(max, Math.max(min, window.innerWidth - ev.clientX));
+    $sidePanel.style.width = `${panelWidth}px`;
+  };
+  const onMouseUp = () => {
+    $resizer.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    map.invalidateSize();
+  };
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
 });
 
 /* ---------------------- RENDER ROOT ---------------------- */
