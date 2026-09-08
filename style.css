@@ -77,6 +77,21 @@ input,select,textarea{font-family:inherit; font-size: 14px;}
 .icon-btn svg{width:19px; height:19px; fill:#fff;}
 .icon-btn:hover{background:rgba(255,255,255,0.18);}
 
+.view-toggle{
+  display:flex; align-items:center; gap:2px;
+  background:rgba(255,255,255,0.18);
+  border-radius:8px;
+  padding:2px;
+}
+.view-toggle button{
+  width:32px; height:30px; border:none; background:transparent; border-radius:6px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.view-toggle button svg{width:17px; height:17px; fill:#fff;}
+.view-toggle button:hover:not(.active){background:rgba(255,255,255,0.22);}
+.view-toggle button.active{background:#fff;}
+.view-toggle button.active svg{fill:var(--blue-primary);}
+
 .topbar-search{
   display:flex; align-items:center; background:#fff; border-radius:4px; overflow:hidden;
   width:340px; height:34px; margin-left:8px;
@@ -180,6 +195,15 @@ input,select,textarea{font-family:inherit; font-size: 14px;}
   flex-direction:column;
   z-index:15;
 }
+
+/* ---------------- ANSICHTSMODI: KARTE / BEIDES / DATEN ---------------- */
+.app-body.mode-map .side-panel{display:none;}
+.app-body.mode-data .map-sidebar,
+.app-body.mode-data .map-area{display:none;}
+.app-body.mode-data .side-panel{
+  width:100%; max-width:100%; min-width:0; border-left:none;
+}
+
 .panel-tabs{
   display:flex;
   border-bottom:1px solid var(--gray-200);

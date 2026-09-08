@@ -177,6 +177,7 @@ const state = {
   massList: { search: '', filter: '', sortField: 'id', sortDir: 'asc', selected: new Set() },
   bulkEdit: { field: 'prozessstatus', value: 'Geplant' },
   contactList: { search: '', sortField: 'name', sortDir: 'asc', selected: new Set() },
+  layoutMode: 'split',     // map | split | data
 };
 
 const BULK_FIELD_LABELS = { prozessstatus: 'Prozessstatus', prioritaet: 'Priorität', umsetzungszeitraum: 'Umsetzungszeitraum' };
@@ -210,6 +211,17 @@ document.querySelectorAll('.panel-tab').forEach(btn => {
 
 document.querySelectorAll('[data-toast]').forEach(el => {
   el.addEventListener('click', () => toast(el.dataset.toast));
+});
+
+/* ---------------------- ANSICHT: KARTE / BEIDES / DATEN ---------------------- */
+const $appBody = document.querySelector('.app-body');
+document.querySelectorAll('#view-toggle [data-view-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.layoutMode = btn.dataset.viewMode;
+    document.querySelectorAll('#view-toggle [data-view-mode]').forEach(b => b.classList.toggle('active', b === btn));
+    $appBody.className = `app-body mode-${state.layoutMode}`;
+    if (state.layoutMode !== 'data') setTimeout(() => map.invalidateSize(), 0);
+  });
 });
 
 /* ---------------------- RENDER ROOT ---------------------- */
