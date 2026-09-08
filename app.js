@@ -119,14 +119,30 @@ function buildEnergietraeger(count) {
 function buildMassnahme(index, planung) {
   const handlungsfeld = pick(HANDLUNGSFELDER);
   const vorlage = pick(MASSNAHME_VORLAGEN[handlungsfeld]);
-  const start = randomDate(planung.jahr - 1, planung.jahr);
-  const due = addDays(start, randomInt(90, 900));
+  const prozessstatus = pick(['Geplant', 'Geplant', 'Geplant', 'Umsetzung', 'Umsetzung', 'Abschluss']);
+
+  // Start-/Fälligkeitsdatum korrelieren mit dem Prozessstatus: abgeschlossene Massnahmen
+  // liegen bereits vollständig in der Vergangenheit, ein Teil der laufenden/geplanten
+  // Massnahmen ist absichtlich überfällig, um realistische Reporting-Daten zu erhalten.
+  const today = new Date();
+  let start, due;
+  if (prozessstatus === 'Abschluss') {
+    start = randomDate(planung.jahr - 2, planung.jahr);
+    due = addDays(start, randomInt(60, 500));
+    if (due > today) due = addDays(today, -randomInt(5, 200));
+  } else {
+    start = randomDate(planung.jahr - 1, planung.jahr);
+    const overdueChance = prozessstatus === 'Umsetzung' ? 0.25 : 0.12;
+    due = Math.random() < overdueChance ? addDays(today, -randomInt(5, 180)) : addDays(today, randomInt(10, 500));
+    if (due < start) due = addDays(start, randomInt(30, 400));
+  }
+
   const contact = Math.random() < 0.8 ? pick(contacts) : null;
   return {
     id: `M-${nextMassnahmeSeq++}`,
     esNr: Math.random() < 0.85 ? `${randomInt(1, 5)}.${randomInt(1, 4)}.${index + 1}` : '-',
     name: vorlage.name,
-    prozessstatus: pick(['Geplant', 'Geplant', 'Geplant', 'Umsetzung', 'Umsetzung', 'Abschluss']),
+    prozessstatus,
     ausEpa: pick(['Ja', 'Ja', 'Ja', 'Nein']),
     beschreibung: vorlage.beschreibung,
     handlungsfeld,
@@ -178,6 +194,7 @@ const state = {
   bulkEdit: { field: 'prozessstatus', value: 'Geplant' },
   contactList: { search: '', sortField: 'name', sortDir: 'asc', selected: new Set() },
   layoutMode: 'split',     // map | split | data
+  reportView: null,        // null (Menü) | planungen | ueberfaellig | budget | kontakte
 };
 
 const BULK_FIELD_LABELS = { prozessstatus: 'Prozessstatus', prioritaet: 'Priorität', umsetzungszeitraum: 'Umsetzungszeitraum' };
@@ -199,10 +216,12 @@ function toast(msg) {
 }
 
 /* ---------------------- TABS ---------------------- */
+function setActiveTabButton(tabName) {
+  document.querySelectorAll('.panel-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+}
 document.querySelectorAll('.panel-tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.panel-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    setActiveTabButton(btn.dataset.tab);
     state.tab = btn.dataset.tab;
     if (state.tab === 'planungen') { state.view = 'list'; }
     render();
@@ -272,6 +291,8 @@ function render() {
     else renderContactList();
   } else if (state.tab === 'zugriff') {
     renderZugriff();
+  } else if (state.tab === 'reporting') {
+    renderReporting();
   }
 }
 
@@ -1168,6 +1189,244 @@ function renderContactForm() {
     state.view = 'list';
     state.contactIndex = null;
     render();
+  });
+}
+
+/* ---------------------- REPORTING: DATENHILFEN ---------------------- */
+function getAllMassnahmenFlat() {
+  const list = [];
+  planungen.forEach(p => {
+    p.massnahmen.forEach(m => list.push(Object.assign({ planungId: p.id, gemeinde: p.gemeinde }, m)));
+  });
+  return list;
+}
+
+function parseSwissDate(str) {
+  if (!str || str === '-') return null;
+  const parts = str.split('.');
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts.map(Number);
+  if (!d || !m || !y) return null;
+  return new Date(y, m - 1, d);
+}
+
+function parseChfAmount(str) {
+  if (!str || str === '-') return null;
+  const n = Number(String(str).replace(/[^\d]/g, ''));
+  return Number.isNaN(n) ? null : n;
+}
+
+function extractContactName(v) {
+  const idx = v.indexOf(' (');
+  return idx === -1 ? v : v.substring(0, idx);
+}
+
+function getUeberfaelligeMassnahmen() {
+  const today = new Date();
+  return getAllMassnahmenFlat().filter(m => {
+    const due = parseSwissDate(m.faelligkeitsdatum);
+    return due && due < today && m.prozessstatus !== 'Abschluss';
+  });
+}
+
+function getGrossbudgetMassnahmen() {
+  return getAllMassnahmenFlat().filter(m => {
+    const n = parseChfAmount(m.budget);
+    return n !== null && n > 100000;
+  });
+}
+
+function getUnassignedContacts() {
+  const assigned = new Set();
+  planungen.forEach(p => {
+    const v = p.energieplanungFelder.verantwortlichkeit;
+    if (v && v !== '-') assigned.add(extractContactName(v));
+    p.massnahmen.forEach(m => {
+      if (m.verantwortlichkeit && m.verantwortlichkeit !== '-') assigned.add(extractContactName(m.verantwortlichkeit));
+    });
+  });
+  return contacts
+    .map((c, idx) => Object.assign({ __idx: idx }, c))
+    .filter(c => !assigned.has(`${c.vorname} ${c.nachname}`));
+}
+
+/* ---------------------- REPORTING ---------------------- */
+const REPORTS = [
+  { id: 'planungen', title: 'Alle Energieplanungen', desc: 'Übersicht aller Energieplanungen mit Gemeinde, Status und Anzahl Massnahmen.' },
+  { id: 'ueberfaellig', title: 'Überfällige Massnahmen', desc: 'Massnahmen, deren Fälligkeitsdatum bereits verstrichen ist und die noch nicht abgeschlossen wurden.' },
+  { id: 'budget', title: 'Massnahmen mit hohem Budget', desc: 'Massnahmen mit einem Budget über 100\'000 CHF.' },
+  { id: 'kontakte', title: 'Nicht zugeordnete Kontakte', desc: 'Kontakte, die aktuell keiner Massnahme oder Energieplanung als Verantwortliche zugeordnet sind.' },
+];
+
+function renderReporting() {
+  if (!state.reportView) renderReportMenu();
+  else if (state.reportView === 'planungen') renderReportPlanungen();
+  else if (state.reportView === 'ueberfaellig') renderReportUeberfaellig();
+  else if (state.reportView === 'budget') renderReportBudget();
+  else if (state.reportView === 'kontakte') renderReportKontakte();
+}
+
+function renderReportMenu() {
+  const counts = {
+    planungen: planungen.length,
+    ueberfaellig: getUeberfaelligeMassnahmen().length,
+    budget: getGrossbudgetMassnahmen().length,
+    kontakte: getUnassignedContacts().length,
+  };
+  $panel.innerHTML = `
+    <h2 class="panel-title">Reporting</h2>
+    <div class="report-menu">
+      ${REPORTS.map(r => `
+        <div class="report-card" data-report="${r.id}">
+          <div class="report-card-count">${counts[r.id]}</div>
+          <div class="report-card-body">
+            <div class="report-card-title">${r.title}</div>
+            <div class="report-card-desc">${r.desc}</div>
+          </div>
+          <svg class="report-card-arrow" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  $panel.querySelectorAll('[data-report]').forEach(card => {
+    card.addEventListener('click', () => { state.reportView = card.dataset.report; render(); });
+  });
+}
+
+function reportBack() { state.reportView = null; render(); }
+
+function bindReportMassnahmeRows() {
+  $panel.querySelectorAll('[data-open-report-massnahme]').forEach(row => {
+    row.addEventListener('click', () => {
+      const [planungId, massnahmeId] = row.dataset.openReportMassnahme.split('|');
+      state.tab = 'planungen';
+      state.view = 'massnahmeDetail';
+      state.planungId = planungId;
+      state.massnahmeId = massnahmeId;
+      setActiveTabButton('planungen');
+      render();
+    });
+  });
+}
+
+function renderReportPlanungen() {
+  const rows = planungen.slice().sort((a, b) => a.id.localeCompare(b.id));
+  $panel.innerHTML = `
+    ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Alle Energieplanungen' }])}
+    <h2 class="panel-title">Alle Energieplanungen</h2>
+    <div class="table-scroll"><table class="data-table report-table">
+      <thead><tr><th>ID</th><th>Name</th><th>Gemeinden</th><th>Status</th><th>Anzahl Massnahmen</th></tr></thead>
+      <tbody>
+        ${rows.map(p => `
+          <tr data-open-report-planung="${p.id}">
+            <td>${p.id}</td>
+            <td>${p.name}</td>
+            <td>${p.gemeinde}</td>
+            <td>${p.status}</td>
+            <td>${p.massnahmen.length}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>
+  `;
+  bindNavRow(reportBack, [reportBack]);
+  $panel.querySelectorAll('[data-open-report-planung]').forEach(row => {
+    row.addEventListener('click', () => {
+      state.tab = 'planungen';
+      state.view = 'detail';
+      state.planungId = row.dataset.openReportPlanung;
+      state.collapsed = {};
+      state.massList.selected.clear();
+      setActiveTabButton('planungen');
+      render();
+    });
+  });
+}
+
+function renderReportUeberfaellig() {
+  const today = new Date();
+  const rows = getUeberfaelligeMassnahmen().sort((a, b) => parseSwissDate(a.faelligkeitsdatum) - parseSwissDate(b.faelligkeitsdatum));
+  $panel.innerHTML = `
+    ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Überfällige Massnahmen' }])}
+    <h2 class="panel-title">Überfällige Massnahmen</h2>
+    ${rows.length === 0 ? `<div class="empty-state">Keine überfälligen Massnahmen gefunden.</div>` : `
+    <div class="table-scroll"><table class="data-table report-table">
+      <thead><tr><th>ID</th><th>Name</th><th>Energieplanung</th><th>Gemeinde</th><th>Prozessstatus</th><th>Fälligkeitsdatum</th><th>Tage überfällig</th></tr></thead>
+      <tbody>
+        ${rows.map(m => {
+          const due = parseSwissDate(m.faelligkeitsdatum);
+          const daysOverdue = Math.round((today - due) / 86400000);
+          return `
+          <tr data-open-report-massnahme="${m.planungId}|${m.id}">
+            <td>${m.id}</td>
+            <td>${m.name}</td>
+            <td>${m.planungId}</td>
+            <td>${m.gemeinde}</td>
+            <td>${m.prozessstatus}</td>
+            <td class="report-overdue">${m.faelligkeitsdatum}</td>
+            <td class="report-overdue">${daysOverdue}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+  bindNavRow(reportBack, [reportBack]);
+  bindReportMassnahmeRows();
+}
+
+function renderReportBudget() {
+  const rows = getGrossbudgetMassnahmen().sort((a, b) => parseChfAmount(b.budget) - parseChfAmount(a.budget));
+  $panel.innerHTML = `
+    ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Massnahmen mit hohem Budget' }])}
+    <h2 class="panel-title">Massnahmen mit Budget &gt; 100'000 CHF</h2>
+    ${rows.length === 0 ? `<div class="empty-state">Keine Massnahmen gefunden.</div>` : `
+    <div class="table-scroll"><table class="data-table report-table">
+      <thead><tr><th>ID</th><th>Name</th><th>Energieplanung</th><th>Gemeinde</th><th>Budget</th></tr></thead>
+      <tbody>
+        ${rows.map(m => `
+          <tr data-open-report-massnahme="${m.planungId}|${m.id}">
+            <td>${m.id}</td>
+            <td>${m.name}</td>
+            <td>${m.planungId}</td>
+            <td>${m.gemeinde}</td>
+            <td>${m.budget}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+  bindNavRow(reportBack, [reportBack]);
+  bindReportMassnahmeRows();
+}
+
+function renderReportKontakte() {
+  const rows = getUnassignedContacts();
+  $panel.innerHTML = `
+    ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'Nicht zugeordnete Kontakte' }])}
+    <h2 class="panel-title">Nicht zugeordnete Kontakte</h2>
+    ${rows.length === 0 ? `<div class="empty-state">Alle Kontakte sind zugeordnet.</div>` : `
+    <div class="table-scroll"><table class="data-table report-table">
+      <thead><tr><th>Name</th><th>Firma</th><th>E-Mail</th></tr></thead>
+      <tbody>
+        ${rows.map(c => `
+          <tr data-open-report-contact="${c.__idx}">
+            <td>${c.vorname} ${c.nachname}</td>
+            <td>${val(c.organisation)}</td>
+            <td>${c.email}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+  bindNavRow(reportBack, [reportBack]);
+  $panel.querySelectorAll('[data-open-report-contact]').forEach(row => {
+    row.addEventListener('click', () => {
+      state.tab = 'kontakte';
+      state.view = 'contactForm';
+      state.contactIndex = Number(row.dataset.openReportContact);
+      setActiveTabButton('kontakte');
+      render();
+    });
   });
 }
 
