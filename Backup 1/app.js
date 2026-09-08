@@ -54,13 +54,14 @@ const planungen = [
 const contacts = [
   { vorname: 'Mathias', nachname: 'Benz', organisation: 'Benz AG', email: 'mathias.benz@lu.ch' },
   { vorname: 'testduplicate', nachname: 'testduplicate', organisation: 'duplicate', email: 'test@duplicate.ch' },
-  { vorname: 'Markus', nachname: 'Fischer', organisation: 'Fischer GmbH', email: 'markus.fischer@demo.com' },
+  { vorname: 'Maxy', nachname: 'Mustery', organisation: 'MaxyrBude', email: 'Maxy.muster@sample.com' },
+  { vorname: 'Markus', nachname: 'Fischer', organisation: 'Fischer GmbH', email: 'markus.fischer@demogis.com' },
   { vorname: 'Meinrad', nachname: 'Franzen', organisation: 'Franzen GmbH', email: 'meinrad.franzen@lu.ch' },
   { vorname: 'Pino', nachname: 'Merino', organisation: 'Gemeinde Adligenswil', email: 'pino.merino@adligenswil.ch' },
   { vorname: 'Julia', nachname: 'Keller', organisation: 'Keller Consulting', email: 'julia.keller@demo.com' },
   { vorname: 'Sandro', nachname: 'Peter', organisation: 'Luzern', email: 'sandro.peter@lu.ch' },
-  { vorname: 'Maxy', nachname: 'Mustery', organisation: 'MaxyrBude', email: 'Maxy.muster@sample.com' },
-  { vorname: 'Roger', nachname: 'Meier', organisation: 'Meier Bau AG', email: 'roger.meier@demo.com' },
+
+  { vorname: 'Roger', nachname: 'Meier', organisation: 'Meier Bau AG', email: 'roger.meier@gisprofi.com' },
 ];
 
 let nextPlanungSeq = 846;
