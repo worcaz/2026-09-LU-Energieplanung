@@ -256,6 +256,7 @@ const state = {
   reportView: null,        // null (Menü) | planungen | ueberfaellig | budget | kontakte
   reportSort: {
     planungen: { field: 'id', dir: 'asc' },
+    epaMasterplan: { field: 'gemeinde', dir: 'asc' },
     ueberfaellig: { field: 'faelligkeitsdatum', dir: 'asc' },
     budget: { field: 'budget', dir: 'desc' },
     kontakte: { field: 'name', dir: 'asc' },
@@ -1320,6 +1321,7 @@ function getUnassignedContacts() {
 /* ---------------------- REPORTING ---------------------- */
 const REPORTS = [
   { id: 'planungen', title: 'Alle Energieplanungen', desc: 'Übersicht aller Energieplanungen mit Gemeinde, Status und Anzahl Massnahmen.' },
+  { id: 'epaMasterplan', title: 'EPA Masterplan', desc: 'Übersicht aller Energieplanungen mit dem Stand der EPA-Beratung.' },
   { id: 'ueberfaellig', title: 'Überfällige Massnahmen', desc: 'Massnahmen, deren Fälligkeitsdatum bereits verstrichen ist und die noch nicht abgeschlossen wurden.' },
   { id: 'budget', title: 'Massnahmen mit hohem Budget', desc: 'Massnahmen mit einem Budget über 100\'000 CHF.' },
   { id: 'kontakte', title: 'Nicht zugeordnete Kontakte', desc: 'Kontakte, die aktuell keiner Massnahme oder Energieplanung als Verantwortliche zugeordnet sind.' },
@@ -1327,6 +1329,7 @@ const REPORTS = [
 
 function renderReporting() {
   if (!state.reportView) renderReportMenu();
+  else if (state.reportView === 'epaMasterplan') renderReportEpaMasterplan();
   else if (state.reportView === 'planungen') renderReportPlanungen();
   else if (state.reportView === 'ueberfaellig') renderReportUeberfaellig();
   else if (state.reportView === 'budget') renderReportBudget();
@@ -1336,6 +1339,7 @@ function renderReporting() {
 function renderReportMenu() {
   const counts = {
     planungen: planungen.length,
+    epaMasterplan: (typeof EPA_MASTERPLAN !== 'undefined') ? EPA_MASTERPLAN.length : 0,
     ueberfaellig: getUeberfaelligeMassnahmen().length,
     budget: getGrossbudgetMassnahmen().length,
     kontakte: getUnassignedContacts().length,
@@ -1446,6 +1450,101 @@ function renderReportPlanungen() {
       state.planungId = row.dataset.openReportPlanung;
       state.collapsed = {};
       state.massList.selected.clear();
+      setActiveTabButton('planungen');
+      render();
+    });
+  });
+}
+
+function renderReportEpaMasterplan() {
+  const data = (typeof EPA_MASTERPLAN !== 'undefined') ? EPA_MASTERPLAN : [];
+  const rows = sortReportRows('epaMasterplan', data, {
+    gemeinde: r => r.gemeinde,
+    epaBeratungAbgeschlossen: r => r.epaBeratungAbgeschlossen,
+    epaGeplant: r => r.epaGeplant,
+    epaBerater: r => r.epaBerater,
+    epaFirma: r => r.epaFirma,
+    epaKickoff: r => r.epaKickoff,
+    epaGesuchseingang: r => r.epaGesuchseingang,
+    epaGesuchsNr: r => r.epaGesuchsNr,
+    epaAuszahlungsdatum: r => r.epaAuszahlungsdatum,
+    esZert: r => r.esZert,
+    regEp: r => r.regEp,
+    regEpName: r => r.regEpName,
+    regEpBuero: r => r.regEpBuero,
+    regEpJahr: r => r.regEpJahr,
+    komEp: r => r.komEp,
+    komEpJahr: r => r.komEpJahr,
+    komEpRevision: r => r.komEpRevision,
+    gasnetz: r => r.gasnetz,
+    gasversorger: r => r.gasversorger,
+    ortsplanungsrevision: r => r.ortsplanungsrevision,
+    info: r => r.info
+  });
+  $panel.innerHTML = `
+    ${renderNavRow('Zurück zu Reports', [{ label: 'Reporting' }, { label: 'EPA Masterplan' }])}
+    <h2 class="panel-title">EPA Masterplan</h2>
+    ${rows.length === 0 ? `<div class="empty-state">Keine Daten vorhanden.</div>` : `
+    <div class="table-scroll"><table class="data-table report-table epa-masterplan-table">
+      <thead><tr>
+        ${reportSortHeader('epaMasterplan', 'gemeinde', 'Gemeinde')}
+        ${reportSortHeader('epaMasterplan', 'epaBeratungAbgeschlossen', 'EPA abgeschlossen')}
+        ${reportSortHeader('epaMasterplan', 'epaGeplant', 'EPA geplant')}
+        ${reportSortHeader('epaMasterplan', 'epaBerater', 'EPA-Berater')}
+        ${reportSortHeader('epaMasterplan', 'epaFirma', 'EPA-Firma')}
+        ${reportSortHeader('epaMasterplan', 'epaKickoff', 'Kick-off')}
+        ${reportSortHeader('epaMasterplan', 'epaGesuchseingang', 'Gesuchseingang')}
+        ${reportSortHeader('epaMasterplan', 'epaGesuchsNr', 'Gesuchs-Nr.')}
+        ${reportSortHeader('epaMasterplan', 'epaAuszahlungsdatum', 'Auszahlungsdatum')}
+        ${reportSortHeader('epaMasterplan', 'esZert', 'ES-Zertifizierung')}
+        ${reportSortHeader('epaMasterplan', 'regEp', 'REG-EP')}
+        ${reportSortHeader('epaMasterplan', 'regEpName', 'REG-EP Name')}
+        ${reportSortHeader('epaMasterplan', 'regEpBuero', 'REG-EP Büro')}
+        ${reportSortHeader('epaMasterplan', 'regEpJahr', 'REG-EP Jahr')}
+        ${reportSortHeader('epaMasterplan', 'komEp', 'KOM-EP')}
+        ${reportSortHeader('epaMasterplan', 'komEpJahr', 'KOM-EP Jahr')}
+        ${reportSortHeader('epaMasterplan', 'komEpRevision', 'KOM-EP Revision')}
+        ${reportSortHeader('epaMasterplan', 'gasnetz', 'Gasnetz')}
+        ${reportSortHeader('epaMasterplan', 'gasversorger', 'Gasversorger')}
+        ${reportSortHeader('epaMasterplan', 'ortsplanungsrevision', 'Ortsplanungsrevision')}
+        ${reportSortHeader('epaMasterplan', 'info', 'Info')}
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr data-open-report-gemeinde="${escapeAttr(r.gemeinde)}">
+            <td>${r.gemeinde}</td>
+            <td>${r.epaBeratungAbgeschlossen}</td>
+            <td>${r.epaGeplant}</td>
+            <td>${r.epaBerater}</td>
+            <td>${r.epaFirma}</td>
+            <td>${r.epaKickoff}</td>
+            <td>${r.epaGesuchseingang}</td>
+            <td>${r.epaGesuchsNr}</td>
+            <td>${r.epaAuszahlungsdatum}</td>
+            <td>${r.esZert}</td>
+            <td>${r.regEp}</td>
+            <td>${r.regEpName}</td>
+            <td>${r.regEpBuero}</td>
+            <td>${r.regEpJahr}</td>
+            <td>${r.komEp}</td>
+            <td>${r.komEpJahr}</td>
+            <td>${r.komEpRevision}</td>
+            <td>${r.gasnetz}</td>
+            <td>${r.gasversorger}</td>
+            <td>${r.ortsplanungsrevision}</td>
+            <td>${r.info}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+  bindNavRow(reportBack, [reportBack]);
+  bindReportSort('epaMasterplan', renderReportEpaMasterplan);
+  $panel.querySelectorAll('[data-open-report-gemeinde]').forEach(row => {
+    row.addEventListener('click', () => {
+      state.tab = 'planungen';
+      state.view = 'list';
+      state.list.search = row.dataset.openReportGemeinde;
       setActiveTabButton('planungen');
       render();
     });

@@ -316,6 +316,9 @@ select.select-input{
 .report-table tbody tr:hover{background:var(--blue-light-bg);}
 .report-table td:first-child{white-space:nowrap; color:var(--gray-600); font-weight:600;}
 .report-overdue{color:var(--red); font-weight:700;}
+.epa-masterplan-table{min-width:2200px;}
+.epa-masterplan-table td{white-space:nowrap;}
+.epa-masterplan-table td:last-child{white-space:normal; max-width:260px;}
 
 /* contacts table */
 .contacts-table th[data-csort]{cursor:pointer; user-select:none;}
