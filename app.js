@@ -243,9 +243,11 @@ planungen.forEach(p => { p.massnahmen = buildMassnahmen(p); fillPlanungDetails(p
 
 const state = {
   tab: 'planungen',
-  view: 'list',            // list | detail | massnahmeForm | massnahmeEdit | massnahmeDetail | planungEdit | contactForm
+  view: 'list',            // list | detail | planungEdit | contactForm
   planungId: null,
+  planungTab: 'details', // massnahmen | details (Sub-Tabs in der Planungsdetailansicht)
   massnahmeId: null,
+  mdMode: null,            // null (leer) | view | edit | new — Zustand des Massnahmen-Detailpanels rechts
   contactIndex: null,
   collapsed: {},           // section-id -> bool
   list: { search: '', filter: '', sortField: 'id', sortDir: 'asc' },
@@ -349,9 +351,6 @@ function render() {
     if (state.view === 'list') renderPlanungList();
     else if (state.view === 'detail') renderPlanungDetail();
     else if (state.view === 'planungEdit') renderPlanungEdit();
-    else if (state.view === 'massnahmeForm') renderMassnahmeForm(false);
-    else if (state.view === 'massnahmeEdit') renderMassnahmeForm(true);
-    else if (state.view === 'massnahmeDetail') renderMassnahmeDetail();
   } else if (state.tab === 'kontakte') {
     if (state.view === 'contactForm') renderContactForm();
     else renderContactList();
@@ -444,6 +443,9 @@ function renderPlanungList() {
     toast(`${id} wurde angelegt.`);
     state.planungId = id;
     state.view = 'detail';
+    state.planungTab = 'details';
+    state.massnahmeId = null;
+    state.mdMode = null;
     render();
   });
   document.getElementById('planung-search').addEventListener('input', e => {
@@ -469,6 +471,9 @@ function renderPlanungList() {
     row.addEventListener('click', () => {
       state.planungId = row.dataset.openPlanung;
       state.view = 'detail';
+      state.planungTab = 'details';
+      state.massnahmeId = null;
+      state.mdMode = null;
       state.collapsed = {};
       state.massList.selected.clear();
       render();
@@ -532,15 +537,40 @@ function renderPlanungDetail() {
     state: i < stepIdx ? 'done' : (i === stepIdx ? 'current' : 'upcoming')
   }));
 
-  const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
-  const massList = getFilteredMassnahmen(p);
-
   $panel.innerHTML = `
     ${renderNavRow('Zurück zur Liste', [{ label: 'Liste Planungen' }, { label: p.id }])}
     <h2 class="panel-title" style="margin-bottom:4px;">${p.typ} ${p.gemeinde}</h2>
     <div class="process-label">Aktiver Prozess: EPA Beratung</div>
     ${renderStepper(steps)}
 
+    <div class="subtab-row">
+      <button class="subtab-btn ${state.planungTab === 'details' ? 'active' : ''}" data-subtab="details">Planungsdetails</button>
+      <button class="subtab-btn ${state.planungTab !== 'details' ? 'active' : ''}" data-subtab="massnahmen">
+        Massnahmen <span class="subtab-count">${p.massnahmen.length}</span>
+      </button>
+    </div>
+
+    <div class="subtab-content">
+      ${state.planungTab === 'details' ? renderPlanungDetailsTabContent(p) : renderPlanungMassnahmenTabContent(p)}
+    </div>
+  `;
+
+  bindNavRow(() => { state.view = 'list'; render(); }, [() => { state.view = 'list'; render(); }]);
+  $panel.querySelectorAll('[data-subtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.planungTab = btn.dataset.subtab;
+      renderPlanungDetail();
+    });
+  });
+
+  if (state.planungTab === 'details') bindPlanungDetailsTab(p);
+  else bindPlanungMassnahmenTab(p);
+}
+
+/* ---------------------- PLANUNGSDETAILS-TAB ---------------------- */
+function renderPlanungDetailsTabContent(p) {
+  const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
+  return `
     ${section('epa', 'EPA Beratung', `
       ${field('Name EPA-Beratung', eb.name)}
       ${field('Prozessstatus', eb.prozessstatus, true)}
@@ -573,11 +603,42 @@ function renderPlanungDetail() {
     `)}
 
     <div class="btn-row">
-      <button class="btn btn-danger" id="btn-del-planung">Energieplanung löschen</button>
+      <button class="btn-outline-danger" id="btn-del-planung">
+        <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>Energieplanung löschen</span>
+      </button>
       <button class="btn btn-primary" id="btn-edit-planung">Energieplanung bearbeiten</button>
     </div>
+  `;
+}
 
-    <h3 class="subheading">Massnahmen</h3>
+function bindPlanungDetailsTab(p) {
+  bindSectionToggles();
+  document.getElementById('btn-del-planung').addEventListener('click', () => {
+    if (confirm(`Energieplanung ${p.id} wirklich löschen?`)) {
+      const idx = planungen.findIndex(x => x.id === p.id);
+      planungen.splice(idx, 1);
+      toast(`${p.id} wurde gelöscht.`);
+      state.view = 'list';
+      render();
+    }
+  });
+  document.getElementById('btn-edit-planung').addEventListener('click', () => { state.view = 'planungEdit'; render(); });
+}
+
+/* ---------------------- MASSNAHMEN-TAB: MASTER-DETAIL ---------------------- */
+function renderPlanungMassnahmenTabContent(p) {
+  const massList = getFilteredMassnahmen(p);
+  return `
+    <div class="md-layout">
+      <div class="md-left">${renderMassnahmenListPanel(p, massList)}</div>
+      <div class="md-right">${renderMassnahmeDetailPanel(p)}</div>
+    </div>
+  `;
+}
+
+function renderMassnahmenListPanel(p, massList) {
+  return `
     <div class="toolbar-row">
       <button class="btn-square" id="btn-add-massnahme" title="Neue Massnahme">+</button>
       <div class="search-input-wrap">
@@ -591,53 +652,38 @@ function renderPlanungDetail() {
     </div>
     ${renderBulkBar()}
     ${massList.length === 0 ? `<div class="empty-state">Keine Massnahmen gefunden.</div>` :
-      `<div class="table-scroll"><table class="data-table massnahmen-table">
+      `<div class="table-scroll"><table class="data-table massnahmen-table md-table">
         <thead><tr>
           <th class="col-check"><input type="checkbox" id="select-all-massnahmen"></th>
-          ${massnahmenSortHeader('id', 'ID')}
-          ${massnahmenSortHeader('esNr', 'ES-Nr.')}
-          ${massnahmenSortHeader('name', 'Name')}
-          ${massnahmenSortHeader('handlungsfeld', 'Handlungsfeld')}
-          ${massnahmenSortHeader('prozessstatus', 'Prozess-Status')}
+          ${massnahmenSortHeader('name', 'Massnahme')}
+          ${massnahmenSortHeader('prozessstatus', 'Status')}
         </tr></thead>
         <tbody>
           ${massList.map(m => `
-            <tr data-open-massnahme="${m.id}">
+            <tr data-open-massnahme="${m.id}" class="${state.massnahmeId === m.id ? 'active' : ''}">
               <td class="col-check"><input type="checkbox" class="row-check" data-massnahme-id="${m.id}" ${state.massList.selected.has(m.id) ? 'checked' : ''}></td>
-              <td>${m.id}</td>
-              <td>${val(m.esNr)}</td>
-              <td>${m.name}</td>
-              <td>${val(m.handlungsfeld)}</td>
-              <td>${m.prozessstatus}</td>
+              <td>
+                <div class="md-row-name">${m.name}</div>
+                <div class="md-row-meta">${m.id} · ${val(m.handlungsfeld)}</div>
+              </td>
+              <td><span class="status-pill status-${m.prozessstatus.toLowerCase()}">${m.prozessstatus}</span></td>
             </tr>
           `).join('')}
         </tbody>
       </table></div>`}
 
-    <div class="btn-row right" style="margin-top:18px;">
+    <div class="btn-row right" style="margin-top:14px;">
       <button class="btn btn-secondary" id="btn-import-massnahmen">Massnahmen importieren</button>
       <button class="btn btn-secondary" id="btn-export-massnahmen">Export Massnahmen CSV</button>
     </div>
   `;
+}
 
-  bindNavRow(() => { state.view = 'list'; render(); }, [() => { state.view = 'list'; render(); }]);
-  bindSectionToggles();
-
-  document.getElementById('btn-del-planung').addEventListener('click', () => {
-    if (confirm(`Energieplanung ${p.id} wirklich löschen?`)) {
-      const idx = planungen.findIndex(x => x.id === p.id);
-      planungen.splice(idx, 1);
-      toast(`${p.id} wurde gelöscht.`);
-      state.view = 'list';
-      render();
-    }
-  });
-  bindBulkBar(p);
-  document.getElementById('btn-edit-planung').addEventListener('click', () => { state.view = 'planungEdit'; render(); });
+function bindMassnahmenListPanel(p) {
   document.getElementById('btn-add-massnahme').addEventListener('click', () => {
     state.massnahmeId = null;
-    state.view = 'massnahmeForm';
-    render();
+    state.mdMode = 'new';
+    renderPlanungDetail();
   });
   document.getElementById('massnahme-search').addEventListener('input', e => {
     state.massList.search = e.target.value;
@@ -648,6 +694,7 @@ function renderPlanungDetail() {
   document.getElementById('massnahme-filter').addEventListener('change', e => { state.massList.filter = e.target.value; renderPlanungDetail(); });
   document.getElementById('btn-import-massnahmen').addEventListener('click', () => toast('Import ist in diesem Prototyp nicht verfügbar.'));
   document.getElementById('btn-export-massnahmen').addEventListener('click', () => exportMassnahmenCsv(p));
+  bindBulkBar(p);
   $panel.querySelectorAll('[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const field = th.dataset.sort;
@@ -670,6 +717,7 @@ function renderPlanungDetail() {
   });
   const selectAllCb = document.getElementById('select-all-massnahmen');
   if (selectAllCb) {
+    const massList = getFilteredMassnahmen(p);
     selectAllCb.addEventListener('click', e => e.stopPropagation());
     selectAllCb.addEventListener('change', e => {
       if (e.target.checked) massList.forEach(m => state.massList.selected.add(m.id));
@@ -684,10 +732,15 @@ function renderPlanungDetail() {
   $panel.querySelectorAll('[data-open-massnahme]').forEach(row => {
     row.addEventListener('click', () => {
       state.massnahmeId = row.dataset.openMassnahme;
-      state.view = 'massnahmeDetail';
-      render();
+      state.mdMode = 'view';
+      renderPlanungDetail();
     });
   });
+}
+
+function bindPlanungMassnahmenTab(p) {
+  bindMassnahmenListPanel(p);
+  bindMassnahmeDetailPanel(p);
 }
 
 /* ---------------------- MASSNAHMEN: MASSENMANIPULATION ---------------------- */
@@ -861,23 +914,88 @@ function renderPlanungEdit() {
 }
 function fixDash(v) { return v === '-' ? '' : v; }
 
-/* ---------------------- MASSNAHME FORM (add / edit) ---------------------- */
-function renderMassnahmeForm(isEdit) {
-  const p = findPlanung(state.planungId);
-  if (!p) { state.view = 'list'; render(); return; }
-  const m = isEdit ? findMassnahme(p, state.massnahmeId) : null;
+/* ---------------------- MASSNAHME: DETAIL-/BEARBEITEN-PANEL (rechte Spalte) ---------------------- */
+function renderMassnahmeDetailPanel(p) {
+  if (state.mdMode === 'edit' || state.mdMode === 'new') {
+    return renderMassnahmeFormPanel(p, state.mdMode === 'edit');
+  }
+  if (state.mdMode === 'view' && state.massnahmeId) {
+    const m = findMassnahme(p, state.massnahmeId);
+    if (m) return renderMassnahmeViewPanel(m);
+  }
+  return `<div class="md-empty">Wähle links eine Massnahme aus oder erstelle über "+" eine neue Massnahme.</div>`;
+}
 
+function renderMassnahmeViewPanel(m) {
+  const order = ['Geplant', 'Umsetzung', 'Abschluss'];
+  const idx = order.indexOf(m.prozessstatus);
+  const steps = order.map((label, i) => ({
+    label,
+    sub: i < idx ? 'Erledigt' : (i === idx ? 'In Bearbeitung' : 'Ausstehend'),
+    state: i < idx ? 'done' : (i === idx ? 'current' : 'upcoming')
+  }));
+
+  return `
+    <div class="md-panel-header">
+      <span class="md-panel-id">${m.id}</span>
+      <h3>${m.name}</h3>
+    </div>
+    ${renderStepper(steps)}
+
+    ${field('ID', m.id)}
+    ${field('ES-Nr.', m.esNr)}
+    ${field('Name', m.name)}
+    ${field('Prozessstatus', m.prozessstatus, true)}
+    ${field('Massnahme aus EPA-Beratung?', m.ausEpa)}
+    ${field('Beschreibung', m.beschreibung)}
+    ${field('Handlungsfeld', m.handlungsfeld)}
+    ${field('Aktivitätsbereich', m.aktivitaetsbereich)}
+    ${field('Priorität', m.prioritaet)}
+    ${field('Umsetzungszeitraum', m.umsetzungszeitraum)}
+    ${field('Startdatum', m.startdatum)}
+    ${field('Fälligkeitsdatum', m.faelligkeitsdatum)}
+    ${field('Budget', m.budget)}
+    ${field('Verantwortlichkeit', m.verantwortlichkeit)}
+    ${field('Weitere Bemerkungen', m.bemerkungen)}
+
+    ${m.handlungsfeld === 'Wärme- und Kälteversorgung' ? `
+    <h3 class="subheading">Energieträger</h3>
+    <table class="data-table">
+      <thead><tr>
+        <th>ID <span class="sort-arrow">↕</span></th>
+        <th>Spezifikation <span class="sort-arrow">↕</span></th>
+        <th>Typ <span class="sort-arrow">↕</span></th>
+        <th>Priorität <span class="sort-arrow">↕</span></th>
+      </tr></thead>
+      <tbody>
+        ${m.energietraeger.length === 0
+          ? `<tr class="table-empty-row"><td colspan="4">Keine Einträge vorhanden.</td></tr>`
+          : m.energietraeger.map(e => `<tr><td>${e.id}</td><td>${e.spez}</td><td>${e.typ}</td><td>${e.prioritaet}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    ` : ''}
+
+    <div class="btn-row">
+      <button class="btn-outline-danger" id="btn-del-massnahme">
+        <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>Massnahme löschen</span>
+      </button>
+      <div style="display:flex; gap:12px;">
+        <button class="btn btn-outline" id="btn-geodaten">Geodaten editieren</button>
+        <button class="btn btn-primary" id="btn-edit-massnahme">Massnahme bearbeiten</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderMassnahmeFormPanel(p, isEdit) {
+  const m = isEdit ? findMassnahme(p, state.massnahmeId) : null;
   const contactOptions = contacts.map(c => `<option>${c.vorname} ${c.nachname} — ${c.organisation}</option>`).join('');
 
-  $panel.innerHTML = `
-    ${renderNavRow(
-      isEdit ? 'Zurück zur Massnahme' : 'Zurück zur Planung',
-      isEdit
-        ? [{ label: 'Liste Planungen' }, { label: p.id }, { label: m.id }]
-        : [{ label: 'Liste Planungen' }, { label: p.id }]
-    )}
-    <div class="form-eyebrow">${isEdit ? 'Massnahme bearbeiten' : 'Neue Massnahme'}</div>
-    <h2 class="form-heading">Massnahme</h2>
+  return `
+    <div class="md-panel-header">
+      <h3>${isEdit ? 'Massnahme bearbeiten' : 'Neue Massnahme'}</h3>
+    </div>
 
     <div class="form-field"><label>Name<span class="req">*</span></label>
       <input type="text" id="mf-name" placeholder="Name der Massnahme" value="${escapeAttr(m ? m.name : '')}"></div>
@@ -926,17 +1044,37 @@ function renderMassnahmeForm(isEdit) {
       <button class="btn btn-primary" id="btn-save">Speichern</button>
     </div>
   `;
+}
 
-  bindNavRow(
-    () => { state.view = isEdit ? 'massnahmeDetail' : 'detail'; render(); },
-    isEdit
-      ? [() => { state.view = 'list'; render(); }, () => { state.view = 'detail'; render(); }]
-      : [() => { state.view = 'list'; render(); }]
-  );
+function bindMassnahmeDetailPanel(p) {
+  if (state.mdMode === 'view' && state.massnahmeId) {
+    const m = findMassnahme(p, state.massnahmeId);
+    if (!m) return;
+    document.getElementById('btn-del-massnahme').addEventListener('click', () => {
+      if (confirm(`Massnahme ${m.id} wirklich löschen?`)) {
+        p.massnahmen = p.massnahmen.filter(x => x.id !== m.id);
+        state.massList.selected.delete(m.id);
+        toast(`${m.id} wurde gelöscht.`);
+        state.massnahmeId = null;
+        state.mdMode = null;
+        renderPlanungDetail();
+      }
+    });
+    document.getElementById('btn-geodaten').addEventListener('click', () => toast('Geodaten-Editor ist in diesem Prototyp nicht verfügbar (Karte ist statisch).'));
+    document.getElementById('btn-edit-massnahme').addEventListener('click', () => {
+      state.mdMode = 'edit';
+      renderPlanungDetail();
+    });
+    return;
+  }
+
+  if (state.mdMode !== 'edit' && state.mdMode !== 'new') return;
+  const isEdit = state.mdMode === 'edit';
+  const m = isEdit ? findMassnahme(p, state.massnahmeId) : null;
 
   document.getElementById('btn-cancel').addEventListener('click', () => {
-    state.view = isEdit ? 'massnahmeDetail' : 'detail';
-    render();
+    state.mdMode = isEdit ? 'view' : null;
+    renderPlanungDetail();
   });
   document.getElementById('mf-add-contact').addEventListener('click', () => toast('Kontakterfassung ist in diesem Prototyp nicht verfügbar.'));
   document.getElementById('btn-save').addEventListener('click', () => {
@@ -967,97 +1105,16 @@ function renderMassnahmeForm(isEdit) {
     if (isEdit) {
       Object.assign(m, data);
       toast(`${m.id} wurde gespeichert.`);
-      state.view = 'massnahmeDetail';
+      state.mdMode = 'view';
     } else {
       const id = `M-${nextMassnahmeSeq++}`;
       p.massnahmen.push(Object.assign({ id }, data));
       state.massnahmeId = id;
       toast(`${id} wurde angelegt.`);
-      state.view = 'massnahmeDetail';
+      state.mdMode = 'view';
     }
-    render();
+    renderPlanungDetail();
   });
-}
-
-/* ---------------------- MASSNAHME DETAIL ---------------------- */
-function renderMassnahmeDetail() {
-  const p = findPlanung(state.planungId);
-  if (!p) { state.view = 'list'; render(); return; }
-  const m = findMassnahme(p, state.massnahmeId);
-  if (!m) { state.view = 'detail'; render(); return; }
-
-  const order = ['Geplant', 'Umsetzung', 'Abschluss'];
-  const idx = order.indexOf(m.prozessstatus);
-  const steps = order.map((label, i) => ({
-    label,
-    sub: i < idx ? 'Erledigt' : (i === idx ? 'In Bearbeitung' : 'Ausstehend'),
-    state: i < idx ? 'done' : (i === idx ? 'current' : 'upcoming')
-  }));
-
-  $panel.innerHTML = `
-    ${renderNavRow('Zurück zur Planung', [{ label: 'Liste Planungen' }, { label: p.id }, { label: m.id }])}
-    <h2 class="panel-title" style="margin-bottom:4px;">Massnahme</h2>
-    <div class="process-label">Aktiver Prozess: Prozess Massnahme</div>
-    ${renderStepper(steps)}
-
-    ${field('ID', m.id)}
-    ${field('ES-Nr.', m.esNr)}
-    ${field('Name', m.name)}
-    ${field('Prozessstatus', m.prozessstatus, true)}
-    ${field('Massnahme aus EPA-Beratung?', m.ausEpa)}
-    ${field('Beschreibung', m.beschreibung)}
-    ${field('Handlungsfeld', m.handlungsfeld)}
-    ${field('Aktivitätsbereich', m.aktivitaetsbereich)}
-    ${field('Priorität', m.prioritaet)}
-    ${field('Umsetzungszeitraum', m.umsetzungszeitraum)}
-    ${field('Startdatum', m.startdatum)}
-    ${field('Fälligkeitsdatum', m.faelligkeitsdatum)}
-    ${field('Budget', m.budget)}
-    ${field('Verantwortlichkeit', m.verantwortlichkeit)}
-    ${field('Weitere Bemerkungen', m.bemerkungen)}
-
-    ${m.handlungsfeld === 'Wärme- und Kälteversorgung' ? `
-    <h3 class="subheading">Energieträger</h3>
-    <table class="data-table">
-      <thead><tr>
-        <th>ID <span class="sort-arrow">↕</span></th>
-        <th>Spezifikation <span class="sort-arrow">↕</span></th>
-        <th>Typ <span class="sort-arrow">↕</span></th>
-        <th>Priorität <span class="sort-arrow">↕</span></th>
-      </tr></thead>
-      <tbody>
-        ${m.energietraeger.length === 0
-          ? `<tr class="table-empty-row"><td colspan="4">Keine Einträge vorhanden.</td></tr>`
-          : m.energietraeger.map(e => `<tr><td>${e.id}</td><td>${e.spez}</td><td>${e.typ}</td><td>${e.prioritaet}</td></tr>`).join('')}
-      </tbody>
-    </table>
-    ` : ''}
-
-    <div class="btn-row">
-      <button class="btn btn-danger" id="btn-del-massnahme">Massnahme Löschen</button>
-      <div style="display:flex; gap:12px;">
-        <button class="btn btn-outline" id="btn-geodaten">Geodaten editieren</button>
-        <button class="btn btn-primary" id="btn-edit-massnahme">Massnahme bearbeiten</button>
-      </div>
-    </div>
-  `;
-
-  bindNavRow(
-    () => { state.view = 'detail'; render(); },
-    [() => { state.view = 'list'; render(); }, () => { state.view = 'detail'; render(); }]
-  );
-
-  document.getElementById('btn-del-massnahme').addEventListener('click', () => {
-    if (confirm(`Massnahme ${m.id} wirklich löschen?`)) {
-      p.massnahmen = p.massnahmen.filter(x => x.id !== m.id);
-      state.massList.selected.delete(m.id);
-      toast(`${m.id} wurde gelöscht.`);
-      state.view = 'detail';
-      render();
-    }
-  });
-  document.getElementById('btn-geodaten').addEventListener('click', () => toast('Geodaten-Editor ist in diesem Prototyp nicht verfügbar (Karte ist statisch).'));
-  document.getElementById('btn-edit-massnahme').addEventListener('click', () => { state.view = 'massnahmeEdit'; render(); });
 }
 
 /* ---------------------- KONTAKTE ---------------------- */
@@ -1213,7 +1270,10 @@ function renderContactForm() {
     <div class="form-field"><label>E-Mail<span class="req">*</span></label><input type="text" id="cf-email" placeholder="name@beispiel.ch" value="${escapeAttr(c ? c.email : '')}"></div>
     ${isEdit ? `
     <div class="btn-row">
-      <button class="btn btn-danger" id="btn-del-contact">Kontakt löschen</button>
+      <button class="btn-outline-danger" id="btn-del-contact">
+        <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>Kontakt löschen</span>
+      </button>
       <div style="display:flex; gap:12px;">
         <button class="btn btn-outline" id="btn-cancel">Abbrechen</button>
         <button class="btn btn-primary" id="btn-save">Speichern</button>
@@ -1371,9 +1431,11 @@ function bindReportMassnahmeRows() {
     row.addEventListener('click', () => {
       const [planungId, massnahmeId] = row.dataset.openReportMassnahme.split('|');
       state.tab = 'planungen';
-      state.view = 'massnahmeDetail';
+      state.view = 'detail';
+      state.planungTab = 'massnahmen';
       state.planungId = planungId;
       state.massnahmeId = massnahmeId;
+      state.mdMode = 'view';
       setActiveTabButton('planungen');
       render();
     });
@@ -1447,7 +1509,10 @@ function renderReportPlanungen() {
     row.addEventListener('click', () => {
       state.tab = 'planungen';
       state.view = 'detail';
+      state.planungTab = 'details';
       state.planungId = row.dataset.openReportPlanung;
+      state.massnahmeId = null;
+      state.mdMode = null;
       state.collapsed = {};
       state.massList.selected.clear();
       setActiveTabButton('planungen');
