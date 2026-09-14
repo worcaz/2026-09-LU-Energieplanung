@@ -243,9 +243,10 @@ planungen.forEach(p => { p.massnahmen = buildMassnahmen(p); fillPlanungDetails(p
 
 const state = {
   tab: 'planungen',
-  view: 'list',            // list | detail | planungEdit | contactForm
+  view: 'list',            // list | detail | contactForm
   planungId: null,
   planungTab: 'details', // massnahmen | details (Sub-Tabs in der Planungsdetailansicht)
+  planungDetailsMode: 'view', // view | edit — Zustand des Planungsdetails-Tabs
   massnahmeId: null,
   mdMode: null,            // null (leer) | view | edit | new — Zustand des Massnahmen-Detailpanels rechts
   contactIndex: null,
@@ -350,7 +351,6 @@ function render() {
   if (state.tab === 'planungen') {
     if (state.view === 'list') renderPlanungList();
     else if (state.view === 'detail') renderPlanungDetail();
-    else if (state.view === 'planungEdit') renderPlanungEdit();
   } else if (state.tab === 'kontakte') {
     if (state.view === 'contactForm') renderContactForm();
     else renderContactList();
@@ -444,6 +444,7 @@ function renderPlanungList() {
     state.planungId = id;
     state.view = 'detail';
     state.planungTab = 'details';
+    state.planungDetailsMode = 'view';
     state.massnahmeId = null;
     state.mdMode = null;
     render();
@@ -472,6 +473,7 @@ function renderPlanungList() {
       state.planungId = row.dataset.openPlanung;
       state.view = 'detail';
       state.planungTab = 'details';
+      state.planungDetailsMode = 'view';
       state.massnahmeId = null;
       state.mdMode = null;
       state.collapsed = {};
@@ -482,18 +484,23 @@ function renderPlanungList() {
 }
 
 /* ---------------------- STEPPER ---------------------- */
-function renderStepper(steps) {
+function renderStepper(steps, id) {
   // steps: [{label, sub, state: 'done'|'current'|'upcoming'}]
-  return `<div class="stepper">
+  return `<div class="stepper"${id ? ` id="${id}"` : ''}>
     ${steps.map((s, i) => `
       ${i > 0 ? `<div class="step-line ${steps[i - 1].state === 'done' ? 'done' : ''}"></div>` : ''}
-      <div class="step ${s.state}">
+      <div class="step ${s.state}" data-step-label="${escapeAttr(s.label)}" title="Status auf „${s.label}“ setzen">
         <div class="step-circle">${s.state === 'done' ? checkSvg() : ''}</div>
         <div class="step-label">${s.label}</div>
         <div class="step-sub">${s.sub}</div>
       </div>
     `).join('')}
   </div>`;
+}
+function bindStepper(container, onSelect) {
+  container.querySelectorAll('.stepper .step').forEach(el => {
+    el.addEventListener('click', () => onSelect(el.dataset.stepLabel));
+  });
 }
 function checkSvg() { return `<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>`; }
 
@@ -541,7 +548,7 @@ function renderPlanungDetail() {
     ${renderNavRow('Zurück zur Liste', [{ label: 'Liste Planungen' }, { label: p.id }])}
     <h2 class="panel-title" style="margin-bottom:4px;">${p.typ} ${p.gemeinde}</h2>
     <div class="process-label">Aktiver Prozess: EPA Beratung</div>
-    ${renderStepper(steps)}
+    ${renderStepper(steps, 'planung-stepper')}
 
     <div class="subtab-row">
       <button class="subtab-btn ${state.planungTab === 'details' ? 'active' : ''}" data-subtab="details">Planungsdetails</button>
@@ -556,6 +563,13 @@ function renderPlanungDetail() {
   `;
 
   bindNavRow(() => { state.view = 'list'; render(); }, [() => { state.view = 'list'; render(); }]);
+  bindStepper(document.getElementById('planung-stepper'), label => {
+    if (label === p.status) return;
+    p.status = label;
+    p.epaBeratung.prozessstatus = label;
+    toast(`Status wurde auf „${label}“ gesetzt.`);
+    renderPlanungDetail();
+  });
   $panel.querySelectorAll('[data-subtab]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.planungTab = btn.dataset.subtab;
@@ -569,6 +583,10 @@ function renderPlanungDetail() {
 
 /* ---------------------- PLANUNGSDETAILS-TAB ---------------------- */
 function renderPlanungDetailsTabContent(p) {
+  return state.planungDetailsMode === 'edit' ? renderPlanungDetailsFormContent(p) : renderPlanungDetailsViewContent(p);
+}
+
+function renderPlanungDetailsViewContent(p) {
   const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
   return `
     ${section('epa', 'EPA Beratung', `
@@ -612,7 +630,58 @@ function renderPlanungDetailsTabContent(p) {
   `;
 }
 
+function yesNoSelect(id, value) {
+  return `<select id="${id}">
+    <option value="-" ${(!value || value === '-') ? 'selected' : ''}>Nicht festgelegt</option>
+    <option value="Ja" ${value === 'Ja' ? 'selected' : ''}>Ja</option>
+    <option value="Nein" ${value === 'Nein' ? 'selected' : ''}>Nein</option>
+  </select>`;
+}
+
+function renderPlanungDetailsFormContent(p) {
+  const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
+  return `
+    <h3 class="subheading" style="margin-top:0;">EPA Beratung</h3>
+    <div class="form-field"><label>Name EPA-Beratung</label><input type="text" id="f-eb-name" value="${escapeAttr(fixDash(eb.name))}"></div>
+    <div class="form-field"><label>Beratungsperson</label><input type="text" id="f-eb-beratungsperson" value="${escapeAttr(fixDash(eb.beratungsperson))}"></div>
+    <div class="form-field"><label>Datum Beratungsbeginn</label><input type="text" id="f-eb-datum" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.datumBeratungsbeginn))}"></div>
+    <div class="form-field"><label>Bedarf eines Energierichtplans?</label>${yesNoSelect('f-eb-energierichtplan', eb.bedarfEnergierichtplan)}</div>
+    <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
+    <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
+    <div class="form-field"><label>Förderabschlussformular</label><input type="text" id="f-eb-foerderformular" value="${escapeAttr(fixDash(eb.foerderabschlussformular))}"></div>
+
+    <h3 class="subheading">Kontoinformationen Förderbeitrag</h3>
+    <div class="form-field"><label>Kontoinhaber/in</label><input type="text" id="f-k-inhaber" value="${escapeAttr(fixDash(k.kontoinhaber))}"></div>
+    <div class="form-field"><label>Adresse</label><input type="text" id="f-k-adresse" value="${escapeAttr(fixDash(k.adresse))}"></div>
+    <div class="form-field"><label>IBAN</label><input type="text" id="f-k-iban" value="${escapeAttr(fixDash(k.iban))}"></div>
+    <div class="form-field"><label>Bankname</label><input type="text" id="f-k-bankname" value="${escapeAttr(fixDash(k.bankname))}"></div>
+    <div class="form-field"><label>Vermerk</label><input type="text" id="f-k-vermerk" value="${escapeAttr(fixDash(k.vermerk))}"></div>
+
+    <h3 class="subheading">Energieplanung</h3>
+    <div class="form-field"><label>Name</label><input type="text" id="f-name" value="${escapeAttr(p.name)}"></div>
+    <div class="form-field"><label>Planungstyp</label><input type="text" id="f-typ" value="${escapeAttr(p.typ)}"></div>
+    <div class="form-field"><label>Jahr</label><input type="text" id="f-jahr" value="${escapeAttr(p.jahr)}"></div>
+    <div class="form-field"><label>Gemeinden</label><input type="text" id="f-gemeinde" value="${escapeAttr(p.gemeinde)}"></div>
+    <div class="form-field"><label>Status</label>
+      <select id="f-status">${STATUS_ORDER.map(s => `<option value="${s}" ${p.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+    </div>
+    <div class="form-field"><label>Verantwortlichkeit</label><input type="text" id="f-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
+    <div class="form-field"><label>Netto-null Ziel</label><input type="text" id="f-netto" value="${escapeAttr(fixDash(ef.nettoNullZiel))}"></div>
+    <div class="form-field"><label>Energieeffizienz Ziel</label><input type="text" id="f-effizienz" value="${escapeAttr(fixDash(ef.energieeffizienzZiel))}"></div>
+    <div class="form-field"><label>Stromproduktion Ziel</label><input type="text" id="f-strom" value="${escapeAttr(fixDash(ef.stromproduktionZiel))}"></div>
+
+    <div class="btn-row right">
+      <button class="btn btn-outline" id="btn-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="btn-save">Speichern</button>
+    </div>
+  `;
+}
+
 function bindPlanungDetailsTab(p) {
+  if (state.planungDetailsMode === 'edit') {
+    bindPlanungDetailsForm(p);
+    return;
+  }
   bindSectionToggles();
   document.getElementById('btn-del-planung').addEventListener('click', () => {
     if (confirm(`Energieplanung ${p.id} wirklich löschen?`)) {
@@ -623,7 +692,48 @@ function bindPlanungDetailsTab(p) {
       render();
     }
   });
-  document.getElementById('btn-edit-planung').addEventListener('click', () => { state.view = 'planungEdit'; render(); });
+  document.getElementById('btn-edit-planung').addEventListener('click', () => {
+    state.planungDetailsMode = 'edit';
+    renderPlanungDetail();
+  });
+}
+
+function bindPlanungDetailsForm(p) {
+  const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
+  document.getElementById('btn-cancel').addEventListener('click', () => {
+    state.planungDetailsMode = 'view';
+    renderPlanungDetail();
+  });
+  document.getElementById('btn-save').addEventListener('click', () => {
+    eb.name = document.getElementById('f-eb-name').value || eb.name;
+    eb.beratungsperson = document.getElementById('f-eb-beratungsperson').value || '-';
+    eb.datumBeratungsbeginn = document.getElementById('f-eb-datum').value || '-';
+    eb.bedarfEnergierichtplan = document.getElementById('f-eb-energierichtplan').value;
+    eb.bedarfKoordination = document.getElementById('f-eb-koordination').value;
+    eb.gebieteKoordinationsbedarf = document.getElementById('f-eb-gebiete').value;
+    eb.foerderabschlussformular = document.getElementById('f-eb-foerderformular').value || '-';
+
+    k.kontoinhaber = document.getElementById('f-k-inhaber').value || '-';
+    k.adresse = document.getElementById('f-k-adresse').value || '-';
+    k.iban = document.getElementById('f-k-iban').value || '-';
+    k.bankname = document.getElementById('f-k-bankname').value || '-';
+    k.vermerk = document.getElementById('f-k-vermerk').value || '-';
+
+    p.name = document.getElementById('f-name').value || p.name;
+    p.typ = document.getElementById('f-typ').value || p.typ;
+    p.gemeinde = document.getElementById('f-gemeinde').value || p.gemeinde;
+    p.jahr = document.getElementById('f-jahr').value || p.jahr;
+    p.status = document.getElementById('f-status').value;
+    ef.verantwortlichkeit = document.getElementById('f-verantwortlichkeit').value || '-';
+    ef.nettoNullZiel = document.getElementById('f-netto').value || '-';
+    ef.energieeffizienzZiel = document.getElementById('f-effizienz').value || '-';
+    ef.stromproduktionZiel = document.getElementById('f-strom').value || '-';
+    eb.prozessstatus = p.status;
+
+    toast('Energieplanung wurde gespeichert.');
+    state.planungDetailsMode = 'view';
+    renderPlanungDetail();
+  });
 }
 
 /* ---------------------- MASSNAHMEN-TAB: MASTER-DETAIL ---------------------- */
@@ -869,49 +979,6 @@ function bindSectionToggles() {
   });
 }
 
-/* ---------------------- PLANUNG EDIT ---------------------- */
-function renderPlanungEdit() {
-  const p = findPlanung(state.planungId);
-  if (!p) { state.view = 'list'; render(); return; }
-  const ef = p.energieplanungFelder;
-  $panel.innerHTML = `
-    ${renderNavRow('Zurück zur Planung', [{ label: 'Liste Planungen' }, { label: p.id, }, { label: 'Bearbeiten' }])}
-    <h2 class="form-heading">Energieplanung bearbeiten</h2>
-    <div class="form-field"><label>Name</label><input type="text" id="f-name" value="${escapeAttr(p.name)}"></div>
-    <div class="form-field"><label>Gemeinden</label><input type="text" id="f-gemeinde" value="${escapeAttr(p.gemeinde)}"></div>
-    <div class="form-field"><label>Jahr</label><input type="text" id="f-jahr" value="${escapeAttr(p.jahr)}"></div>
-    <div class="form-field"><label>Status</label>
-      <select id="f-status">${STATUS_ORDER.map(s => `<option value="${s}" ${p.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
-    </div>
-    <div class="form-field"><label>Verantwortlichkeit</label><input type="text" id="f-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
-    <div class="form-field"><label>Netto-null Ziel</label><input type="text" id="f-netto" value="${escapeAttr(fixDash(ef.nettoNullZiel))}"></div>
-    <div class="form-field"><label>Energieeffizienz Ziel</label><input type="text" id="f-effizienz" value="${escapeAttr(fixDash(ef.energieeffizienzZiel))}"></div>
-    <div class="form-field"><label>Stromproduktion Ziel</label><input type="text" id="f-strom" value="${escapeAttr(fixDash(ef.stromproduktionZiel))}"></div>
-    <div class="btn-row right">
-      <button class="btn btn-outline" id="btn-cancel">Abbrechen</button>
-      <button class="btn btn-primary" id="btn-save">Speichern</button>
-    </div>
-  `;
-  bindNavRow(
-    () => { state.view = 'detail'; render(); },
-    [() => { state.view = 'list'; render(); }, () => { state.view = 'detail'; render(); }]
-  );
-  document.getElementById('btn-cancel').addEventListener('click', () => { state.view = 'detail'; render(); });
-  document.getElementById('btn-save').addEventListener('click', () => {
-    p.name = document.getElementById('f-name').value || p.name;
-    p.gemeinde = document.getElementById('f-gemeinde').value || p.gemeinde;
-    p.jahr = document.getElementById('f-jahr').value || p.jahr;
-    p.status = document.getElementById('f-status').value;
-    ef.verantwortlichkeit = document.getElementById('f-verantwortlichkeit').value || '-';
-    ef.nettoNullZiel = document.getElementById('f-netto').value || '-';
-    ef.energieeffizienzZiel = document.getElementById('f-effizienz').value || '-';
-    ef.stromproduktionZiel = document.getElementById('f-strom').value || '-';
-    p.epaBeratung.prozessstatus = p.status;
-    toast('Energieplanung wurde gespeichert.');
-    state.view = 'detail';
-    render();
-  });
-}
 function fixDash(v) { return v === '-' ? '' : v; }
 
 /* ---------------------- MASSNAHME: DETAIL-/BEARBEITEN-PANEL (rechte Spalte) ---------------------- */
@@ -940,7 +1007,7 @@ function renderMassnahmeViewPanel(m) {
       <span class="md-panel-id">${m.id}</span>
       <h3>${m.name}</h3>
     </div>
-    ${renderStepper(steps)}
+    ${renderStepper(steps, 'massnahme-stepper')}
 
     ${field('ID', m.id)}
     ${field('ES-Nr.', m.esNr)}
@@ -1063,6 +1130,12 @@ function bindMassnahmeDetailPanel(p) {
     document.getElementById('btn-geodaten').addEventListener('click', () => toast('Geodaten-Editor ist in diesem Prototyp nicht verfügbar (Karte ist statisch).'));
     document.getElementById('btn-edit-massnahme').addEventListener('click', () => {
       state.mdMode = 'edit';
+      renderPlanungDetail();
+    });
+    bindStepper(document.getElementById('massnahme-stepper'), label => {
+      if (label === m.prozessstatus) return;
+      m.prozessstatus = label;
+      toast(`Status von ${m.id} wurde auf „${label}“ gesetzt.`);
       renderPlanungDetail();
     });
     return;
@@ -1433,6 +1506,7 @@ function bindReportMassnahmeRows() {
       state.tab = 'planungen';
       state.view = 'detail';
       state.planungTab = 'massnahmen';
+      state.planungDetailsMode = 'view';
       state.planungId = planungId;
       state.massnahmeId = massnahmeId;
       state.mdMode = 'view';
@@ -1510,6 +1584,7 @@ function renderReportPlanungen() {
       state.tab = 'planungen';
       state.view = 'detail';
       state.planungTab = 'details';
+      state.planungDetailsMode = 'view';
       state.planungId = row.dataset.openReportPlanung;
       state.massnahmeId = null;
       state.mdMode = null;

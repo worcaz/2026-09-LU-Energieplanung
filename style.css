@@ -332,18 +332,21 @@ select.select-input{
 /* ---------- stepper ---------- */
 .process-label{color:var(--gray-600); font-size:13px; margin-bottom:14px;}
 .stepper{display:flex; align-items:flex-start; margin-bottom:26px; padding:0 48px;}
-.step{display:flex; flex-direction:column; align-items:center; width:0; flex:0 0 auto; text-align:center;}
+.step{display:flex; flex-direction:column; align-items:center; min-width:88px; flex:0 0 auto; text-align:center; cursor:pointer;}
 .step-circle{
   width:34px; height:34px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
   background:#fff; border:2px solid var(--gray-300); flex-shrink:0;
+  transition: transform .12s, box-shadow .12s;
 }
+.step:hover .step-circle{transform:scale(1.12); box-shadow:0 0 0 4px var(--blue-light-bg);}
 .step.done .step-circle{background:var(--green); border-color:var(--green);}
 .step.done .step-circle svg{fill:#fff; width:16px; height:16px;}
 .step.current .step-circle{border-color:var(--blue-primary); box-shadow: inset 0 0 0 2px #fff;}
 .step.current .step-circle::after{content:""; width:10px; height:10px; border-radius:50%; background:var(--blue-primary);}
 .step.upcoming .step-circle{border-color:var(--gray-200); background:var(--gray-50);}
 .step.upcoming .step-circle::after{content:""; width:7px; height:7px; border-radius:50%; background:var(--gray-300);}
+.step:hover .step-label{color:var(--blue-primary);}
 .step-label{margin-top:8px; font-size:13px; font-weight:700; color:var(--text); white-space:nowrap;}
 .step-sub{font-size:11.5px; color:var(--gray-500); margin-top:1px; white-space:nowrap;}
 .step.current .step-label{color:var(--blue-primary);}
