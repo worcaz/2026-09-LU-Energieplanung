@@ -34,9 +34,22 @@
     <button class="icon-btn" title="Anwendungen" data-toast="Nicht Teil dieses Prototyps">
       <svg viewBox="0 0 24 24"><path d="M4 4h5v5H4V4zm7 0h5v5h-5V4zm7 0h5v5h-5V4zM4 11h5v5H4v-5zm7 0h5v5h-5v-5zm7 0h5v5h-5v-5zM4 18h5v5H4v-5zm7 0h5v5h-5v-5zm7 0h5v5h-5v-5z"/></svg>
     </button>
-    <button class="icon-btn" title="Abmelden" data-toast="Nicht Teil dieses Prototyps">
-      <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-    </button>
+    <div class="role-switcher" id="role-switcher">
+      <button class="icon-btn avatar-btn" id="avatar-btn" title="Profil &amp; Rolle">
+        <span class="avatar-circle" id="avatar-initials">EB</span>
+      </button>
+      <div class="role-menu" id="role-menu" hidden>
+        <div class="role-menu-label">Rolle wechseln</div>
+        <button class="role-menu-item" data-role="Energieberater">
+          <span class="role-menu-item-name">Energieberater</span>
+          <svg class="role-menu-check" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>
+        </button>
+        <button class="role-menu-item" data-role="Admin">
+          <span class="role-menu-item-name">Admin</span>
+          <svg class="role-menu-check" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>
+        </button>
+      </div>
+    </div>
     <div class="topbar-search">
       <input type="text" placeholder="Adresse, Ort, Grundstücknummer, ...">
       <button class="search-btn" data-toast="Nicht Teil dieses Prototyps">

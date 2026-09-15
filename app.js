@@ -104,7 +104,8 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
       bedarfEnergierichtplan: '-',
       bedarfKoordination: '-',
       gebieteKoordinationsbedarf: '-',
-      foerderabschlussformular: 'Keine Massnahmen definiert'
+      foerderabschlussformular: 'Keine Massnahmen definiert',
+      gesuchseingang: '-', auszahlungsbetrag: 7200, gesuchsNr: '-', energiestadt: '-', kommentar: '-'
     },
     konto: {
       kontoinhaber: '-', adresse: '-', iban: '-', bankname: '-',
@@ -138,6 +139,7 @@ function pick(arr) { return arr[randomInt(0, arr.length - 1)]; }
 function pad2(n) { return String(n).padStart(2, '0'); }
 function formatDate(d) { return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`; }
 function formatChf(n) { return `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "'")} CHF`; }
+function formatChfAmount(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "'"); }
 function randomDate(yearFrom, yearTo) { return new Date(randomInt(yearFrom, yearTo), randomInt(0, 11), randomInt(1, 28)); }
 function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
 
@@ -209,14 +211,62 @@ function buildMassnahmen(planung) {
   return list;
 }
 
+// Beispielkommentare fürs Kommentarfeld im Bereich "Gesuch (intern)" — Grossteil der Gesuche
+// bleibt unkommentiert, ein Teil trägt kurze Jahres-Korrekturen oder längere Notizen (wie im
+// bisherigen Excel-Tracking üblich).
+const EPA_KOMMENTAR_BEISPIELE = [
+  '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-',
+  'EPA vorgelagert zum ES-Prozess',
+  'EPA vorgelagert zum ES-Prozess',
+  'EPA vorgelagert zum ES-Prozess',
+  'EPA vorgelagert zum ES-Prozess. Rezertifizierung wird aufs 2027 verschoben.',
+  '2027 statt 2028',
+  '2026 i.O.',
+  '2025 i.O.',
+  '2026 i.O.',
+  '2027 i.O.',
+  '2025 i.O.',
+  '2025 statt 2027',
+  '2025 statt 2026',
+  '2025 statt 2026',
+  '2025 statt 2026',
+  '2024 statt 2026',
+  'nicht 2024; Reaudit war im Sommer 2024',
+  'Die Gmd. Ballwil wird anfangs Dez. 24 definitiv das Budget bewilligen damit wir u.a. eine EPA-Beratung im 2025 durchführen können (neben einem «Reaudit Energiestadt im Mai 2026»).',
+  'wir sind da an der Erarbeitung eines Leitbilds hinsichtlich dem Reaudit, welches ja nächstes Jahr startet.',
+  'die Gemeinde ist motiviert die EPA-Beratung vor der Festlegung ihrer neuer Legislaturziele anzugehen',
+  '2025 statt 2024: Bemerkung Clara: Wegen Ortsplanungsrevision bleibt 2024',
+  '2028 statt 2024; Bemerkung Clara: Gemeinde möchte Lärmrisikogebiete zeitnah koordinieren, daher bleibt 2024; Rückmeldung Moritz: GR muss noch Energie- und Klimastrategie beraten, daher 2025 statt 2024',
+  '2026 statt 2025; Bemerkung Clara: Wegen Ortsplanungsrevision bleibt 2025',
+  '2027 statt 2025; Bemerkung Clara: Wegen Ortsplanungsrevision bleibt 2025',
+  'Gemeinde möchte vorwärts machen',
+  'Gemeinde möchte vorwärts machen',
+  'Nachgelagert an EPA wird nun eine räumliche Energieplanung erarbeitet',
+];
+
+// Zähler für die Gesuchs-Nr. (Jahr + dreistellige Laufnummer je Jahr, z.B. 2026011)
+const gesuchsLaufNrByYear = {};
+function nextGesuchsNr(jahr) {
+  gesuchsLaufNrByYear[jahr] = (gesuchsLaufNrByYear[jahr] || 0) + 1;
+  return Number(`${jahr}${String(gesuchsLaufNrByYear[jahr]).padStart(3, '0')}`);
+}
+
 function fillPlanungDetails(planung) {
   const beginn = randomDate(planung.jahr - 2, planung.jahr);
+  const gesuchseingang = addDays(beginn, randomInt(30, 240));
+  const gesuchsJahr = gesuchseingang.getFullYear();
   Object.assign(planung.epaBeratung, {
     beratungsperson: formatContactLabel(pick(contacts)),
     datumBeratungsbeginn: formatDate(beginn),
     bedarfEnergierichtplan: pick(['Ja', 'Nein']),
     bedarfKoordination: pick(['Ja', 'Nein']),
     gebieteKoordinationsbedarf: pick(['Ja', 'Nein']),
+    // Admin-only Felder (Report "EPA-Beratung")
+    gesuchseingang: formatDate(gesuchseingang),
+    auszahlungsbetrag: Math.random() < 0.85 ? 7200 : pick([6000, 6500, 7800, 8200, 9000]),
+    gesuchsNr: nextGesuchsNr(gesuchsJahr),
+    energiestadt: pick(['Ja', 'Nein', 'Nein']),
+    kommentar: pick(EPA_KOMMENTAR_BEISPIELE),
   });
   Object.assign(planung.energieplanungFelder, {
     verantwortlichkeit: formatContactLabel(pick(contacts)),
@@ -256,6 +306,7 @@ const state = {
   bulkEdit: { field: 'prozessstatus', value: 'Geplant' },
   contactList: { search: '', sortField: 'name', sortDir: 'asc', selected: new Set() },
   layoutMode: 'split',     // map | split | data
+  role: 'Energieberater',  // Energieberater (default) | Admin
   reportView: null,        // null (Menü) | planungen | ueberfaellig | budget | kontakte
   reportSort: {
     planungen: { field: 'id', dir: 'asc' },
@@ -300,6 +351,34 @@ document.querySelectorAll('.panel-tab').forEach(btn => {
 document.querySelectorAll('[data-toast]').forEach(el => {
   el.addEventListener('click', () => toast(el.dataset.toast));
 });
+
+/* ---------------------- ROLLEN-SWITCHER (AVATAR) ---------------------- */
+const $avatarBtn = document.getElementById('avatar-btn');
+const $roleMenu = document.getElementById('role-menu');
+
+function updateAvatar() {
+  document.getElementById('avatar-initials').textContent = state.role === 'Admin' ? 'A' : 'EB';
+  $avatarBtn.title = `Angemeldet als ${state.role}`;
+  document.querySelectorAll('.role-menu-item').forEach(b => b.classList.toggle('active', b.dataset.role === state.role));
+}
+
+$avatarBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  $roleMenu.hidden = !$roleMenu.hidden;
+});
+$roleMenu.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => { $roleMenu.hidden = true; });
+
+document.querySelectorAll('.role-menu-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.role = btn.dataset.role;
+    updateAvatar();
+    $roleMenu.hidden = true;
+    toast(`Rolle gewechselt zu „${state.role}“`);
+    render();
+  });
+});
+updateAvatar();
 
 /* ---------------------- ANSICHT: KARTE / BEIDES / DATEN ---------------------- */
 const $appBody = document.querySelector('.app-body');
@@ -600,6 +679,14 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Förderabschlussformular', eb.foerderabschlussformular)}
     `)}
 
+    ${state.role === 'Admin' ? section('gesuch', 'Gesuch (intern)', `
+      ${field('Gesuchseingang', eb.gesuchseingang)}
+      ${field('Gesuchs-Nr.', eb.gesuchsNr)}
+      ${field('Auszahlungsbetrag CHF', formatChfAmount(eb.auszahlungsbetrag))}
+      ${field('Energiestadt', eb.energiestadt)}
+      ${field('Kommentar', eb.kommentar)}
+    `) : ''}
+
     ${section('konto', 'Kontoinformationen Förderbeitrag', `
       ${field('Kontoinhaber/in', k.kontoinhaber)}
       ${field('Adresse', k.adresse)}
@@ -649,6 +736,16 @@ function renderPlanungDetailsFormContent(p) {
     <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
     <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
     <div class="form-field"><label>Förderabschlussformular</label><input type="text" id="f-eb-foerderformular" value="${escapeAttr(fixDash(eb.foerderabschlussformular))}"></div>
+
+    ${state.role === 'Admin' ? `
+    <h3 class="subheading">Gesuch (intern)</h3>
+    <div class="form-field"><label>Gesuchseingang</label><input type="text" id="f-eb-gesuchseingang" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.gesuchseingang))}"></div>
+    <div class="form-field"><label>Gesuchs-Nr.</label><input type="number" id="f-eb-gesuchsnr" value="${eb.gesuchsNr}"></div>
+    <div class="form-field"><label>Auszahlungsbetrag CHF</label><input type="number" id="f-eb-auszahlungsbetrag" value="${eb.auszahlungsbetrag}"></div>
+    <div class="form-field"><label>Energiestadt</label>${yesNoSelect('f-eb-energiestadt', eb.energiestadt)}</div>
+    <div class="form-field"><label>Kommentar</label>
+      <textarea id="f-eb-kommentar" placeholder="Interner Kommentar...">${escapeHtml(eb.kommentar !== '-' ? eb.kommentar : '')}</textarea></div>
+    ` : ''}
 
     <h3 class="subheading">Kontoinformationen Förderbeitrag</h3>
     <div class="form-field"><label>Kontoinhaber/in</label><input type="text" id="f-k-inhaber" value="${escapeAttr(fixDash(k.kontoinhaber))}"></div>
@@ -712,6 +809,13 @@ function bindPlanungDetailsForm(p) {
     eb.bedarfKoordination = document.getElementById('f-eb-koordination').value;
     eb.gebieteKoordinationsbedarf = document.getElementById('f-eb-gebiete').value;
     eb.foerderabschlussformular = document.getElementById('f-eb-foerderformular').value || '-';
+    if (state.role === 'Admin') {
+      eb.gesuchseingang = document.getElementById('f-eb-gesuchseingang').value || '-';
+      eb.auszahlungsbetrag = Number(document.getElementById('f-eb-auszahlungsbetrag').value) || eb.auszahlungsbetrag;
+      eb.gesuchsNr = Number(document.getElementById('f-eb-gesuchsnr').value) || eb.gesuchsNr;
+      eb.energiestadt = document.getElementById('f-eb-energiestadt').value;
+      eb.kommentar = document.getElementById('f-eb-kommentar').value || '-';
+    }
 
     k.kontoinhaber = document.getElementById('f-k-inhaber').value || '-';
     k.adresse = document.getElementById('f-k-adresse').value || '-';
@@ -1047,7 +1151,7 @@ function renderMassnahmeViewPanel(m) {
         <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         <span>Massnahme löschen</span>
       </button>
-      <div style="display:flex; gap:12px;">
+      <div class="btn-group">
         <button class="btn btn-outline" id="btn-geodaten">Geodaten editieren</button>
         <button class="btn btn-primary" id="btn-edit-massnahme">Massnahme bearbeiten</button>
       </div>
@@ -1347,7 +1451,7 @@ function renderContactForm() {
         <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         <span>Kontakt löschen</span>
       </button>
-      <div style="display:flex; gap:12px;">
+      <div class="btn-group">
         <button class="btn btn-outline" id="btn-cancel">Abbrechen</button>
         <button class="btn btn-primary" id="btn-save">Speichern</button>
       </div>
@@ -1826,9 +1930,9 @@ function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
 const LUZERN_CENTER = [47.0502, 8.3093];
 const map = L.map('leaflet-map', { zoomControl: false }).setView(LUZERN_CENTER, 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende'
+L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', {
+  maxZoom: 18,
+  attribution: '&copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>'
 }).addTo(map);
 
 L.control.zoom({ position: 'topright' }).addTo(map);
