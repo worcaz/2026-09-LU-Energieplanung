@@ -12,6 +12,10 @@
   --red: #d4463c;
   --red-dark: #b93830;
   --green: #21a366;
+  --amber: #b3760b;
+  --amber-dark: #8f5c05;
+  --amber-bg: #fdf2df;
+  --amber-border: #f0d9a6;
   --gray-50: #f6f7f8;
   --gray-100: #eef0f2;
   --gray-200: #e2e5e9;
@@ -432,6 +436,18 @@ table.md-table th:nth-child(3), table.md-table td:nth-child(3){white-space:nowra
 .status-pill.status-geplant{background:var(--gray-100); color:var(--gray-700);}
 .status-pill.status-umsetzung{background:var(--blue-light-bg); color:var(--blue-primary-dark);}
 .status-pill.status-abschluss{background:#e3f5ea; color:var(--green);}
+.status-pill.status-pruefung-ok{background:var(--gray-100); color:var(--gray-700); margin-left:8px;}
+.status-pill.status-pruefung-faellig{background:var(--amber-bg); color:var(--amber-dark); margin-left:8px;}
+
+/* ---------- Prüfpflicht-Hinweisbanner (4-Jahres-Turnus) ---------- */
+.pruefung-banner{
+  display:flex; gap:10px; align-items:flex-start; background:var(--amber-bg); border:1px solid var(--amber-border);
+  color:var(--amber-dark); border-radius:6px; padding:14px 16px; margin:14px 0 4px;
+}
+.pruefung-banner svg{width:22px; height:22px; flex:none; fill:var(--amber); margin-top:1px;}
+.pruefung-banner-title{font-size:14.5px; font-weight:700; color:var(--amber-dark); margin-bottom:4px;}
+.pruefung-banner-text{font-size:13px; color:var(--text); max-width:640px;}
+.pruefung-banner .btn-row{margin:10px 0 0; justify-content:flex-start;}
 
 /* ---------- collapsible section ---------- */
 .section{border-top:1px solid var(--gray-200); margin-bottom:4px;}

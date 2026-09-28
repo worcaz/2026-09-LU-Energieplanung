@@ -132,6 +132,8 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
     energieplanungFelder: {
       verantwortlichkeit: '-', beraterEnergieplanung: '-', nettoNullZiel: '-', energieeffizienzZiel: '-', stromproduktionZiel: '-'
     },
+    // Wiederkehrende Prüfpflicht (alle 4 Jahre ab Datum Beratungsbeginn, sofern Status Abschluss) — siehe naechstePruefungFor().
+    pruefstatus: { letzteUeberpruefung: '-' },
     massnahmen: []
   }, extra || {});
 }
@@ -162,6 +164,7 @@ function formatChf(n) { return `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "'"
 function formatChfAmount(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "'"); }
 function randomDate(yearFrom, yearTo) { return new Date(randomInt(yearFrom, yearTo), randomInt(0, 11), randomInt(1, 28)); }
 function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
+function addYears(date, years) { const d = new Date(date); d.setFullYear(d.getFullYear() + years); return d; }
 
 function buildEnergietraeger(count) {
   const rows = [];
@@ -561,7 +564,7 @@ function renderPlanungList() {
               <td>${p.jahr}</td>
               <td>${p.gemeinde}</td>
               <td>${p.typ}</td>
-              <td>${p.status}</td>
+              <td>${p.status}${pruefstatusFor(p) === 'faellig' ? ' <span class="status-pill status-pruefung-faellig" title="Überprüfung fällig">⚠ Überprüfung fällig</span>' : ''}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -766,6 +769,55 @@ function updatePlanungCondReqVisibility() {
   document.querySelectorAll('#planung-form .cond-req').forEach(el => { el.style.display = show ? 'inline' : 'none'; });
 }
 
+/* ---------------------- PRÜFPFLICHT (4-Jahres-Turnus ab Beratungsbeginn, nur Status Abschluss) ---------------------- */
+const PRUEFPFLICHT_ENDE_JAHR = 2050; // Pflicht gilt nur bis zum letzten Termin VOR diesem Jahr
+
+// Nächster Pflichttermin (Date) oder null, wenn keine (weitere) Prüfpflicht besteht.
+function naechstePruefungFor(p) {
+  if (p.status !== 'Abschluss') return null;
+  const start = parseSwissDate(p.epaBeratung.datumBeratungsbeginn);
+  if (!start) return null;
+  const basis = parseSwissDate(p.pruefstatus.letzteUeberpruefung) || start;
+  const naechste = addYears(basis, 4);
+  if (naechste.getFullYear() >= PRUEFPFLICHT_ENDE_JAHR) return null;
+  return naechste;
+}
+// 'ok' | 'faellig' | null (keine Prüfpflicht bzw. nicht anwendbar)
+function pruefstatusFor(p) {
+  const naechste = naechstePruefungFor(p);
+  if (!naechste) return null;
+  return new Date() >= naechste ? 'faellig' : 'ok';
+}
+function renderPruefstatusPill(p) {
+  const status = pruefstatusFor(p);
+  if (!status) return '';
+  const naechste = naechstePruefungFor(p);
+  return status === 'faellig'
+    ? `<span class="status-pill status-pruefung-faellig">⚠ Überprüfung fällig seit ${formatDate(naechste)}</span>`
+    : `<span class="status-pill status-pruefung-ok">Nächste Überprüfung: ${formatDate(naechste)}</span>`;
+}
+function renderPruefungBanner(p) {
+  if (pruefstatusFor(p) !== 'faellig') return '';
+  const naechste = naechstePruefungFor(p);
+  return `<div class="pruefung-banner" id="pruefung-banner" role="alert">
+    <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>
+    <div>
+      <div class="pruefung-banner-title">Überprüfung fällig seit ${formatDate(naechste)}</div>
+      <div class="pruefung-banner-text">Gemäss kantonaler Vorgabe muss diese Energieplanung bzw. ihre Massnahmen alle 4 Jahre überprüft werden. Bitte kontrollieren Sie die Planung und bestätigen Sie die Überprüfung.</div>
+      <div class="btn-row"><button class="btn btn-primary" id="btn-bestaetige-pruefung">Überprüfung jetzt bestätigen</button></div>
+    </div>
+  </div>`;
+}
+function bindPruefungBanner(p) {
+  const btn = document.getElementById('btn-bestaetige-pruefung');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    p.pruefstatus.letzteUeberpruefung = formatDate(new Date());
+    toast('Überprüfung wurde bestätigt.');
+    renderPlanungDetail();
+  });
+}
+
 /* ---------------------- PLANUNG DETAIL ---------------------- */
 function planungStepsFor(currentLabel) {
   const stepIdx = STATUS_ORDER.indexOf(currentLabel);
@@ -831,8 +883,9 @@ function renderPlanungDetail() {
   $panel.innerHTML = `
     ${renderNavRow('Zurück zur Liste', [{ label: 'Liste Planungen' }, { label: p.id }])}
     <h2 class="panel-title" style="margin-bottom:4px;">${p.typ} ${p.gemeinde}</h2>
-    <div class="process-label">Aktiver Prozess: EPA Beratung</div>
+    <div class="process-label">Aktiver Prozess: EPA Beratung ${renderPruefstatusPill(p)}</div>
     ${renderStepper(steps, 'planung-stepper')}
+    ${renderPruefungBanner(p)}
 
     <div class="subtab-row">
       <button class="subtab-btn ${state.planungTab === 'details' ? 'active' : ''}" data-subtab="details">Planungsdetails</button>
@@ -851,6 +904,7 @@ function renderPlanungDetail() {
 
   bindNavRow(() => { state.view = 'list'; render(); }, [() => { state.view = 'list'; render(); }]);
   bindStepper(document.getElementById('planung-stepper'), label => handleStepperClick(p, label));
+  bindPruefungBanner(p);
   $panel.querySelectorAll('[data-subtab]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.planungTab = btn.dataset.subtab;
