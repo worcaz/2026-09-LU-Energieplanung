@@ -92,6 +92,24 @@ const STROMPRODUKTION_ZIELE = [
   'Ausbau erneuerbarer Stromproduktion um 5 GWh bis 2035.'
 ];
 
+// Dummy-Daten für "Kontoinformationen Förderbeitrag" — Konto lautet immer auf die jeweilige Gemeinde.
+const KONTO_STRASSEN = [
+  'Hauptstrasse', 'Dorfstrasse', 'Kirchweg', 'Bahnhofstrasse', 'Schulhausstrasse',
+  'Seestrasse', 'Ringstrasse', 'Gartenweg', 'Poststrasse', 'Rainweg'
+];
+const KONTO_BANKEN = [
+  'Luzerner Kantonalbank', 'Luzerner Kantonalbank', 'Luzerner Kantonalbank',
+  'PostFinance AG', 'Raiffeisenbank Sursee', 'UBS Switzerland AG'
+];
+function randomGemeindeAdresse(gemeinde) {
+  const plz = (typeof findGemeindePlz === 'function' && findGemeindePlz(gemeinde)) || 6000;
+  return `${pick(KONTO_STRASSEN)} ${randomInt(1, 58)}, ${plz} ${gemeinde}`;
+}
+function randomIban() {
+  const block = () => String(randomInt(0, 9999)).padStart(4, '0');
+  return `CH${randomInt(10, 99)} ${block()} ${block()} ${block()} ${block()} ${randomInt(0, 9)}`;
+}
+
 function makeEnergieplanung(id, gemeinde, status, extra) {
   return Object.assign({
     id, name: `Energieplanung ${gemeinde}`, typ: 'Kommunale Energieplanung',
@@ -112,7 +130,7 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
       vermerk: `204071003 Kommunale Energieplanung`
     },
     energieplanungFelder: {
-      verantwortlichkeit: '-', nettoNullZiel: '-', energieeffizienzZiel: '-', stromproduktionZiel: '-'
+      verantwortlichkeit: '-', beraterEnergieplanung: '-', nettoNullZiel: '-', energieeffizienzZiel: '-', stromproduktionZiel: '-'
     },
     massnahmen: []
   }, extra || {});
@@ -123,12 +141,14 @@ const contacts = [
   { vorname: 'Sabine', nachname: 'Grüter', organisation: 'Grüter Elektroplanung AG', email: 'sabine.grueter@demo.com' },
   { vorname: 'Markus', nachname: 'Fischer', organisation: 'Fischer GmbH', email: 'markus.fischer@demo.com' },
   { vorname: 'Meinrad', nachname: 'Franzen', organisation: 'Franzen GmbH', email: 'meinrad.franzen@lu.ch' },
-  { vorname: 'Pino', nachname: 'Merino', organisation: 'Gemeinde Adligenswil', email: 'pino.merino@adligenswil.ch' },
+  { vorname: 'Pino', nachname: 'Merino', organisation: 'Gemeinde Adligenswil', email: 'pino.merino@adligenswil.ch', gemeindeKontakt: true },
   { vorname: 'Julia', nachname: 'Keller', organisation: 'Keller Consulting', email: 'julia.keller@demo.com' },
-  { vorname: 'Sandro', nachname: 'Peter', organisation: 'Luzern', email: 'sandro.peter@lu.ch' },
+  { vorname: 'Sandro', nachname: 'Peter', organisation: 'Luzern', email: 'sandro.peter@lu.ch', gemeindeKontakt: true },
   { vorname: 'Beat', nachname: 'Krummenacher', organisation: 'Krummenacher Bauphysik GmbH', email: 'beat.krummenacher@demo.com' },
   { vorname: 'Roger', nachname: 'Meier', organisation: 'Meier Bau AG', email: 'roger.meier@demo.com' },
 ];
+// Externe Beratungsfirmen (keine Gemeindeverwaltungen) — Pool für "Berater/in Energieplanung".
+const externeBeraterKontakte = contacts.filter(c => !c.gemeindeKontakt);
 
 let nextPlanungSeq = 846;
 let nextMassnahmeSeq = 1000;
@@ -159,6 +179,25 @@ function buildEnergietraeger(count) {
 
 function formatContactLabel(contact) {
   return contact.organisation !== '-' ? `${contact.vorname} ${contact.nachname} (${contact.organisation})` : `${contact.vorname} ${contact.nachname}`;
+}
+
+// "Verantwortlichkeit Gemeinde" muss immer eine Person der jeweiligen Gemeinde sein (Format "Vorname Nachname (Gemeinde)").
+const GEMEINDE_VERANTWORTLICHE_VORNAMEN = ['Priska', 'Urs', 'Monika', 'Beat', 'Claudia', 'Werner', 'Silvia', 'Peter', 'Karin', 'Fabian'];
+const GEMEINDE_VERANTWORTLICHE_NACHNAMEN = ['Steiner', 'Bucher', 'Wicki', 'Bühler', 'Kaufmann', 'Bättig', 'Lustenberger', 'Schwegler', 'Hodel', 'Zimmermann'];
+// Für einzelne Gemeinden ist die zuständige Person fix vorgegeben (z.B. für Demo-Zwecke).
+const GEMEINDE_VERANTWORTLICHE_FIX = { Buchrain: 'Hans Muster' };
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+function verantwortlichePersonGemeinde(gemeinde) {
+  const fixName = GEMEINDE_VERANTWORTLICHE_FIX[gemeinde];
+  if (fixName) return `${fixName} (${gemeinde})`;
+  const h = hashString(gemeinde);
+  const vorname = GEMEINDE_VERANTWORTLICHE_VORNAMEN[h % GEMEINDE_VERANTWORTLICHE_VORNAMEN.length];
+  const nachname = GEMEINDE_VERANTWORTLICHE_NACHNAMEN[Math.floor(h / GEMEINDE_VERANTWORTLICHE_VORNAMEN.length) % GEMEINDE_VERANTWORTLICHE_NACHNAMEN.length];
+  return `${vorname} ${nachname} (${gemeinde})`;
 }
 
 function buildMassnahme(index, planung) {
@@ -252,6 +291,12 @@ function nextGesuchsNr(jahr) {
 }
 
 function fillPlanungDetails(planung) {
+  // Im Status "Entwurf" sind nur die Muss-Felder (Planungstyp, Jahr, Gemeinden — bereits über
+  // makeEnergieplanung gesetzt) formal nötig. Damit die Dummy-Daten realistisch durchmischt sind,
+  // bleibt bei rund der Hälfte der Entwurf-Planungen alles Weitere unausgefüllt ('-'), die andere
+  // Hälfte hat trotzdem bereits vollständige Angaben (z.B. weil die Beratung schon weit war, bevor
+  // der Status wieder auf Entwurf zurückgesetzt wurde).
+  if (planung.status === 'Entwurf' && Math.random() < 0.5) return;
   const beginn = randomDate(planung.jahr - 2, planung.jahr);
   const gesuchseingang = addDays(beginn, randomInt(30, 240));
   const gesuchsJahr = gesuchseingang.getFullYear();
@@ -269,10 +314,17 @@ function fillPlanungDetails(planung) {
     kommentar: pick(EPA_KOMMENTAR_BEISPIELE),
   });
   Object.assign(planung.energieplanungFelder, {
-    verantwortlichkeit: formatContactLabel(pick(contacts)),
+    verantwortlichkeit: verantwortlichePersonGemeinde(planung.gemeinde),
+    beraterEnergieplanung: formatContactLabel(pick(externeBeraterKontakte)),
     nettoNullZiel: pick(NETTO_NULL_ZIELE),
     energieeffizienzZiel: pick(ENERGIEEFFIZIENZ_ZIELE),
     stromproduktionZiel: pick(STROMPRODUKTION_ZIELE),
+  });
+  Object.assign(planung.konto, {
+    kontoinhaber: `Gemeinde ${planung.gemeinde}`,
+    adresse: randomGemeindeAdresse(planung.gemeinde),
+    iban: randomIban(),
+    bankname: pick(KONTO_BANKEN),
   });
 }
 
@@ -295,8 +347,10 @@ const state = {
   tab: 'planungen',
   view: 'list',            // list | detail | contactForm
   planungId: null,
-  planungTab: 'details', // massnahmen | details (Sub-Tabs in der Planungsdetailansicht)
+  planungTab: 'details', // massnahmen | details | kontrolle (Sub-Tabs in der Planungsdetailansicht)
   planungDetailsMode: 'view', // view | edit — Zustand des Planungsdetails-Tabs
+  planungKontrolleMode: 'view', // view | edit — Zustand des Kontrolle-Tabs (nur Admin)
+  planungPendingStatus: null, // Zielstatus, wenn ein Stepper-Klick wegen fehlender Pflichtfelder ins Bearbeiten-Formular geleitet hat
   massnahmeId: null,
   mdMode: null,            // null (leer) | view | edit | new — Zustand des Massnahmen-Detailpanels rechts
   contactIndex: null,
@@ -524,6 +578,8 @@ function renderPlanungList() {
     state.view = 'detail';
     state.planungTab = 'details';
     state.planungDetailsMode = 'view';
+    state.planungKontrolleMode = 'view';
+    state.planungPendingStatus = null;
     state.massnahmeId = null;
     state.mdMode = null;
     render();
@@ -553,6 +609,8 @@ function renderPlanungList() {
       state.view = 'detail';
       state.planungTab = 'details';
       state.planungDetailsMode = 'view';
+      state.planungKontrolleMode = 'view';
+      state.planungPendingStatus = null;
       state.massnahmeId = null;
       state.mdMode = null;
       state.collapsed = {};
@@ -611,17 +669,164 @@ function bindNavRow(backHandler, breadcrumbHandlers) {
   bindBreadcrumb(breadcrumbHandlers);
 }
 
-/* ---------------------- PLANUNG DETAIL ---------------------- */
-function renderPlanungDetail() {
-  const p = findPlanung(state.planungId);
-  if (!p) { state.view = 'list'; render(); return; }
+/* ---------------------- PLANUNGSDETAILS: PFLICHTFELD-VALIDIERUNG ---------------------- */
+// Immer Pflicht (Status "Entwurf" & "Verabschiedung"); ab Status "Fördergesuch"/"Abschluss" kommen die übrigen Felder dazu.
+const PLANUNG_REQUIRED_FIELDS = [
+  { id: 'f-typ', label: 'Planungstyp', always: true, get: p => p.typ },
+  { id: 'f-jahr', label: 'Jahr', always: true, get: p => p.jahr },
+  { id: 'f-gemeinde', label: 'Gemeinden', always: true, get: p => p.gemeinde },
+  { id: 'f-eb-beratungsperson', label: 'Beratungsperson', get: p => p.epaBeratung.beratungsperson },
+  { id: 'f-eb-datum', label: 'Datum Beratungsbeginn', get: p => p.epaBeratung.datumBeratungsbeginn },
+  { id: 'f-eb-energierichtplan', label: 'Bedarf eines Energierichtplans?', get: p => p.epaBeratung.bedarfEnergierichtplan },
+  { id: 'f-eb-koordination', label: 'Bedarf einer Koordination mit weiteren Gemeinden?', get: p => p.epaBeratung.bedarfKoordination },
+  { id: 'f-eb-gebiete', label: 'Gebiete mit Koordinationsbedarf vorhanden?', get: p => p.epaBeratung.gebieteKoordinationsbedarf },
+  { id: 'f-k-inhaber', label: 'Kontoinhaber/in', get: p => p.konto.kontoinhaber },
+  { id: 'f-k-adresse', label: 'Adresse', get: p => p.konto.adresse },
+  { id: 'f-k-iban', label: 'IBAN', get: p => p.konto.iban },
+  { id: 'f-k-bankname', label: 'Bankname', get: p => p.konto.bankname },
+];
+function statusRequiresExtendedFields(status) { return status === 'Fördergesuch' || status === 'Abschluss'; }
+function requiredPlanungFieldsForStatus(status) {
+  const extended = statusRequiresExtendedFields(status);
+  return PLANUNG_REQUIRED_FIELDS.filter(f => f.always || extended);
+}
+function isEmptyRequiredValue(v) { return v === undefined || v === null || String(v).trim() === '' || v === '-'; }
+// Prüft den gespeicherten Objektzustand (z.B. vor einem Statuswechsel über den Stepper).
+function validatePlanungAgainstData(p, status) {
+  return requiredPlanungFieldsForStatus(status).filter(f => isEmptyRequiredValue(f.get(p)));
+}
+// Prüft die aktuell im Formular eingegebenen (noch nicht gespeicherten) Werte.
+function validatePlanungForm(status) {
+  return requiredPlanungFieldsForStatus(status).filter(f => {
+    const el = document.getElementById(f.id);
+    return isEmptyRequiredValue(el ? el.value : '');
+  });
+}
+function clearPlanungFieldErrors() {
+  document.querySelectorAll('#planung-form .form-field.has-error').forEach(el => el.classList.remove('has-error'));
+  document.querySelectorAll('#planung-form .field-error-msg').forEach(el => el.remove());
+  document.querySelectorAll('#planung-form [aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  const banner = document.getElementById('planung-form-error-banner');
+  if (banner) banner.remove();
+}
+function showPlanungFieldErrors(missing) {
+  clearPlanungFieldErrors();
+  if (missing.length === 0) return;
+  missing.forEach(f => {
+    const input = document.getElementById(f.id);
+    if (!input) return;
+    const field = input.closest('.form-field');
+    field.classList.add('has-error');
+    input.setAttribute('aria-invalid', 'true');
+    const msg = document.createElement('div');
+    msg.className = 'field-error-msg';
+    msg.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg><span>Dieses Feld ist erforderlich.</span>`;
+    field.appendChild(msg);
+  });
+  const form = document.getElementById('planung-form');
+  const banner = document.createElement('div');
+  banner.id = 'planung-form-error-banner';
+  banner.className = 'form-error-banner';
+  banner.setAttribute('role', 'alert');
+  banner.innerHTML = `
+    <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>
+    <div>
+      <strong>${missing.length} Pflichtfeld${missing.length > 1 ? 'er' : ''} fehlen.</strong>
+      <div class="form-error-links">${missing.map(f => `<a href="#" data-jump-field="${f.id}">${escapeHtml(f.label)}</a>`).join('')}</div>
+    </div>`;
+  form.insertBefore(banner, form.firstChild);
+  banner.querySelectorAll('[data-jump-field]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const el = document.getElementById(a.dataset.jumpField);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+    });
+  });
+  const firstInput = document.getElementById(missing[0].id);
+  if (firstInput) { firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); firstInput.focus(); }
+}
+function clearSinglePlanungFieldError(id) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  const field = input.closest('.form-field');
+  if (!field || !field.classList.contains('has-error')) return;
+  field.classList.remove('has-error');
+  input.removeAttribute('aria-invalid');
+  const msg = field.querySelector('.field-error-msg');
+  if (msg) msg.remove();
+  if (!document.querySelector('#planung-form .form-field.has-error')) {
+    const banner = document.getElementById('planung-form-error-banner');
+    if (banner) banner.remove();
+  }
+}
+function updatePlanungCondReqVisibility() {
+  const statusEl = document.getElementById('f-status');
+  if (!statusEl) return;
+  const show = statusRequiresExtendedFields(statusEl.value);
+  document.querySelectorAll('#planung-form .cond-req').forEach(el => { el.style.display = show ? 'inline' : 'none'; });
+}
 
-  const stepIdx = STATUS_ORDER.indexOf(p.status);
-  const steps = STATUS_ORDER.map((label, i) => ({
+/* ---------------------- PLANUNG DETAIL ---------------------- */
+function planungStepsFor(currentLabel) {
+  const stepIdx = STATUS_ORDER.indexOf(currentLabel);
+  return STATUS_ORDER.map((label, i) => ({
     label,
     sub: i < stepIdx ? 'Erledigt' : (i === stepIdx ? 'In Bearbeitung' : 'Ausstehend'),
     state: i < stepIdx ? 'done' : (i === stepIdx ? 'current' : 'upcoming')
   }));
+}
+// Rendert nur den Stepper neu (z.B. nach einem Klick während des Bearbeitens), ohne das restliche
+// Formular neu aufzubauen — sonst gingen noch nicht gespeicherte Eingaben in anderen Feldern verloren.
+function refreshPlanungStepperVisual(currentLabel, onSelect) {
+  const old = document.getElementById('planung-stepper');
+  if (!old) return;
+  old.outerHTML = renderStepper(planungStepsFor(currentLabel), 'planung-stepper');
+  bindStepper(document.getElementById('planung-stepper'), onSelect);
+}
+function handleStepperClick(p, label) {
+  if (state.planungDetailsMode === 'edit') {
+    // Im Bearbeiten-Formular ist das Status-Feld die Quelle der Wahrheit: der Stepper stösst nur
+    // dessen change-Verhalten an (Pflichtfeld-Sternchen/Fehleranzeige), ohne die Seite neu zu rendern.
+    const statusEl = document.getElementById('f-status');
+    const current = statusEl ? statusEl.value : (state.planungPendingStatus || p.status);
+    if (label === current) return;
+    if (statusEl) {
+      // löst den change-Listener aus, der u.a. refreshPlanungStepperVisual aufruft
+      statusEl.value = label;
+      statusEl.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      state.planungPendingStatus = label;
+      refreshPlanungStepperVisual(label, l => handleStepperClick(p, l));
+    }
+    return;
+  }
+
+  if (label === p.status) return;
+  const missing = validatePlanungAgainstData(p, label);
+  if (missing.length > 0) {
+    toast(`Status „${label}“ benötigt ${missing.length} weitere Pflichtfeld${missing.length > 1 ? 'er' : ''}.`);
+    state.planungDetailsMode = 'edit';
+    state.planungPendingStatus = label;
+    renderPlanungDetail();
+    return;
+  }
+  p.status = label;
+  p.epaBeratung.prozessstatus = label;
+  toast(`Status wurde auf „${label}“ gesetzt.`);
+  renderPlanungDetail();
+}
+function renderPlanungDetail() {
+  const p = findPlanung(state.planungId);
+  if (!p) { state.view = 'list'; render(); return; }
+
+  // Das Kontrolle-Tab ist Admin-exklusiv — bei Rollenwechsel weg von Admin auf Planungsdetails zurückfallen.
+  if (state.planungTab === 'kontrolle' && state.role !== 'Admin') {
+    state.planungTab = 'details';
+    state.planungKontrolleMode = 'view';
+  }
+
+  const displayedStatus = state.planungDetailsMode === 'edit' ? (state.planungPendingStatus || p.status) : p.status;
+  const steps = planungStepsFor(displayedStatus);
 
   $panel.innerHTML = `
     ${renderNavRow('Zurück zur Liste', [{ label: 'Liste Planungen' }, { label: p.id }])}
@@ -631,24 +836,21 @@ function renderPlanungDetail() {
 
     <div class="subtab-row">
       <button class="subtab-btn ${state.planungTab === 'details' ? 'active' : ''}" data-subtab="details">Planungsdetails</button>
-      <button class="subtab-btn ${state.planungTab !== 'details' ? 'active' : ''}" data-subtab="massnahmen">
+      <button class="subtab-btn ${state.planungTab === 'massnahmen' ? 'active' : ''}" data-subtab="massnahmen">
         Massnahmen <span class="subtab-count">${p.massnahmen.length}</span>
       </button>
+      ${state.role === 'Admin' ? `<button class="subtab-btn ${state.planungTab === 'kontrolle' ? 'active' : ''}" data-subtab="kontrolle">Kontrolle</button>` : ''}
     </div>
 
     <div class="subtab-content">
-      ${state.planungTab === 'details' ? renderPlanungDetailsTabContent(p) : renderPlanungMassnahmenTabContent(p)}
+      ${state.planungTab === 'details' ? renderPlanungDetailsTabContent(p)
+        : state.planungTab === 'massnahmen' ? renderPlanungMassnahmenTabContent(p)
+        : renderPlanungKontrolleTabContent(p)}
     </div>
   `;
 
   bindNavRow(() => { state.view = 'list'; render(); }, [() => { state.view = 'list'; render(); }]);
-  bindStepper(document.getElementById('planung-stepper'), label => {
-    if (label === p.status) return;
-    p.status = label;
-    p.epaBeratung.prozessstatus = label;
-    toast(`Status wurde auf „${label}“ gesetzt.`);
-    renderPlanungDetail();
-  });
+  bindStepper(document.getElementById('planung-stepper'), label => handleStepperClick(p, label));
   $panel.querySelectorAll('[data-subtab]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.planungTab = btn.dataset.subtab;
@@ -657,7 +859,8 @@ function renderPlanungDetail() {
   });
 
   if (state.planungTab === 'details') bindPlanungDetailsTab(p);
-  else bindPlanungMassnahmenTab(p);
+  else if (state.planungTab === 'massnahmen') bindPlanungMassnahmenTab(p);
+  else bindPlanungKontrolleTab(p);
 }
 
 /* ---------------------- PLANUNGSDETAILS-TAB ---------------------- */
@@ -679,14 +882,6 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Förderabschlussformular', eb.foerderabschlussformular)}
     `)}
 
-    ${state.role === 'Admin' ? section('gesuch', 'Gesuch (intern)', `
-      ${field('Gesuchseingang', eb.gesuchseingang)}
-      ${field('Gesuchs-Nr.', eb.gesuchsNr)}
-      ${field('Auszahlungsbetrag CHF', formatChfAmount(eb.auszahlungsbetrag))}
-      ${field('Energiestadt', eb.energiestadt)}
-      ${field('Kommentar', eb.kommentar)}
-    `) : ''}
-
     ${section('konto', 'Kontoinformationen Förderbeitrag', `
       ${field('Kontoinhaber/in', k.kontoinhaber)}
       ${field('Adresse', k.adresse)}
@@ -701,7 +896,8 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Planungstyp', p.typ)}
       ${field('Jahr', p.jahr)}
       ${field('Gemeinden', p.gemeinde)}
-      ${field('Verantwortlichkeit', ef.verantwortlichkeit)}
+      ${field('Verantwortlichkeit Gemeinde', ef.verantwortlichkeit)}
+      ${field('Berater/in Energieplanung', ef.beraterEnergieplanung)}
       ${field('Netto-null Ziel', ef.nettoNullZiel)}
       ${field('Energieeffizienz Ziel', ef.energieeffizienzZiel)}
       ${field('Stromproduktion Ziel', ef.stromproduktionZiel)}
@@ -727,42 +923,35 @@ function yesNoSelect(id, value) {
 
 function renderPlanungDetailsFormContent(p) {
   const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
+  const condReq = `<span class="req cond-req">*</span>`;
   return `
+    <div id="planung-form">
     <h3 class="subheading" style="margin-top:0;">EPA Beratung</h3>
     <div class="form-field"><label>Name EPA-Beratung</label><input type="text" id="f-eb-name" value="${escapeAttr(fixDash(eb.name))}"></div>
-    <div class="form-field"><label>Beratungsperson</label><input type="text" id="f-eb-beratungsperson" value="${escapeAttr(fixDash(eb.beratungsperson))}"></div>
-    <div class="form-field"><label>Datum Beratungsbeginn</label><input type="text" id="f-eb-datum" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.datumBeratungsbeginn))}"></div>
-    <div class="form-field"><label>Bedarf eines Energierichtplans?</label>${yesNoSelect('f-eb-energierichtplan', eb.bedarfEnergierichtplan)}</div>
-    <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
-    <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
+    <div class="form-field"><label>Beratungsperson${condReq}</label><input type="text" id="f-eb-beratungsperson" value="${escapeAttr(fixDash(eb.beratungsperson))}"></div>
+    <div class="form-field"><label>Datum Beratungsbeginn${condReq}</label><input type="text" id="f-eb-datum" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.datumBeratungsbeginn))}"></div>
+    <div class="form-field"><label>Bedarf eines Energierichtplans?${condReq}</label>${yesNoSelect('f-eb-energierichtplan', eb.bedarfEnergierichtplan)}</div>
+    <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?${condReq}</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
+    <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?${condReq}</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
     <div class="form-field"><label>Förderabschlussformular</label><input type="text" id="f-eb-foerderformular" value="${escapeAttr(fixDash(eb.foerderabschlussformular))}"></div>
 
-    ${state.role === 'Admin' ? `
-    <h3 class="subheading">Gesuch (intern)</h3>
-    <div class="form-field"><label>Gesuchseingang</label><input type="text" id="f-eb-gesuchseingang" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.gesuchseingang))}"></div>
-    <div class="form-field"><label>Gesuchs-Nr.</label><input type="number" id="f-eb-gesuchsnr" value="${eb.gesuchsNr}"></div>
-    <div class="form-field"><label>Auszahlungsbetrag CHF</label><input type="number" id="f-eb-auszahlungsbetrag" value="${eb.auszahlungsbetrag}"></div>
-    <div class="form-field"><label>Energiestadt</label>${yesNoSelect('f-eb-energiestadt', eb.energiestadt)}</div>
-    <div class="form-field"><label>Kommentar</label>
-      <textarea id="f-eb-kommentar" placeholder="Interner Kommentar...">${escapeHtml(eb.kommentar !== '-' ? eb.kommentar : '')}</textarea></div>
-    ` : ''}
-
     <h3 class="subheading">Kontoinformationen Förderbeitrag</h3>
-    <div class="form-field"><label>Kontoinhaber/in</label><input type="text" id="f-k-inhaber" value="${escapeAttr(fixDash(k.kontoinhaber))}"></div>
-    <div class="form-field"><label>Adresse</label><input type="text" id="f-k-adresse" value="${escapeAttr(fixDash(k.adresse))}"></div>
-    <div class="form-field"><label>IBAN</label><input type="text" id="f-k-iban" value="${escapeAttr(fixDash(k.iban))}"></div>
-    <div class="form-field"><label>Bankname</label><input type="text" id="f-k-bankname" value="${escapeAttr(fixDash(k.bankname))}"></div>
+    <div class="form-field"><label>Kontoinhaber/in${condReq}</label><input type="text" id="f-k-inhaber" value="${escapeAttr(fixDash(k.kontoinhaber))}"></div>
+    <div class="form-field"><label>Adresse${condReq}</label><input type="text" id="f-k-adresse" value="${escapeAttr(fixDash(k.adresse))}"></div>
+    <div class="form-field"><label>IBAN${condReq}</label><input type="text" id="f-k-iban" value="${escapeAttr(fixDash(k.iban))}"></div>
+    <div class="form-field"><label>Bankname${condReq}</label><input type="text" id="f-k-bankname" value="${escapeAttr(fixDash(k.bankname))}"></div>
     <div class="form-field"><label>Vermerk</label><input type="text" id="f-k-vermerk" value="${escapeAttr(fixDash(k.vermerk))}"></div>
 
     <h3 class="subheading">Energieplanung</h3>
     <div class="form-field"><label>Name</label><input type="text" id="f-name" value="${escapeAttr(p.name)}"></div>
-    <div class="form-field"><label>Planungstyp</label><input type="text" id="f-typ" value="${escapeAttr(p.typ)}"></div>
-    <div class="form-field"><label>Jahr</label><input type="text" id="f-jahr" value="${escapeAttr(p.jahr)}"></div>
-    <div class="form-field"><label>Gemeinden</label><input type="text" id="f-gemeinde" value="${escapeAttr(p.gemeinde)}"></div>
+    <div class="form-field"><label>Planungstyp<span class="req">*</span></label><input type="text" id="f-typ" value="${escapeAttr(p.typ)}"></div>
+    <div class="form-field"><label>Jahr<span class="req">*</span></label><input type="text" id="f-jahr" value="${escapeAttr(p.jahr)}"></div>
+    <div class="form-field"><label>Gemeinden<span class="req">*</span></label><input type="text" id="f-gemeinde" value="${escapeAttr(p.gemeinde)}"></div>
     <div class="form-field"><label>Status</label>
-      <select id="f-status">${STATUS_ORDER.map(s => `<option value="${s}" ${p.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <select id="f-status">${STATUS_ORDER.map(s => `<option value="${s}" ${(state.planungPendingStatus || p.status) === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
     </div>
-    <div class="form-field"><label>Verantwortlichkeit</label><input type="text" id="f-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
+    <div class="form-field"><label>Verantwortlichkeit Gemeinde</label><input type="text" id="f-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
+    <div class="form-field"><label>Berater/in Energieplanung</label><input type="text" id="f-berater-energieplanung" value="${escapeAttr(fixDash(ef.beraterEnergieplanung))}"></div>
     <div class="form-field"><label>Netto-null Ziel</label><input type="text" id="f-netto" value="${escapeAttr(fixDash(ef.nettoNullZiel))}"></div>
     <div class="form-field"><label>Energieeffizienz Ziel</label><input type="text" id="f-effizienz" value="${escapeAttr(fixDash(ef.energieeffizienzZiel))}"></div>
     <div class="form-field"><label>Stromproduktion Ziel</label><input type="text" id="f-strom" value="${escapeAttr(fixDash(ef.stromproduktionZiel))}"></div>
@@ -770,6 +959,7 @@ function renderPlanungDetailsFormContent(p) {
     <div class="btn-row right">
       <button class="btn btn-outline" id="btn-cancel">Abbrechen</button>
       <button class="btn btn-primary" id="btn-save">Speichern</button>
+    </div>
     </div>
   `;
 }
@@ -791,17 +981,49 @@ function bindPlanungDetailsTab(p) {
   });
   document.getElementById('btn-edit-planung').addEventListener('click', () => {
     state.planungDetailsMode = 'edit';
+    state.planungPendingStatus = p.status;
     renderPlanungDetail();
   });
 }
 
 function bindPlanungDetailsForm(p) {
   const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
+
+  updatePlanungCondReqVisibility();
+  document.getElementById('f-status').addEventListener('change', e => {
+    state.planungPendingStatus = e.target.value;
+    updatePlanungCondReqVisibility();
+    refreshPlanungStepperVisual(e.target.value, l => handleStepperClick(p, l));
+    // Wurden bereits Fehler angezeigt, an den neu gewählten Status anpassen (z.B. beim Zurückwechseln auf "Entwurf" wieder verschwinden lassen).
+    if (document.getElementById('planung-form-error-banner')) {
+      showPlanungFieldErrors(validatePlanungForm(e.target.value));
+    }
+  });
+  PLANUNG_REQUIRED_FIELDS.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (!el) return;
+    el.addEventListener('input', () => clearSinglePlanungFieldError(f.id));
+    el.addEventListener('change', () => clearSinglePlanungFieldError(f.id));
+  });
+  if (state.planungPendingStatus) {
+    const missing = validatePlanungForm(state.planungPendingStatus);
+    showPlanungFieldErrors(missing);
+  }
+
   document.getElementById('btn-cancel').addEventListener('click', () => {
     state.planungDetailsMode = 'view';
+    state.planungPendingStatus = null;
     renderPlanungDetail();
   });
   document.getElementById('btn-save').addEventListener('click', () => {
+    const targetStatus = document.getElementById('f-status').value;
+    const missing = validatePlanungForm(targetStatus);
+    if (missing.length > 0) {
+      showPlanungFieldErrors(missing);
+      toast(`${missing.length} Pflichtfeld${missing.length > 1 ? 'er' : ''} fehlen noch.`);
+      return;
+    }
+    clearPlanungFieldErrors();
     eb.name = document.getElementById('f-eb-name').value || eb.name;
     eb.beratungsperson = document.getElementById('f-eb-beratungsperson').value || '-';
     eb.datumBeratungsbeginn = document.getElementById('f-eb-datum').value || '-';
@@ -809,13 +1031,6 @@ function bindPlanungDetailsForm(p) {
     eb.bedarfKoordination = document.getElementById('f-eb-koordination').value;
     eb.gebieteKoordinationsbedarf = document.getElementById('f-eb-gebiete').value;
     eb.foerderabschlussformular = document.getElementById('f-eb-foerderformular').value || '-';
-    if (state.role === 'Admin') {
-      eb.gesuchseingang = document.getElementById('f-eb-gesuchseingang').value || '-';
-      eb.auszahlungsbetrag = Number(document.getElementById('f-eb-auszahlungsbetrag').value) || eb.auszahlungsbetrag;
-      eb.gesuchsNr = Number(document.getElementById('f-eb-gesuchsnr').value) || eb.gesuchsNr;
-      eb.energiestadt = document.getElementById('f-eb-energiestadt').value;
-      eb.kommentar = document.getElementById('f-eb-kommentar').value || '-';
-    }
 
     k.kontoinhaber = document.getElementById('f-k-inhaber').value || '-';
     k.adresse = document.getElementById('f-k-adresse').value || '-';
@@ -829,6 +1044,7 @@ function bindPlanungDetailsForm(p) {
     p.jahr = document.getElementById('f-jahr').value || p.jahr;
     p.status = document.getElementById('f-status').value;
     ef.verantwortlichkeit = document.getElementById('f-verantwortlichkeit').value || '-';
+    ef.beraterEnergieplanung = document.getElementById('f-berater-energieplanung').value || '-';
     ef.nettoNullZiel = document.getElementById('f-netto').value || '-';
     ef.energieeffizienzZiel = document.getElementById('f-effizienz').value || '-';
     ef.stromproduktionZiel = document.getElementById('f-strom').value || '-';
@@ -836,6 +1052,79 @@ function bindPlanungDetailsForm(p) {
 
     toast('Energieplanung wurde gespeichert.');
     state.planungDetailsMode = 'view';
+    state.planungPendingStatus = null;
+    renderPlanungDetail();
+  });
+}
+
+/* ---------------------- KONTROLLE-TAB (nur Admin) ---------------------- */
+function renderPlanungKontrolleTabContent(p) {
+  if (state.role !== 'Admin') return '';
+  return state.planungKontrolleMode === 'edit' ? renderPlanungKontrolleFormContent(p) : renderPlanungKontrolleViewContent(p);
+}
+
+function renderPlanungKontrolleViewContent(p) {
+  const eb = p.epaBeratung;
+  return `
+    ${section('gesuch', 'Gesuch (intern)', `
+      ${field('Gesuchseingang', eb.gesuchseingang)}
+      ${field('Gesuchs-Nr.', eb.gesuchsNr)}
+      ${field('Auszahlungsbetrag CHF', formatChfAmount(eb.auszahlungsbetrag))}
+      ${field('Energiestadt', eb.energiestadt)}
+      ${field('Kommentar', eb.kommentar)}
+    `)}
+
+    <div class="btn-row right">
+      <button class="btn btn-primary" id="btn-edit-kontrolle">Kontrolle bearbeiten</button>
+    </div>
+  `;
+}
+
+function renderPlanungKontrolleFormContent(p) {
+  const eb = p.epaBeratung;
+  return `
+    <h3 class="subheading" style="margin-top:0;">Gesuch (intern)</h3>
+    <div class="form-field"><label>Gesuchseingang</label><input type="text" id="f-eb-gesuchseingang" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.gesuchseingang))}"></div>
+    <div class="form-field"><label>Gesuchs-Nr.</label><input type="number" id="f-eb-gesuchsnr" value="${eb.gesuchsNr}"></div>
+    <div class="form-field"><label>Auszahlungsbetrag CHF</label><input type="number" id="f-eb-auszahlungsbetrag" value="${eb.auszahlungsbetrag}"></div>
+    <div class="form-field"><label>Energiestadt</label>${yesNoSelect('f-eb-energiestadt', eb.energiestadt)}</div>
+    <div class="form-field"><label>Kommentar</label>
+      <textarea id="f-eb-kommentar" placeholder="Interner Kommentar...">${escapeHtml(eb.kommentar !== '-' ? eb.kommentar : '')}</textarea></div>
+
+    <div class="btn-row right">
+      <button class="btn btn-outline" id="btn-cancel-kontrolle">Abbrechen</button>
+      <button class="btn btn-primary" id="btn-save-kontrolle">Speichern</button>
+    </div>
+  `;
+}
+
+function bindPlanungKontrolleTab(p) {
+  if (state.role !== 'Admin') return;
+  if (state.planungKontrolleMode === 'edit') {
+    bindPlanungKontrolleForm(p);
+    return;
+  }
+  bindSectionToggles();
+  document.getElementById('btn-edit-kontrolle').addEventListener('click', () => {
+    state.planungKontrolleMode = 'edit';
+    renderPlanungDetail();
+  });
+}
+
+function bindPlanungKontrolleForm(p) {
+  const eb = p.epaBeratung;
+  document.getElementById('btn-cancel-kontrolle').addEventListener('click', () => {
+    state.planungKontrolleMode = 'view';
+    renderPlanungDetail();
+  });
+  document.getElementById('btn-save-kontrolle').addEventListener('click', () => {
+    eb.gesuchseingang = document.getElementById('f-eb-gesuchseingang').value || '-';
+    eb.gesuchsNr = Number(document.getElementById('f-eb-gesuchsnr').value) || eb.gesuchsNr;
+    eb.auszahlungsbetrag = Number(document.getElementById('f-eb-auszahlungsbetrag').value) || eb.auszahlungsbetrag;
+    eb.energiestadt = document.getElementById('f-eb-energiestadt').value;
+    eb.kommentar = document.getElementById('f-eb-kommentar').value || '-';
+    toast('Kontrolle wurde gespeichert.');
+    state.planungKontrolleMode = 'view';
     renderPlanungDetail();
   });
 }
@@ -1611,6 +1900,7 @@ function bindReportMassnahmeRows() {
       state.view = 'detail';
       state.planungTab = 'massnahmen';
       state.planungDetailsMode = 'view';
+      state.planungKontrolleMode = 'view';
       state.planungId = planungId;
       state.massnahmeId = massnahmeId;
       state.mdMode = 'view';
@@ -1689,6 +1979,7 @@ function renderReportPlanungen() {
       state.view = 'detail';
       state.planungTab = 'details';
       state.planungDetailsMode = 'view';
+      state.planungKontrolleMode = 'view';
       state.planungId = row.dataset.openReportPlanung;
       state.massnahmeId = null;
       state.mdMode = null;

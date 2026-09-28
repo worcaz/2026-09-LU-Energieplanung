@@ -547,6 +547,28 @@ h2.form-heading{font-size:20px; margin:0 0 18px;}
 }
 .form-field input:focus, .form-field select:focus, .form-field textarea:focus{border-color:var(--blue-primary);}
 .form-field textarea{resize:vertical; min-height:64px;}
+.form-field.has-error input, .form-field.has-error select, .form-field.has-error textarea{
+  border-color:var(--red); background:#fdf3f2;
+}
+.form-field.has-error input:focus, .form-field.has-error select:focus, .form-field.has-error textarea:focus{
+  border-color:var(--red); box-shadow:0 0 0 3px rgba(212,70,60,0.15);
+}
+.field-error-msg{
+  display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12.5px; color:var(--red-dark);
+  animation:field-error-in .15s ease-out;
+}
+.field-error-msg svg{width:14px; height:14px; flex:none; fill:var(--red);}
+@keyframes field-error-in{from{opacity:0; transform:translateY(-3px);} to{opacity:1; transform:translateY(0);}}
+.form-error-banner{
+  display:flex; gap:10px; align-items:flex-start; background:#fdf3f2; border:1px solid #f3c7c3;
+  color:var(--red-dark); border-radius:6px; padding:12px 14px; margin-bottom:18px;
+  animation:field-error-in .18s ease-out;
+}
+.form-error-banner svg{width:20px; height:20px; flex:none; fill:var(--red); margin-top:1px;}
+.form-error-banner strong{display:block; color:var(--red-dark); font-size:13.5px;}
+.form-error-links{margin-top:6px; display:flex; flex-wrap:wrap; gap:4px 12px;}
+.form-error-links a{color:var(--red-dark); font-size:12.5px; text-decoration:underline; cursor:pointer;}
+.form-error-links a:hover{color:var(--red);}
 .date-field-wrap{position:relative;}
 .date-field-wrap input{padding-right:34px !important;}
 .date-field-wrap .cal-icon{
