@@ -363,7 +363,7 @@ const state = {
   bulkEdit: { field: 'prozessstatus', value: 'Geplant' },
   contactList: { search: '', sortField: 'name', sortDir: 'asc', selected: new Set() },
   layoutMode: 'split',     // map | split | data
-  role: 'Energieberater',  // Energieberater (default) | Admin
+  role: 'Admin',  // Admin (default) | Energieberater
   reportView: null,        // null (Menü) | planungen | ueberfaellig | budget | kontakte
   reportSort: {
     planungen: { field: 'id', dir: 'asc' },
