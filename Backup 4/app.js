@@ -416,7 +416,7 @@ const $roleMenu = document.getElementById('role-menu');
 function updateAvatar() {
   document.getElementById('avatar-initials').textContent = state.role === 'Admin' ? 'A' : 'EB';
   $avatarBtn.title = `Angemeldet als ${state.role}`;
-  document.querySelectorAll('#role-menu .role-menu-item').forEach(b => b.classList.toggle('active', b.dataset.role === state.role));
+  document.querySelectorAll('.role-menu-item').forEach(b => b.classList.toggle('active', b.dataset.role === state.role));
 }
 
 $avatarBtn.addEventListener('click', e => {
@@ -426,7 +426,7 @@ $avatarBtn.addEventListener('click', e => {
 $roleMenu.addEventListener('click', e => e.stopPropagation());
 document.addEventListener('click', () => { $roleMenu.hidden = true; });
 
-document.querySelectorAll('#role-menu .role-menu-item').forEach(btn => {
+document.querySelectorAll('.role-menu-item').forEach(btn => {
   btn.addEventListener('click', () => {
     state.role = btn.dataset.role;
     updateAvatar();
@@ -436,27 +436,6 @@ document.querySelectorAll('#role-menu .role-menu-item').forEach(btn => {
   });
 });
 updateAvatar();
-
-/* ---------------------- ANWENDUNGEN-SWITCHER (VERSIONEN) ---------------------- */
-const $appSwitcherBtn = document.getElementById('app-switcher-btn');
-const $appSwitcherMenu = document.getElementById('app-switcher-menu');
-
-if ($appSwitcherBtn && $appSwitcherMenu) {
-  $appSwitcherBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    $appSwitcherMenu.hidden = !$appSwitcherMenu.hidden;
-  });
-  $appSwitcherMenu.addEventListener('click', e => e.stopPropagation());
-  document.addEventListener('click', () => { $appSwitcherMenu.hidden = true; });
-
-  document.querySelectorAll('#app-switcher-menu .role-menu-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $appSwitcherMenu.hidden = true;
-      if (btn.classList.contains('active')) return;
-      window.location.href = btn.dataset.nav;
-    });
-  });
-}
 
 /* ---------------------- ANSICHT: KARTE / BEIDES / DATEN ---------------------- */
 const $appBody = document.querySelector('.app-body');
