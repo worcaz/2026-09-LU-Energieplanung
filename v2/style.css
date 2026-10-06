@@ -816,3 +816,10 @@ abbr.term{text-decoration:underline dotted; text-underline-offset:2px; cursor:he
 
 .review-done.is-bottom{margin:18px 0 0; scroll-margin-bottom:16px;}
 
+
+/* Sortierbare Tabellenköpfe */
+.th-sort{display:inline-flex; align-items:center; gap:6px; background:none; border:none; padding:0; font:inherit; color:inherit; text-transform:inherit; letter-spacing:inherit; cursor:pointer;}
+.th-sort:hover{color:var(--blue-primary);}
+.sort-ind{font-size:10px; color:var(--gray-400);}
+.th-sort.is-sorted{color:var(--navy);}
+.th-sort.is-sorted .sort-ind{color:var(--blue-primary);}

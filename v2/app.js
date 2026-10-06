@@ -38,12 +38,13 @@ const state = {
   planungId: null,            // gesetzt = Dossier einer Energieplanung offen
   detailTab: 'energieplanung',
   editing: null,              // 'stammdaten' | 'epa-<Stufe>' | 'controlling'
-  list: { search: '', phase: '', aufgabe: '', nurMeine: true },
+  list: { search: '', phase: '', aufgabe: '', nurMeine: true, sort: { key: 'gemeinde', dir: 'asc' } },
   mass: { filter: 'offen', search: '' },
   reviewId: null,             // aktuell geöffnete Massnahme im Nachführungs-Durchgang
   drawer: null,               // { type: 'massnahme' | 'neuePlanung' | 'kontakt', id, mode }
   reportView: null,
   contactSearch: '',
+  contactSort: { key: 'name', dir: 'asc' },
   layoutMode: 'data',
   processOpen: false,
   hilfeOpen: false,
@@ -258,6 +259,7 @@ function render() {
   else if (state.tab === 'kontakte') renderKontakte();
   else if (state.tab === 'auswertungen') renderAuswertungen();
   renderDrawer();
+  syncUrl();
 }
 
 /* =============================================================
@@ -429,8 +431,31 @@ function filteredPlanungen() {
     .filter(p => !q || [p.gemeinde, p.id, p.berater, p.typ].some(v => String(v).toLowerCase().includes(q)))
     .filter(p => matchesPhase(p, state.list.phase))
     .filter(p => !state.list.aufgabe || naechsteAktion(p).key === state.list.aufgabe)
-    .sort((a, b) => a.gemeinde.localeCompare(b.gemeinde));
+    .sort(comparePlanungen);
 }
+
+// Sortierbare Spalten der Tabelle. Leere Termine stehen immer am Ende, Gleichstände werden nach Gemeinde sortiert.
+const PLANUNG_SPALTEN = [
+  { key: 'gemeinde', label: 'Gemeinde', value: p => p.gemeinde },
+  { key: 'phase', label: 'Prozessschritt', value: p => PHASEN[phaseOf(p)].nr },
+  { key: 'naechster', label: 'Nächster Schritt', value: p => naechsteAktion(p).titel },
+  { key: 'termin', label: 'Termin', value: p => naechsteAktion(p).termin || '' },
+];
+// Gemeinsam für alle sortierbaren Tabellen: Leere Werte stehen immer am Ende.
+function compareBy(cols, sort, a, b, fallback) {
+  const col = cols.find(c => c.key === sort.key) || cols[0];
+  const va = col.value(a), vb = col.value(b);
+  if (va === '' && vb !== '') return 1;
+  if (vb === '' && va !== '') return -1;
+  const c = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'de');
+  return (sort.dir === 'desc' ? -c : c) || fallback(a, b);
+}
+function comparePlanungen(a, b) { return compareBy(PLANUNG_SPALTEN, state.list.sort, a, b, (x, y) => x.gemeinde.localeCompare(y.gemeinde)); }
+function sortHeader(c, sort, action) {
+  const aktiv = sort.key === c.key;
+  return `<th aria-sort="${aktiv ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button class="th-sort${aktiv ? ' is-sorted' : ''}" data-action="${action}" data-key="${c.key}">${c.label}<span class="sort-ind" aria-hidden="true">${aktiv ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span></button></th>`;
+}
+function nextSort(sort, key) { return { key, dir: sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc' }; }
 
 function renderPlanungList() {
   const aufgabeTyp = AUFGABEN_TYPEN.find(t => t.key === state.list.aufgabe);
@@ -464,7 +489,7 @@ function renderPlanungResults() {
   const list = filteredPlanungen();
   if (!list.length) return `<div class="empty-state">Keine Energieplanungen gefunden.</div>`;
   return `<div class="table-scroll"><table class="data-table planung-table">
-    <thead><tr><th>Gemeinde</th><th>Prozessschritt</th><th>Nächster Schritt</th><th>Termin</th></tr></thead>
+    <thead><tr>${PLANUNG_SPALTEN.map(c => sortHeader(c, state.list.sort, 'list-sort')).join('')}</tr></thead>
     <tbody>
       ${list.map(p => {
         const a = naechsteAktion(p);
@@ -1316,14 +1341,19 @@ function renderKontakte() {
     <div id="contact-results">${renderKontaktResults()}</div>
   </div>`;
 }
+const KONTAKT_SPALTEN = [
+  { key: 'name', label: 'Name', value: c => `${c.nachname || ''} ${c.vorname || ''}`.trim() },
+  { key: 'organisation', label: 'Organisation', value: c => c.organisation || '' },
+  { key: 'email', label: 'E-Mail', value: c => c.email || '' },
+];
 function renderKontaktResults() {
   const q = state.contactSearch.trim().toLowerCase();
   const list = contacts.map((c, idx) => ({ c, idx }))
     .filter(({ c }) => !q || [c.vorname, c.nachname, c.organisation, c.email].some(v => String(v || '').toLowerCase().includes(q)))
-    .sort((a, b) => `${a.c.nachname} ${a.c.vorname}`.localeCompare(`${b.c.nachname} ${b.c.vorname}`));
+    .sort((a, b) => compareBy(KONTAKT_SPALTEN, state.contactSort, a.c, b.c, (x, y) => `${x.nachname} ${x.vorname}`.localeCompare(`${y.nachname} ${y.vorname}`, 'de')));
   if (!list.length) return `<div class="empty-state">Keine Kontakte gefunden.</div>`;
   return `<div class="table-scroll"><table class="data-table">
-    <thead><tr><th>Name</th><th>Organisation</th><th>E-Mail</th></tr></thead>
+    <thead><tr>${KONTAKT_SPALTEN.map(c => sortHeader(c, state.contactSort, 'contact-sort')).join('')}</tr></thead>
     <tbody>${list.map(({ c, idx }) => `<tr data-action="open-kontakt" data-idx="${idx}" tabindex="0">
       <td class="cell-title">${esc(c.vorname)} ${esc(c.nachname)}</td><td>${show(c.organisation)}</td><td>${esc(c.email)}</td>
     </tr>`).join('')}</tbody>
@@ -1458,6 +1488,14 @@ const actions = {
   /* --- Navigation --- */
   'open-planung': el => openPlanung(el.dataset.id, el.dataset.tab),
   'back-to-list': () => { state.planungId = null; state.editing = null; render(); },
+  'contact-sort': el => {
+    state.contactSort = nextSort(state.contactSort, el.dataset.key);
+    document.getElementById('contact-results').innerHTML = renderKontaktResults();
+  },
+  'list-sort': el => {
+    state.list.sort = nextSort(state.list.sort, el.dataset.key);
+    document.getElementById('planung-results').innerHTML = renderPlanungResults();
+  },
   'list-phase': el => { state.tab = 'planungen'; state.planungId = null; state.list.phase = el.dataset.phase; state.list.aufgabe = ''; render(); },
   'list-aufgabe': el => { state.tab = 'planungen'; state.planungId = null; state.list.aufgabe = el.dataset.key; state.list.phase = ''; render(); },
   'list-scope': el => { state.list.nurMeine = el.dataset.meine === '1'; render(); },
@@ -1912,5 +1950,39 @@ L.control.zoom({ position: 'topright' }).addTo(map);
 L.control.scale({ imperial: false }).addTo(map);
 L.marker(LUZERN_CENTER).addTo(map).bindPopup('Luzern');
 
+/* ---------------------- URL-ROUTING (Hash) ---------------------- */
+// #/start · #/planungen · #/planungen/EP-938/epa · #/kontakte · #/auswertungen
+// Beim Neuladen bleibt man so bei derselben Energieplanung und im selben Prozessschritt.
+const ROUTE_TABS = ['start', 'planungen', 'kontakte', 'auswertungen'];
+let urlInitialisiert = false;
+
+function hashFromState() {
+  if (state.tab === 'planungen' && state.planungId) return `#/planungen/${encodeURIComponent(state.planungId)}/${state.detailTab}`;
+  return `#/${state.tab}`;
+}
+function syncUrl() {
+  const h = hashFromState();
+  if (location.hash === h) { urlInitialisiert = true; return; }
+  // Erster Aufruf ersetzt den Eintrag, danach entsteht pro Navigation ein Verlaufseintrag (Zurück-Button).
+  history[urlInitialisiert ? 'pushState' : 'replaceState'](null, '', h);
+  urlInitialisiert = true;
+}
+function applyHash() {
+  const [t, rawId, sub] = location.hash.replace(/^#\/?/, '').split('/');
+  if (!ROUTE_TABS.includes(t)) return;
+  state.tab = t;
+  state.planungId = null;
+  state.editing = null; state.reviewId = null; state.drawer = null; state.reportView = null;
+  const id = rawId ? decodeURIComponent(rawId) : '';
+  const p = t === 'planungen' && id ? findPlanung(id) : null;
+  if (p) {
+    state.planungId = p.id;
+    state.detailTab = DETAIL_TABS.some(x => x.key === sub) ? sub : naechsteAktion(p).tab;
+    state.mass = { filter: 'offen', search: '' };
+  }
+}
+window.addEventListener('popstate', () => { applyHash(); render(); });
+
 /* ---------------------- INIT ---------------------- */
+applyHash();
 render();
