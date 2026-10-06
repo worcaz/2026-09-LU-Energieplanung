@@ -170,7 +170,8 @@ const contacts = [
 function formatContactLabel(c) { return c.organisation ? `${c.vorname} ${c.nachname} (${c.organisation})` : `${c.vorname} ${c.nachname}`; }
 // Demo-Login: die angemeldete Beraterin betreut nur eine Handvoll Gemeinden.
 const ANGEMELDETER_BERATER = 'Sabine Grüter (Grüter Elektroplanung AG)';
-const MEINE_GEMEINDEN = ['Buchrain', 'Kriens', 'Aesch', 'Horw', 'Alberswil', 'Sursee', 'Emmen'];
+const MEINE_GEMEINDEN = ['Buchrain', 'Kriens', 'Aesch', 'Horw', 'Alberswil', 'Sursee', 'Emmen',
+  'Meggen', 'Ebikon', 'Hochdorf', 'Rothenburg', 'Malters', 'Willisau', 'Schüpfheim', 'Root', 'Ruswil'];
 const BERATER_POOL = contacts.filter(c => !c.gemeindeKontakt).map(formatContactLabel).filter(b => b !== ANGEMELDETER_BERATER);
 
 const GEMEINDE_VORNAMEN = ['Priska', 'Urs', 'Monika', 'Beat', 'Claudia', 'Werner', 'Silvia', 'Peter', 'Karin', 'Fabian'];
@@ -393,7 +394,7 @@ function naechsteAktion(p) {
     termin: toIso(due)
   };
   if (st === 'ok') return {
-    key: 'ok', art: 'ok', wer: 'Berater', tab: 'massnahmen',
+    key: 'ok', art: 'ok', wer: 'Berater', tab: 'epa',
     titel: 'Aktuell nichts zu tun',
     text: `Die nächste Nachführung ist am ${fmtDate(toIso(due))} fällig. Bis dahin können Sie Massnahmen jederzeit aktualisieren.`,
     termin: toIso(due)
@@ -451,7 +452,7 @@ function schliesseNachfuehrungAb(p, datum) {
 }
 
 /* ---------------------- DEMO-DATEN ---------------------- */
-const SZENARIO_REIHENFOLGE = ['erfassung', 'epa-bereit', 'entwurf', 'verabschiedung', 'foerdergesuch', 'eingereicht', 'geprueft', 'abgeschlossen', 'faellig', 'nachgefuehrt'];
+const SZENARIO_REIHENFOLGE = ['erfassung', 'epa-bereit', 'entwurf', 'verabschiedung', 'foerdergesuch', 'eingereicht', 'geprueft', 'abgeschlossen', 'bald', 'faellig', 'nachgefuehrt'];
 const SZENARIO_GEWICHTE = [
   ['erfassung', 7], ['epa-bereit', 5], ['entwurf', 11], ['verabschiedung', 8], ['foerdergesuch', 5],
   ['eingereicht', 7], ['geprueft', 3], ['abgeschlossen', 28], ['faellig', 12], ['nachgefuehrt', 14],
@@ -459,7 +460,12 @@ const SZENARIO_GEWICHTE = [
 // Feste Szenarien für gut demonstrierbare Gemeinden.
 const SZENARIO_FIX = {
   Buchrain: 'faellig', Kriens: 'faellig', Adligenswil: 'eingereicht', Ballwil: 'geprueft',
-  Aesch: 'entwurf', Horw: 'verabschiedung', Alberswil: 'erfassung', Emmen: 'nachgefuehrt', Sursee: 'abgeschlossen'
+  Aesch: 'entwurf', Horw: 'verabschiedung', Alberswil: 'erfassung', Emmen: 'nachgefuehrt', Sursee: 'abgeschlossen',
+  // Zusätzliche Demo-Aufgaben für die Beraterin (alle Aufgabentypen abgedeckt)
+  Meggen: 'epa-bereit', Ebikon: 'foerdergesuch', Hochdorf: 'faellig', Rothenburg: 'bald', Malters: 'entwurf',
+  Willisau: 'verabschiedung', 'Schüpfheim': 'erfassung', Root: 'bald', Ruswil: 'faellig',
+  // Fördergesuche für den Kanton (Controller)
+  Hitzkirch: 'eingereicht', Wolhusen: 'eingereicht', 'Beromünster': 'eingereicht', Dagmersellen: 'geprueft', Reiden: 'geprueft'
 };
 
 const gesuchsLaufNr = {};
@@ -477,7 +483,7 @@ function baueDemoMassnahme(p, index, szenario, nf) {
     vorlage = pick(MASSNAHME_VORLAGEN[handlungsfeld]);
   } while (vergeben.has(vorlage.name) && vergeben.size < 20);
   let status = 'Geplant';
-  if (szenario === 'abgeschlossen') status = weightedPick([['Geplant', 45], ['In Umsetzung', 40], ['Erledigt', 12], ['Sistiert', 3]]);
+  if (szenario === 'abgeschlossen' || szenario === 'bald') status = weightedPick([['Geplant', 45], ['In Umsetzung', 40], ['Erledigt', 12], ['Sistiert', 3]]);
   if (szenario === 'faellig') status = weightedPick([['Geplant', 30], ['In Umsetzung', 45], ['Erledigt', 15], ['Sistiert', 7], ['Gestrichen', 3]]);
   if (szenario === 'nachgefuehrt') status = weightedPick([['Geplant', 20], ['In Umsetzung', 40], ['Erledigt', 25], ['Sistiert', 8], ['Gestrichen', 7]]);
   const offen = status !== 'Erledigt' && status !== 'Gestrichen';
@@ -508,6 +514,7 @@ function baueDemoPlanung(gemeinde, szenario) {
   const lvl = SZENARIO_REIHENFOLGE.indexOf(szenario);
   let abschluss = null;
   if (szenario === 'abgeschlossen') abschluss = yearsAgo(0.3, 3.4);
+  if (szenario === 'bald') abschluss = yearsAgo(3.55, 3.95);   // Nachführung in den nächsten ~6 Monaten fällig
   if (szenario === 'faellig') abschluss = yearsAgo(4.05, 5.3);
   if (szenario === 'nachgefuehrt') abschluss = yearsAgo(5.5, 7.8);
   const beginn = abschluss ? addDays(abschluss, -randomInt(300, 480)) : yearsAgo(0.15, 1.1);
@@ -597,9 +604,9 @@ function baueDemoPlanung(gemeinde, szenario) {
 
 const planungen = GEMEINDEN_LUZERN_PLZ.map(g => baueDemoPlanung(g.name, SZENARIO_FIX[g.name] || weightedPick(SZENARIO_GEWICHTE)));
 
-// Demo: In Kriens wurde die fällige Nachführung bereits begonnen (3 Massnahmen überprüft).
-(function () {
-  const p = planungen.find(x => x.gemeinde === 'Kriens');
+// Demo: In Kriens und Ruswil wurde die fällige Nachführung bereits begonnen (3 Massnahmen überprüft).
+['Kriens', 'Ruswil'].forEach(function (name) {
+  const p = planungen.find(x => x.gemeinde === name);
   if (!p || p.epa.status !== 'Abschluss') return;
   starteNachfuehrung(p);
   p.laufendeNachfuehrung.gestartetAm = toIso(addDays(TODAY, -9));
@@ -608,4 +615,4 @@ const planungen = GEMEINDEN_LUZERN_PLZ.map(g => baueDemoPlanung(g.name, SZENARIO
     const status = m.status === 'Geplant' ? 'In Umsetzung' : m.status;
     pruefeMassnahme(p, m, { status, weiterfuehren: 'Ja', bemerkung: pick(BEMERKUNGEN[status]) }, toIso(addDays(TODAY, -9)));
   });
-})();
+});

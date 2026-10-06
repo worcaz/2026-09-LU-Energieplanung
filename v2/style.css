@@ -809,3 +809,10 @@ abbr.term{text-decoration:underline dotted; text-underline-offset:2px; cursor:he
 .next-step-link svg{width:16px; height:16px; fill:currentColor; transition:transform .15s;}
 .next-step-link:hover{text-decoration:underline;}
 .next-step-link:hover svg{transform:translateY(2px);}
+
+/* Massnahmen unter der EPA-Beratung */
+.mass-section{margin-top:28px; padding-top:20px; border-top:1px solid var(--gray-200); scroll-margin-top:16px;}
+.section-title{display:flex; align-items:center; gap:8px; font-size:18px; color:var(--navy); margin:0 0 14px;}
+
+.review-done.is-bottom{margin:18px 0 0; scroll-margin-bottom:16px;}
+

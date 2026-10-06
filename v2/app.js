@@ -16,6 +16,7 @@ const ICON = {
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>',
   back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-18-5.5 5.5 1.41 1.41L11 5.83V16h2V5.83l3.09 3.08 1.41-1.41L12 2z"/></svg>',
   down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12.17l5.59-5.58L19 12l-7 7-7-7 1.41-1.41L11 16.17V4z"/></svg>',
   chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>',
@@ -486,7 +487,6 @@ const DETAIL_TABS = [
   { key: 'energieplanung', nr: 1, label: 'Energieplanung' },
   { key: 'epa', nr: 2, label: 'EPA-Beratung' },
   { key: 'foerderung', nr: 3, label: 'Förderung' },
-  { key: 'massnahmen', label: 'Massnahmen' },
   { key: 'nachfuehrung', nr: 4, label: 'Nachführung' },
 ];
 
@@ -526,8 +526,7 @@ function renderDossier() {
         const fremd = st && st.st !== 'done' && st.st !== 'upcoming' && st.wer !== state.role ? `<span class="tab-who">· ${esc(WER_LABEL[st.wer])}</span>` : '';
         return `<button role="tab" aria-selected="${state.detailTab === t.key}" class="tab${state.detailTab === t.key ? ' active' : ''}" data-action="detail-tab" data-tab="${t.key}"${st ? ` title="${esc(st.sub)}"` : ''}>
           ${marker}${t.label}${fremd}
-          ${t.key === 'massnahmen' ? `<span class="tab-count">${p.massnahmen.length}</span>` : ''}
-          ${a.art === 'aufgabe' && a.wer === state.role && a.tab === t.key ? '<span class="tab-dot" title="Hier ist etwas zu tun"></span>' : ''}
+            ${a.art === 'aufgabe' && a.wer === state.role && a.tab === t.key ? '<span class="tab-dot" title="Hier ist etwas zu tun"></span>' : ''}
         </button>`; }).join(''); })()}
     </nav>
     ${state.detailTab === 'nachfuehrung' && p.epa.status === 'Abschluss' ? renderZyklus(p) : ''}
@@ -578,7 +577,6 @@ function renderDetailTab(p) {
     case 'energieplanung': return renderTabEnergieplanung(p);
     case 'epa': return renderTabEpa(p);
     case 'foerderung': return renderTabFoerderung(p);
-    case 'massnahmen': return renderTabMassnahmen(p);
     case 'nachfuehrung': return renderTabNachfuehrung(p);
   }
   return '';
@@ -682,7 +680,11 @@ function renderTabEpa(p) {
       <button class="btn btn-primary" data-action="epa-start">EPA-Beratung jetzt starten${ICON.arrow}</button>
     </div>`;
   }
-  return `<ol class="vstepper">${EPA_STUFEN.map((s, i) => renderEpaStufe(p, s, i)).join('')}</ol>`;
+  return `<ol class="vstepper">${EPA_STUFEN.map((s, i) => renderEpaStufe(p, s, i)).join('')}</ol>
+    <section class="mass-section" id="massnahmen-section">
+      <h2 class="section-title">Massnahmen <span class="tab-count">${p.massnahmen.length}</span></h2>
+      ${renderTabMassnahmen(p)}
+    </section>`;
 }
 
 function renderEpaStufe(p, s, i) {
@@ -908,6 +910,7 @@ function renderTabMassnahmen(p) {
     ${p.epa.status === 'Entwurf' ? `<div class="info-box">${ICON.info}<div>Erfassen Sie hier die Massnahmen, die in der EPA-Beratung erarbeitet werden. Für die Verabschiedung braucht es mindestens eine Massnahme.</div></div>` : ''}
     <div class="toolbar">
       <button class="btn btn-primary" data-action="new-massnahme">${ICON.plus}Massnahme erfassen</button>
+      <button class="btn btn-outline" type="button">${ICON.upload}Importieren</button>
       <div class="search-input-wrap">
         <input type="search" id="mass-search" placeholder="Massnahme oder ES-Nr. suchen …" value="${esc(state.mass.search)}" aria-label="Massnahmen durchsuchen">
         ${ICON.search}
@@ -1051,10 +1054,6 @@ function renderReview(p) {
     ${allDone ? '' : `<div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${pct}%"></div></div>
     <div class="progress-label"><strong>${doneN} von ${total}</strong> Massnahmen überprüft</div>`}
 
-    ${allDone ? `<div class="review-done">${ICON.check}<div><strong>${total ? 'Alle Massnahmen sind überprüft.' : 'Es gibt keine offenen Massnahmen zu überprüfen.'}</strong>
-      <div>Die nächste Nachführung ist nach dem Abschluss ${nextDue.getFullYear() > NACHFUEHRUNG_ENDE_JAHR ? 'nicht mehr nötig' : `am ${fmtDate(toIso(nextDue))} fällig`}.</div></div>
-      <button class="btn btn-primary" data-action="nf-finish">Nachführung abschliessen</button></div>` : ''}
-
     ${total ? `<div class="review-layout">
       <ol class="review-list">
         ${items.map((m, i) => `<li><button class="review-item${sel && m.id === sel.id ? ' active' : ''}${isReviewed(p, m) ? ' is-done' : ''}" data-action="nf-select" data-id="${m.id}">
@@ -1065,6 +1064,10 @@ function renderReview(p) {
       </ol>
       <div class="review-card" id="review-card">${sel ? reviewCard(p, sel, items.indexOf(sel), total) : ''}</div>
     </div>` : ''}
+
+    ${allDone ? `<div class="review-done is-bottom" id="review-done">${ICON.check}<div><strong>${total ? 'Alle Massnahmen sind überprüft.' : 'Es gibt keine offenen Massnahmen zu überprüfen.'}</strong>
+      <div>Die nächste Nachführung ist nach dem Abschluss ${nextDue.getFullYear() > NACHFUEHRUNG_ENDE_JAHR ? 'nicht mehr nötig' : `am ${fmtDate(toIso(nextDue))} fällig`}.</div></div>
+      <button class="btn btn-primary" data-action="nf-finish">Nachführung abschliessen</button></div>` : ''}
 
     ${!allDone ? `<div class="review-foot"><span class="muted">Noch ${total - doneN} offen</span><button class="btn btn-outline" data-action="nf-finish">Nachführung abschliessen</button></div>` : ''}
   </div>`;
@@ -1461,9 +1464,10 @@ const actions = {
   'toggle-hilfe': () => { state.hilfeOpen = !state.hilfeOpen; render(); },
   'toggle-process': () => { state.processOpen = !state.processOpen; render(); },
   'detail-tab': el => {
-    const toAnchor = !!el.dataset.scroll;                       // Button «Nächster Schritt» → direkt zur Aktion
-    const toTabs = !toAnchor && !!el.closest('.tab-body');
-    state.detailTab = el.dataset.tab;
+    const toMass = el.dataset.tab === 'massnahmen';             // Massnahmen leben im Tab «EPA-Beratung»
+    const toAnchor = !!el.dataset.scroll && !toMass;            // Button «Nächster Schritt» → direkt zur Aktion
+    const toTabs = !toAnchor && !toMass && !!el.closest('.tab-body');
+    state.detailTab = toMass ? 'epa' : el.dataset.tab;
     state.editing = null;
     render();
     if (toAnchor) {
@@ -1474,6 +1478,10 @@ const actions = {
         setTimeout(() => anchor.classList.remove('anchor-pulse'), 1800);
         return;
       }
+    }
+    if (toMass) {
+      const sec = document.getElementById('massnahmen-section');
+      if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     }
     const tabs = document.getElementById('detail-tabs');
     if (tabs && (toAnchor || toTabs)) tabs.scrollIntoView({ behavior: 'smooth', block: 'start' });
