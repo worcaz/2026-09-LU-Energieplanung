@@ -48,6 +48,7 @@ const state = {
   layoutMode: 'data',
   processOpen: false,
   hilfeOpen: false,
+  epaOpen: {},                // aufgeklappte, erledigte Stufen der EPA-Beratung
 };
 
 const $panel = document.getElementById('panel-content');
@@ -712,28 +713,42 @@ function renderTabEpa(p) {
     </section>`;
 }
 
+// Einzeiler für eingeklappte, erledigte Stufen.
+function epaStufeKurz(p, s) {
+  const e = p.epa;
+  if (s === 'Entwurf') return `${plural(p.massnahmen.length, 'Massnahme', 'Massnahmen')} · Beginn ${fmtDate(e.beratungsbeginn)}`;
+  if (s === 'Verabschiedung') return `verabschiedet am ${fmtDate(e.verabschiedetAm)}`;
+  if (s === 'Fördergesuch') return `eingereicht am ${fmtDate(e.gesuchEingereichtAm)}`;
+  return `abgeschlossen am ${fmtDate(e.abgeschlossenAm)}`;
+}
+
 function renderEpaStufe(p, s, i) {
   const st = epaStufeState(p, i);
   const info = EPA_STUFEN_INFO[s];
   const editing = state.editing === `epa-${s}`;
   const stLabel = { done: 'Erledigt', current: 'In Bearbeitung', waiting: 'Wartet auf den Kanton', upcoming: 'Ausstehend' }[st];
+  const einklappbar = st === 'done' && !editing;
+  const offen = !einklappbar || !!state.epaOpen[s];
   let body = '';
   if (s === 'Abschluss') body = epaAbschlussBody(p, st);
   else if (editing) body = epaStufeForm(p, s, 'edit');
   else if (st === 'current') body = epaStufeForm(p, s, 'advance');
   else if (st === 'done') body = epaStufeSummary(p, s);
-  return `<li class="vstep vstep-${st}${editing ? ' is-editing' : ''}"${st === 'current' || editing ? ' data-anchor="1"' : ''}>
+  const meta = einklappbar && !offen
+    ? `<span class="vstep-state">${stLabel}</span> · ${esc(epaStufeKurz(p, s))}`
+    : `<span class="vstep-state">${stLabel}</span> · zuständig: ${WER_LABEL[info.wer]}`;
+  const headInner = `<div class="vstep-title">${s}</div><div class="vstep-meta">${meta}</div>`;
+  return `<li class="vstep vstep-${st}${editing ? ' is-editing' : ''}${einklappbar ? (offen ? ' is-open' : ' is-collapsed') : ''}"${st === 'current' || editing ? ' data-anchor="1"' : ''}>
     <div class="vstep-marker">${st === 'done' ? ICON.check : i + 1}</div>
     <div class="vstep-content">
       <div class="vstep-head">
-        <div>
-          <div class="vstep-title">${s}</div>
-          <div class="vstep-meta"><span class="vstep-state">${stLabel}</span> · zuständig: ${WER_LABEL[info.wer]}</div>
-        </div>
-        ${st === 'done' && !editing && s !== 'Abschluss' ? `<button class="link-btn" data-action="edit" data-section="epa-${s}">${ICON.edit}Ändern</button>` : ''}
+        ${einklappbar
+          ? `<button class="vstep-toggle" data-action="toggle-epa-stufe" data-stufe="${s}" aria-expanded="${offen}"><span class="vstep-chev">${ICON.chevron}</span><span>${headInner}</span></button>`
+          : `<div>${headInner}</div>`}
+        ${offen && einklappbar && s !== 'Abschluss' ? `<button class="link-btn" data-action="edit" data-section="epa-${s}">${ICON.edit}Ändern</button>` : ''}
       </div>
       ${st !== 'done' || editing ? `<p class="vstep-text">${esc(info.text)}</p>` : ''}
-      ${body}
+      ${offen ? body : ''}
     </div>
   </li>`;
 }
@@ -1492,6 +1507,7 @@ const actions = {
     state.contactSort = nextSort(state.contactSort, el.dataset.key);
     document.getElementById('contact-results').innerHTML = renderKontaktResults();
   },
+  'toggle-epa-stufe': el => { const k = el.dataset.stufe; state.epaOpen[k] = !state.epaOpen[k]; render(); },
   'list-sort': el => {
     state.list.sort = nextSort(state.list.sort, el.dataset.key);
     document.getElementById('planung-results').innerHTML = renderPlanungResults();

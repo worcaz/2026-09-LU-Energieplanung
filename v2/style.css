@@ -460,14 +460,14 @@ table.data-table tfoot td{background:var(--gray-50); border-top:1px solid var(--
 .vstepper{list-style:none; margin:0; padding:0;}
 .vstep{display:flex; gap:14px; position:relative; padding-bottom:16px;}
 .vstep:not(:last-child)::before{content:""; position:absolute; left:16px; top:36px; bottom:0; width:2px; background:var(--gray-200);}
-.vstep-done:not(:last-child)::before{background:var(--green);}
+.vstep-done:not(:last-child)::before{background:var(--gray-200);}
 .vstep-marker{
   flex:none; width:34px; height:34px; border-radius:50%; z-index:1;
   display:flex; align-items:center; justify-content:center; font-weight:800;
   background:#fff; border:2px solid var(--gray-300); color:var(--gray-500);
 }
 .vstep-marker svg{width:17px; height:17px; fill:#fff;}
-.vstep-done .vstep-marker{background:var(--green); border-color:var(--green);}
+.vstep-done .vstep-marker{background:var(--gray-300); border-color:var(--gray-300);}
 .vstep-current .vstep-marker{border-color:var(--blue-primary); color:var(--blue-primary); box-shadow:0 0 0 4px var(--blue-light-bg);}
 .vstep-waiting .vstep-marker{border-color:var(--violet); color:var(--violet); box-shadow:0 0 0 4px var(--violet-bg);}
 .vstep-content{
@@ -481,7 +481,7 @@ table.data-table tfoot td{background:var(--gray-50); border-top:1px solid var(--
 .vstep-upcoming .vstep-title{color:var(--gray-600);}
 .vstep-meta{font-size:12.5px; color:var(--gray-500);}
 .vstep-state{font-weight:700;}
-.vstep-done .vstep-state{color:var(--green);}
+.vstep-done .vstep-state{color:var(--gray-500); font-weight:600;}
 .vstep-current .vstep-state{color:var(--blue-primary);}
 .vstep-waiting .vstep-state{color:var(--violet);}
 .vstep-text{margin:8px 0 12px; color:var(--gray-700); font-size:13.5px;}
@@ -823,3 +823,22 @@ abbr.term{text-decoration:underline dotted; text-underline-offset:2px; cursor:he
 .sort-ind{font-size:10px; color:var(--gray-400);}
 .th-sort.is-sorted{color:var(--navy);}
 .th-sort.is-sorted .sort-ind{color:var(--blue-primary);}
+
+/* Erledigte Schritte treten zurück, damit das Auge zum aktuellen Schritt geführt wird */
+.vstep-done .vstep-content{background:transparent; box-shadow:none; border-color:var(--gray-200); padding-top:10px; padding-bottom:10px;}
+.vstep-done .vstep-content:hover{background:#fff;}
+.vstep-done .vstep-title{font-size:14.5px; font-weight:600; color:var(--gray-600);}
+.vstep-done .kv dt{color:var(--gray-500);}
+.vstep-done .kv dd{color:var(--gray-600); font-weight:500;}
+.vstep-done .link-btn{color:var(--gray-500);}
+.vstep-done .link-btn:hover{color:var(--blue-primary);}
+
+/* Einklappbare, erledigte EPA-Stufen */
+.vstep-toggle{display:flex; align-items:flex-start; gap:8px; background:none; border:none; padding:0; text-align:left; font:inherit; color:inherit; cursor:pointer; flex:1; min-width:0;}
+.vstep-chev{flex:none; display:inline-flex; margin-top:3px; color:var(--gray-400); transition:transform .15s;}
+.vstep-chev svg{width:14px; height:14px;}
+.vstep-toggle:hover .vstep-chev{color:var(--blue-primary);}
+.vstep.is-open .vstep-chev{transform:rotate(90deg);}
+.vstep-done.is-collapsed .vstep-content{padding-top:8px; padding-bottom:8px;}
+.vstep-done.is-collapsed .vstep-title{font-size:14px;}
+.vstep-done.is-collapsed .vstep-meta{font-size:12.5px;}
