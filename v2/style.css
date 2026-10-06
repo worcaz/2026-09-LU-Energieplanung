@@ -427,58 +427,20 @@ table.data-table tfoot td{background:var(--gray-50); border-top:1px solid var(--
 .dossier-meta{color:var(--gray-600); font-size:13.5px;}
 .dot{margin:0 6px; color:var(--gray-400);}
 
-/* Lebenszyklus (4 Prozessschritte) */
-.journey{list-style:none; margin:0 0 16px; padding:0; display:grid; grid-template-columns:repeat(4, 1fr); gap:0;
-  background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius); box-shadow:var(--shadow-card); overflow:hidden;}
-.journey-step{position:relative;}
-.journey-step + .journey-step{border-left:1px solid var(--gray-100);}
-.journey-step button{
-  display:flex; gap:10px; align-items:flex-start; width:100%; height:100%; text-align:left;
-  background:transparent; border:none; padding:14px 14px 14px 16px; color:var(--text);
-}
-.journey-step button:hover{background:var(--gray-50);}
-.journey-step.is-viewing button{background:var(--blue-light-bg); box-shadow:inset 0 -3px 0 var(--blue-primary);}
-.journey-marker{
-  flex:none; width:30px; height:30px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;
-  border:2px solid var(--gray-300); color:var(--gray-500); background:#fff;
-}
-.journey-marker svg{width:16px; height:16px; fill:#fff;}
-.journey-text{display:flex; flex-direction:column; gap:2px; min-width:0;}
-.journey-title{font-weight:700; font-size:13.5px; color:var(--navy);}
-.journey-sub{font-size:12px; color:var(--gray-600);}
-.journey-text .who-chip{align-self:flex-start; margin-top:4px;}
-.st-done .journey-marker{background:var(--green); border-color:var(--green);}
-.st-current .journey-marker{border-color:var(--blue-primary); color:var(--blue-primary); box-shadow:0 0 0 3px var(--blue-light-bg);}
-.st-current .journey-sub{color:var(--blue-primary-dark); font-weight:600;}
-.st-warn .journey-marker{border-color:var(--amber); color:var(--amber-dark); background:var(--amber-bg); box-shadow:0 0 0 3px var(--amber-bg);}
-.st-warn .journey-sub{color:var(--amber-dark); font-weight:700;}
-.st-upcoming .journey-title{color:var(--gray-600);}
-
-/* Nächster Schritt */
+/* Nächster Schritt: ruhige Karte, einzige farbige Fläche ist der Button */
 .next-step{
-  display:flex; gap:14px; align-items:center;
-  border-radius:var(--radius); padding:16px 18px; margin-bottom:22px;
-  background:var(--blue-light-bg); border:1px solid var(--blue-border);
+  display:flex; gap:16px; align-items:center; justify-content:space-between;
+  background:#fff; border:1px solid var(--gray-200); border-left:4px solid var(--blue-primary);
+  border-radius:var(--radius); padding:12px 16px; margin-bottom:20px; box-shadow:var(--shadow-card);
 }
-.next-step-icon{flex:none; width:40px; height:40px; border-radius:50%; background:var(--blue-primary); display:flex; align-items:center; justify-content:center;}
-.next-step-icon svg{width:22px; height:22px; fill:#fff;}
 .next-step-body{flex:1; min-width:0;}
-.next-step-eyebrow{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--blue-primary-dark);}
-.next-step-title{font-size:17px; font-weight:700; color:var(--navy); margin:1px 0 2px;}
-.next-step-text{color:var(--gray-700); font-size:13.5px;}
-.next-step.tone-warn{background:var(--amber-bg); border-color:var(--amber-border);}
-.next-step.tone-warn .next-step-icon{background:var(--amber);}
-.next-step.tone-warn .next-step-eyebrow{color:var(--amber-dark);}
-.next-step.tone-wait{background:var(--violet-bg); border-color:#d9d0f3;}
-.next-step.tone-wait .next-step-icon{background:var(--violet);}
-.next-step.tone-wait .next-step-eyebrow{color:var(--violet);}
-.next-step.tone-ok{background:var(--green-bg); border-color:var(--green-border);}
-.next-step.tone-ok .next-step-icon{background:var(--green);}
-.next-step.tone-ok .next-step-eyebrow{color:var(--green);}
-.next-step.tone-info{background:#fff; border-color:var(--gray-200);}
-.next-step.tone-info .next-step-icon{background:var(--gray-500);}
-.next-step.tone-info .next-step-eyebrow{color:var(--gray-600);}
+.next-step-eyebrow{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--gray-500);}
+.next-step-title{font-size:17px; font-weight:700; color:var(--navy); margin-top:1px;}
+.next-step-text{color:var(--gray-600); font-size:13px;}
+.next-step.tone-warn{border-left-color:var(--amber);}
+.next-step.tone-wait{border-left-color:var(--violet);}
+.next-step.tone-ok{border-left-color:var(--green);}
+.next-step.tone-info{border-left-color:var(--gray-300);}
 
 /* Dossier-Tabs */
 .tabs{display:flex; gap:4px; border-bottom:1px solid var(--gray-200); margin-bottom:18px; overflow-x:auto; scroll-margin-top:12px;}
@@ -754,12 +716,96 @@ table.data-table tfoot td{background:var(--gray-50); border-top:1px solid var(--
   .mine-row{flex-wrap:wrap;}
   .process{grid-template-columns:repeat(2, 1fr);}
   .process-step:nth-child(2)::after{display:none;}
-  .journey{grid-template-columns:repeat(2, 1fr);}
-  .journey-step:nth-child(3){border-left:none;}
-  .journey-step:nth-child(n+3){border-top:1px solid var(--gray-100);}
   .task-groups, .report-menu{grid-template-columns:1fr;}
   .mini-timeline{grid-template-columns:1fr;}
   .next-step{flex-wrap:wrap;}
   .kv-list, .kv-list.compact{grid-template-columns:1fr;}
   .kv dt{padding-bottom:0; border-bottom:none; font-size:12.5px;}
 }
+
+/* ---------- Phasenanzeige & Glossar (Was steht an) ---------- */
+.phase-track{display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12px; color:var(--gray-500);}
+.pt-dots{display:inline-flex; gap:3px;}
+.pt-dots i{width:14px; height:5px; border-radius:3px; background:var(--gray-300);}
+.pt-dots i.done{background:var(--blue-primary); opacity:.45;}
+.pt-dots i.now{background:var(--blue-primary);}
+.glossar{margin-top:14px; font-size:13px; color:var(--gray-600);}
+.glossar summary{cursor:pointer; font-weight:600; color:var(--blue-primary);}
+.glossar dl{margin:10px 0 0; display:grid; grid-template-columns:max-content 1fr; gap:6px 16px;}
+.glossar dt{font-weight:700; color:var(--navy);}
+.glossar dd{margin:0;}
+@media (max-width:640px){.glossar dl{grid-template-columns:1fr; gap:2px;} .glossar dd{margin-bottom:8px;}}
+
+/* ---------- Was steht an: Priorität, Kontext, Warten ---------- */
+.todo-date{display:inline-flex; align-items:center; gap:5px;}
+.todo-date svg{width:14px; height:14px; flex:none;}
+.todo-date.is-overdue{color:#7a3e00; font-weight:700;}
+.tone-warn .todo-date.is-overdue{color:#6b3500;}
+.todo-date.is-none{font-weight:400; color:var(--gray-500);}
+.todo-context{font-size:12px; color:var(--gray-500); margin-top:4px;}
+.todo-hint{font-size:13px; font-weight:600; color:var(--gray-700, var(--gray-600)); margin-top:4px;}
+.todo-card.tone-wait{border-left-color:var(--gray-300); background:var(--gray-50, #fafafa);}
+.todo-progress{display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12.5px; font-weight:600; color:var(--navy);}
+.todo-progress .bar{width:110px; height:6px; border-radius:3px; background:var(--gray-200, #e3e6ea); overflow:hidden;}
+.todo-progress .bar i{display:block; height:100%; background:var(--blue-primary);}
+abbr.term{text-decoration:underline dotted; text-underline-offset:2px; cursor:help;}
+.intro-banner{position:relative; background:var(--blue-light-bg); border:1px solid var(--blue-primary); border-radius:8px; padding:14px 40px 14px 16px; margin-bottom:20px; font-size:14px; color:var(--navy);}
+.intro-banner p{margin:4px 0 10px; color:var(--gray-600);}
+.intro-close{position:absolute; top:6px; right:10px; background:none; border:none; font-size:22px; line-height:1; color:var(--gray-500); cursor:pointer;}
+.mini-phases-row{list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px 18px; font-weight:600;}
+.mini-phases-row li{display:flex; align-items:center; gap:6px;}
+.mini-phases-row .mini-nr{display:inline-flex; width:20px; height:20px; border-radius:50%; background:var(--blue-primary); color:#fff; font-size:12px; align-items:center; justify-content:center;}
+.block-sub{font-size:13px; font-weight:400; color:var(--gray-500);}
+.glossar{margin:6px 0 24px;}
+.mine-status{display:flex; align-items:center; gap:6px;}
+.mine-status svg{width:15px; height:15px; color:var(--green, #1a8f4c); flex:none;}
+
+.hilfe{margin:20px 0 24px;}
+.hilfe .mini-phases-row{margin:10px 0 12px;}
+
+.hero-row{display:flex; justify-content:space-between; align-items:flex-start; gap:16px;}
+.hilfe-btn{display:inline-flex; align-items:center; gap:6px; flex:none; margin-top:6px;}
+.hilfe-btn.is-open{font-weight:700;}
+.hilfe-panel{background:var(--blue-light-bg); border:1px solid var(--blue-primary); border-radius:8px; padding:14px 16px; margin-bottom:22px; font-size:13px; color:var(--gray-600);}
+.hilfe-panel .mini-phases-row{margin:0 0 12px;}
+.hilfe-panel dl{margin:0; display:grid; grid-template-columns:max-content 1fr; gap:6px 16px;}
+.hilfe-panel dt{font-weight:700; color:var(--navy);}
+.hilfe-panel dd{margin:0;}
+@media (max-width:640px){.hilfe-panel dl{grid-template-columns:1fr; gap:2px;} .hilfe-panel dd{margin-bottom:8px;}}
+
+/* Tabs = Phasenleiste */
+.tab-nr{background:#fff; border:2px solid var(--gray-300); color:var(--gray-500); width:22px; height:22px; font-size:11px;}
+.tab-nr.is-done{background:var(--gray-300); border-color:var(--gray-300);}
+.tab-nr.is-done svg{width:13px; height:13px; fill:#fff;}
+.tab-nr.is-current{border-color:var(--blue-primary); color:var(--blue-primary);}
+.tab-nr.is-warn{border-color:var(--amber); color:var(--amber-dark); background:var(--amber-bg);}
+.tab.active .tab-nr{background:var(--blue-primary); border-color:var(--blue-primary); color:#fff;}
+.tab.active .tab-nr.is-done svg{fill:#fff;}
+.tab.active{font-weight:800;}
+.tab-who{font-weight:500; font-size:12.5px; color:var(--gray-500);}
+.tab-dot{background:var(--blue-primary);}
+
+/* Rhythmus: Unterebene des Tabs «Nachführung», hängt direkt an der Tab-Leiste */
+/* Rhythmus: Fortsetzung der Tab-Leiste, steht in derselben Zeile direkt hinter «Nachführung» */
+.tabs-wrap{display:flex; flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--gray-200); margin-bottom:18px;}
+.tabs-wrap .tabs{border-bottom:none; margin-bottom:0; flex:none; max-width:100%;}
+.cycle-line{display:flex; align-items:center; margin-left:6px; padding:0 0 2px 16px; border-left:1px solid var(--gray-200); font-size:13px;}
+.cycle-pills{list-style:none; margin:0; padding:0; display:flex; flex-wrap:nowrap; gap:4px 12px; white-space:nowrap;}
+.cpill{display:inline-flex; align-items:center; gap:4px; font-weight:500; color:var(--gray-500);}
+.cpill svg{width:12px; height:12px; fill:var(--green);}
+.cpill.done{color:var(--green); font-weight:600;}
+.cpill.current, .cpill.warn{color:var(--amber-dark); font-weight:700;}
+.cpill.current::before, .cpill.warn::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--amber);}
+.cpill.next{color:var(--blue-primary-dark); font-weight:700;}
+
+/* Sprungziel des «Nächster Schritt»-Buttons */
+[data-anchor]{scroll-margin-top:16px;}
+.anchor-pulse{animation:anchorPulse 1.8s ease-out;}
+@keyframes anchorPulse{0%,35%{box-shadow:0 0 0 3px var(--blue-primary);} 100%{box-shadow:0 0 0 3px transparent;}}
+.vstep.anchor-pulse{border-radius:var(--radius);}
+
+/* Navigation, keine Aktion: Textlink mit Pfeil nach unten statt gefülltem Button */
+.next-step-link{display:inline-flex; align-items:center; gap:6px; flex:none; background:transparent; border:none; padding:6px 4px; font-size:14px; font-weight:600; color:var(--blue-primary); cursor:pointer;}
+.next-step-link svg{width:16px; height:16px; fill:currentColor; transition:transform .15s;}
+.next-step-link:hover{text-decoration:underline;}
+.next-step-link:hover svg{transform:translateY(2px);}

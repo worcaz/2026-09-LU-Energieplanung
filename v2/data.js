@@ -370,8 +370,9 @@ function naechsteAktion(p) {
   if (lauf) {
     const offen = lauf.zuPruefen.filter(id => !lauf.geprueft.includes(id)).length;
     return {
-      key: 'nachfuehrung-laufend', art: 'aufgabe', wer: 'Berater', tab: 'nachfuehrung', cta: 'Nachführung fortsetzen',
-      titel: `Nachführung ${fromIso(lauf.faelligAm).getFullYear()} fortsetzen`,
+      key: 'nachfuehrung-laufend', art: 'aufgabe', wer: 'Berater', tab: 'nachfuehrung',
+      cta: offen ? 'Nachführung fortsetzen' : 'Nachführung abschliessen',
+      titel: `Nachführung ${fromIso(lauf.faelligAm).getFullYear()} ${offen ? 'fortsetzen' : 'abschliessen'}`,
       text: offen ? `Noch ${offen} von ${lauf.zuPruefen.length} Massnahmen zu überprüfen.` : 'Alle Massnahmen sind überprüft – die Nachführung muss nur noch abgeschlossen werden.',
       termin: lauf.faelligAm
     };
