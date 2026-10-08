@@ -27,6 +27,7 @@ const ICON = {
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+  filter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5L3 4z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
 };
@@ -38,7 +39,7 @@ const state = {
   planungId: null,            // gesetzt = Dossier einer Energieplanung offen
   detailTab: 'energieplanung',
   editing: null,              // 'stammdaten' | 'epa-<Stufe>' | 'controlling'
-  list: { search: '', phase: '', aufgabe: '', nurMeine: true, sort: { key: 'gemeinde', dir: 'asc' } },
+  list: { search: '', phase: '', aufgabe: '', nurMeine: true, sort: { key: 'naechster', dir: 'asc' } },
   mass: { filter: 'offen', search: '' },
   reviewId: null,             // aktuell geöffnete Massnahme im Nachführungs-Durchgang
   drawer: null,               // { type: 'massnahme' | 'neuePlanung' | 'kontakt', id, mode }
@@ -85,7 +86,7 @@ function phaseBadge(p) {
     else if (st === 'bald') sub = 'bald fällig';
     else if (st === 'ende') sub = `bis ${NACHFUEHRUNG_ENDE_JAHR} erledigt`;
   }
-  return `<span class="phase-badge phase-${ph}${warn ? ' is-warn' : ''}"><span class="phase-nr">${PHASEN[ph].nr}</span>${PHASEN[ph].label}${sub ? `<span class="phase-sub">· ${esc(sub)}</span>` : ''}</span>`;
+  return `<span class="phase-badge phase-${ph}${warn ? ' is-warn' : ''}"><span class="phase-dots" role="img" aria-label="Schritt ${PHASEN[ph].nr} von 4" title="Schritt ${PHASEN[ph].nr} von 4">${[1, 2, 3, 4].map(i => `<i class="${i <= PHASEN[ph].nr ? 'on' : ''}"></i>`).join('')}</span>${PHASEN[ph].label}${sub ? `<span class="phase-sub">· ${esc(sub)}</span>` : ''}</span>`;
 }
 
 // Eine Metazeile: Balken + Phase (+ Rückblick nur bei Nachführungs-Aufgaben).
@@ -133,6 +134,14 @@ function fortschrittBalken(p) {
   if (!l || !l.zuPruefen.length) return '';
   const n = l.zuPruefen.filter(id => l.geprueft.includes(id)).length, t = l.zuPruefen.length;
   return `<span class="todo-progress"><span class="bar"><i style="width:${Math.round(n / t * 100)}%"></i></span>${n} von ${t} Massnahmen geprüft</span>`;
+}
+
+// «seit 2 Monaten» / «seit 12 Tagen» für überfällige Termine
+function ueberfaelligSeit(a) {
+  const tage = daysBetween(fromIso(a.termin), TODAY);
+  if (tage < 1) return 'seit heute';
+  if (tage <= 60) return `seit ${plural(tage, 'Tag', 'Tagen')}`;
+  return `seit ${plural(Math.floor(tage / 30.4375), 'Monat', 'Monaten')}`;
 }
 
 function terminLabel(a) {
@@ -417,7 +426,7 @@ function renderProzess() {
 /* =============================================================
    LISTE DER ENERGIEPLANUNGEN
    ============================================================= */
-const LIST_PHASEN = [['', 'Alle'], ['erfassung', '1 · Erfassung'], ['epa', '2 · EPA-Beratung'], ['foerderung', '3 · Förderung'], ['nachfuehrung', '4 · Nachführung'], ['faellig', 'Nachführung fällig']];
+const LIST_PHASEN = [['', 'Alle Schritte'], ['erfassung', 'Erfassung'], ['epa', 'EPA-Beratung'], ['foerderung', 'Förderung'], ['nachfuehrung', 'Nachführung'], ['faellig', 'Nachführung fällig']];
 
 function matchesPhase(p, phase) {
   if (!phase) return true;
@@ -440,7 +449,12 @@ function filteredPlanungen() {
 const PLANUNG_SPALTEN = [
   { key: 'gemeinde', label: 'Gemeinde', value: p => p.gemeinde },
   { key: 'phase', label: 'Prozessschritt', value: p => PHASEN[phaseOf(p)].nr },
-  { key: 'naechster', label: 'Nächster Schritt', value: p => naechsteAktion(p).titel },
+  { key: 'naechster', label: 'Nächster Schritt', value: p => {
+      // Dringlichkeit: überfällig (eigene Aufgabe) → eigene Aufgabe → wartet auf andere / bald fällig → nichts zu tun
+      const a = naechsteAktion(p), eigene = a.wer === state.role && a.art === 'aufgabe';
+      const rang = eigene ? (istUeberfaellig(a) ? 0 : 1) : a.art === 'ok' ? 3 : 2;
+      return `${rang}|${a.termin || '9999'}`;
+    } },
   { key: 'termin', label: 'Termin', value: p => naechsteAktion(p).termin || '' },
 ];
 // Gemeinsam für alle sortierbaren Tabellen: Leere Werte stehen immer am Ende.
@@ -459,8 +473,16 @@ function sortHeader(c, sort, action) {
 }
 function nextSort(sort, key) { return { key, dir: sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc' }; }
 
+// Filter ohne eigenes Bedienelement (Aufgabe von der Startseite) als entfernbares Tag
+function filterTag(label, action, attrs = '') {
+  return `<span class="ftag"><span class="ftag-label">${label}</span><button type="button" class="ftag-x" data-action="${action}" ${attrs} aria-label="Filter entfernen">${ICON.close}</button></span>`;
+}
+function renderFilterTags() {
+  const aufg = AUFGABEN_TYPEN.find(t => t.key === state.list.aufgabe);
+  return aufg ? filterTag(`Aufgabe: ${esc(aufg.titel)}`, 'list-aufgabe', 'data-key=""') : '';
+}
+
 function renderPlanungList() {
-  const aufgabeTyp = AUFGABEN_TYPEN.find(t => t.key === state.list.aufgabe);
   $panel.innerHTML = `<div class="page">
     <div class="page-head">
       <div>
@@ -469,22 +491,33 @@ function renderPlanungList() {
       </div>
       <button class="btn btn-primary" data-action="new-planung">${ICON.plus}Neue Energieplanung</button>
     </div>
-    <div class="toolbar">
-      ${state.role === 'Berater' ? `<div class="seg seg-toggle" role="group" aria-label="Umfang">
-        <button class="${state.list.nurMeine ? 'active' : ''}" data-action="list-scope" data-meine="1">Meine Gemeinden<span class="chip-count">${planungen.filter(istMeine).length}</span></button>
-        <button class="${state.list.nurMeine ? '' : 'active'}" data-action="list-scope" data-meine="0">Alle<span class="chip-count">${planungen.length}</span></button>
-      </div>` : ''}
+    <section class="filter-panel" aria-label="Filter">
+      <div class="filter-body">
+        <span class="filter-icon" title="Filter">${ICON.filter}</span>
+        ${state.role === 'Berater' ? `<div class="seg seg-toggle" role="group" aria-label="Gemeinden">
+          <button class="${state.list.nurMeine ? 'active' : ''}" data-action="list-scope" data-meine="1">Meine</button>
+          <button class="${state.list.nurMeine ? '' : 'active'}" data-action="list-scope" data-meine="0">Alle Gemeinden</button>
+        </div>` : ''}
+        <div class="seg seg-toggle seg-phase" role="group" aria-label="Prozessschritt">
+          ${LIST_PHASEN.map(([k, l]) => `<button class="${state.list.phase === k && !state.list.aufgabe ? 'active' : ''}" data-action="list-phase" data-phase="${k}" aria-pressed="${state.list.phase === k && !state.list.aufgabe}">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="filter-tags" id="filter-tags">${renderFilterTags()}</div>
+    </section>
+    <div class="list-bar">
+      <span class="result-bar" id="result-count">${resultCountText()}</span>
       <div class="search-input-wrap">
-        <input type="search" id="planung-search" placeholder="Gemeinde, ID oder Berater/in suchen …" value="${esc(state.list.search)}" aria-label="Energieplanungen durchsuchen">
+        <input type="search" id="planung-search" placeholder="Gemeinde, ID, Berater/in suchen …" value="${esc(state.list.search)}" aria-label="Energieplanungen durchsuchen">
         ${ICON.search}
       </div>
     </div>
-    <div class="chip-row" role="group" aria-label="Nach Prozessschritt filtern">
-      ${LIST_PHASEN.map(([k, l]) => `<button class="chip${state.list.phase === k && !state.list.aufgabe ? ' active' : ''}" data-action="list-phase" data-phase="${k}">${l}<span class="chip-count">${listBasis().filter(p => matchesPhase(p, k)).length}</span></button>`).join('')}
-      ${aufgabeTyp ? `<button class="chip active chip-removable" data-action="list-aufgabe" data-key="">Aufgabe: ${esc(aufgabeTyp.titel)} ${ICON.close}</button>` : ''}
-    </div>
     <div id="planung-results">${renderPlanungResults()}</div>
   </div>`;
+}
+
+function resultCountText() {
+  const n = filteredPlanungen().length, total = listBasis().length;
+  return n === total ? plural(total, 'Energieplanung', 'Energieplanungen') : `${n} von ${plural(total, 'Energieplanung', 'Energieplanungen')}`;
 }
 
 function renderPlanungResults() {
@@ -495,16 +528,18 @@ function renderPlanungResults() {
     <tbody>
       ${list.map(p => {
         const a = naechsteAktion(p);
-        return `<tr data-action="open-planung" data-id="${p.id}" tabindex="0">
-          <td><div class="cell-title">${esc(p.gemeinde)}</div><div class="cell-sub">${esc(p.id)} · ${esc(p.typ)}</div></td>
+        const ueber = istUeberfaellig(a) && a.wer === state.role;
+        return `<tr data-action="open-planung" data-id="${p.id}" tabindex="0"${ueber ? ' class="is-overdue"' : ''}>
+          <td><div class="cell-title">${esc(p.gemeinde)}</div><div class="cell-sub">${esc(p.id)}${p.typ === PLANUNGSTYPEN[0] ? '' : ` · ${esc(p.typ)}`}</div></td>
           <td>${phaseBadge(p)}</td>
-          <td><div class="cell-next${a.art === 'ok' ? ' is-ok' : ''}">${esc(a.titel)}</div>${a.art !== 'ok' ? `<div class="cell-sub">zuständig: ${WER_LABEL[a.wer]}</div>` : ''}</td>
-          <td class="cell-date">${a.termin ? esc(terminLabel(a)) : '<span class="muted">–</span>'}</td>
+          <td><div class="cell-next${a.art === 'ok' ? ' is-ok' : ''}">${esc(a.titel)}</div>${a.art !== 'ok' && a.wer !== state.role ? `<div class="cell-sub">zuständig: ${WER_LABEL[a.wer]}</div>` : ''}</td>
+          <td class="cell-date">${!a.termin ? '<span class="muted">–</span>' : istUeberfaellig(a)
+            ? `<div class="due-title">${ICON.warn}Überfällig</div><div class="cell-sub">${ueberfaelligSeit(a)} · ${fmtDate(a.termin)}</div>`
+            : esc(terminLabel(a))}</td>
         </tr>`;
       }).join('')}
     </tbody>
-  </table></div>
-  <div class="table-foot">${plural(list.length, 'Energieplanung', 'Energieplanungen')}</div>`;
+  </table></div>`;
 }
 
 /* =============================================================
@@ -1809,6 +1844,8 @@ const actions = {
   },
   'list-phase': el => { state.tab = 'planungen'; state.planungId = null; state.list.phase = el.dataset.phase; state.list.aufgabe = ''; render(); },
   'list-aufgabe': el => { state.tab = 'planungen'; state.planungId = null; state.list.aufgabe = el.dataset.key; state.list.phase = ''; render(); },
+  'list-search-clear': () => { state.list.search = ''; render(); },
+  'list-reset': () => { state.list.search = ''; state.list.phase = ''; state.list.aufgabe = ''; render(); },
   'list-scope': el => { state.list.nurMeine = el.dataset.meine === '1'; render(); },
   'toggle-hilfe': () => { state.hilfeOpen = !state.hilfeOpen; render(); },
   'toggle-process': () => { state.processOpen = !state.processOpen; render(); },
@@ -2175,7 +2212,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.id === 'planung-search') { state.list.search = t.value; document.getElementById('planung-results').innerHTML = renderPlanungResults(); return; }
+  if (t.id === 'planung-search') { state.list.search = t.value; document.getElementById('planung-results').innerHTML = renderPlanungResults(); document.getElementById('result-count').textContent = resultCountText(); return; }
   if (t.id === 'mass-search') { state.mass.search = t.value; document.getElementById('mass-results').innerHTML = renderMassResults(currentPlanung()); return; }
   if (t.id === 'contact-search') { state.contactSearch = t.value; document.getElementById('contact-results').innerHTML = renderKontaktResults(); return; }
   clearFieldError(t);
@@ -2183,6 +2220,7 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.id === 'filter-phase') { state.list.phase = t.value; state.list.aufgabe = ''; render(); return; }
   if (t.matches('input[type=file][data-doc]')) { docUpload(t); return; }
   if (state.import) {
     if (t.matches('input[type=file][data-import-file]')) {
