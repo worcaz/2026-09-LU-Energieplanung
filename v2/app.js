@@ -163,7 +163,7 @@ const AUFGABEN_TYPEN = [ // Reihenfolge = Priorität
   { key: 'nachfuehrung-faellig', wer: 'Berater', ton: 'warn', titel: 'Nachführung fällig', text: 'Alle 4 Jahre wird jede offene Massnahme überprüft: Stand, Weiterführung und Bemerkung.' },
   { key: 'controlling', wer: 'Controller', ton: 'action', titel: 'Fördergesuche prüfen', text: 'Gesuchseingang, Auszahlungsbetrag und Energiestadt-Status erfassen.' },
   { key: 'abschluss', wer: 'Controller', ton: 'action', titel: 'EPA-Beratungen abschliessen', text: 'Das Gesuch ist geprüft – mit dem Abschluss startet der Nachführungsrhythmus.' },
-  { key: 'foerdergesuch', wer: 'Berater', ton: 'action', titel: 'Fördergesuch einreichen', text: 'Kontoangaben der Gemeinde erfassen und das Gesuch beim Kanton einreichen.' },
+  { key: 'foerdergesuch', wer: 'Berater', ton: 'action', titel: 'Fördergesuch einreichen', text: 'Kontoangaben erfassen, unterschriebenes Formular und Beilagen hochladen und das Gesuch beim Kanton einreichen.' },
   { key: 'verabschiedung', wer: 'Berater', ton: 'action', titel: 'Verabschiedung erfassen', text: 'Datum des Gemeinderatsbeschlusses eintragen.' },
   { key: 'entwurf', wer: 'Berater', ton: 'action', titel: 'Entwurf der EPA-Beratung fertigstellen', text: 'Beratung durchführen, Bedarf klären und Massnahmen erfassen.' },
   { key: 'epa-start', wer: 'Berater', ton: 'action', titel: 'EPA-Beratung starten', text: 'Die Grunddaten sind vollständig – die Beratung kann beginnen.' },
@@ -583,7 +583,7 @@ function formStammdaten(p) {
 const EPA_STUFEN_INFO = {
   'Entwurf': { wer: 'Berater', text: 'Beratung mit der Gemeinde durchführen, den Bedarf klären und die Massnahmen erarbeiten.' },
   'Verabschiedung': { wer: 'Berater', text: 'Der Gemeinderat verabschiedet die Energieplanung mit ihren Massnahmen. Sie erfassen das Datum des Beschlusses.' },
-  'Fördergesuch': { wer: 'Berater', text: 'Mit den Kontoangaben der Gemeinde wird das Gesuch für den Förderbeitrag beim Kanton eingereicht.' },
+  'Fördergesuch': { wer: 'Berater', text: 'Kontoangaben der Gemeinde erfassen, das Förderabschlussformular erstellen, unterschreiben lassen und hochladen, die Beilagen anfügen und das Gesuch beim Kanton einreichen.' },
   'Abschluss': { wer: 'Controller', text: 'Der Kanton prüft das Gesuch, zahlt den Förderbeitrag aus und schliesst die Beratung ab. Danach beginnt die Nachführung.' },
 };
 const EPA_WEITER_LABEL = {
@@ -676,8 +676,8 @@ function epaStufeFelder(p, s) {
       ${field({ id: 'f-k-iban', label: 'IBAN', value: k.iban, required: true, placeholder: 'CH00 0000 0000 0000 0000 0' })}
       ${field({ id: 'f-k-bank', label: 'Bankname', value: k.bank, required: true })}
       ${field({ id: 'f-k-vermerk', label: 'Vermerk', value: k.vermerk })}
-      ${field({ id: 'f-foerderformular', label: 'Förderabschlussformular', value: e.foerderformular, placeholder: 'z.B. Dateiname oder Ablageort' })}
-    </div>`;
+    </div>
+    ${renderGesuchUnterlagen(p)}`;
   }
   return '';
 }
@@ -707,9 +707,132 @@ function epaStufeSummary(p, s) {
     ${kv('Kontoinhaber/in', e.konto.inhaber)}
     ${kv('IBAN', e.konto.iban)}
     ${kv('Bank', e.konto.bank)}
-  </dl>`;
+  </dl>
+  ${renderGesuchUnterlagen(p, true)}`;
   return '';
 }
+
+/* ---------- Unterlagen zum Fördergesuch (Formular + Beilagen) ---------- */
+function fmtBytes(n) { return n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(n / 1024))} KB`; }
+
+function docRow(p, d, readonly) {
+  const f = p.epa.dokumente[d.key];
+  const name = f ? (f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a>` : esc(f.name)) : '';
+  const status = f
+    ? `<span class="doc-file">${ICON.check}<span class="doc-name">${name}</span><span class="doc-meta">${fmtBytes(f.size)}</span></span>`
+    : `<span class="doc-empty">${d.pflicht ? 'fehlt' : 'optional'}</span>`;
+  const actions = readonly ? '' : `<span class="doc-actions">
+      <label class="btn btn-outline btn-sm doc-upload">${f ? 'Ersetzen' : 'Hochladen'}<input type="file" data-doc="${d.key}" accept="${esc(d.accept || '')}" hidden></label>
+      ${f ? `<button type="button" class="link-btn" data-action="doc-remove" data-doc="${d.key}">Entfernen</button>` : ''}
+    </span>`;
+  return `<div class="doc-row" data-field="f-d-${d.key}">
+    <div class="doc-label">${esc(d.label)}${d.pflicht ? '<span class="req" aria-hidden="true">*</span>' : ''}${d.hint && !readonly ? `<span class="doc-hint">${esc(d.hint)}</span>` : ''}</div>
+    <div class="doc-status">${status}</div>
+    ${actions}
+  </div>`;
+}
+
+function renderGesuchUnterlagen(p, readonly) {
+  const list = `<div class="doc-list">${EPA_DOKUMENTE.map(d => docRow(p, d, readonly)).join('')}</div>`;
+  if (readonly) return `<h4 class="form-section-title">Unterlagen</h4>${list}`;
+  return `<h4 class="form-section-title">Unterlagen zum Gesuch</h4>
+    <div class="doc-intro">
+      <span>Förderabschlussformular erstellen, von Berater/in und Gemeinderat unterschreiben lassen und unten als PDF hochladen.</span>
+      <button type="button" class="btn btn-outline btn-sm" data-action="formular-open">Formular erstellen</button>
+    </div>${list}`;
+}
+
+function keepScroll(fn) {
+  const saved = [];
+  for (let n = $panel; n; n = n.parentElement) saved.push([n, n.scrollTop]);
+  fn();
+  saved.forEach(([n, t]) => { n.scrollTop = t; });
+}
+
+// Erfasste, aber noch nicht gespeicherte Formularwerte sichern, bevor neu gerendert wird.
+function saveGesuchDraft(p) { if (document.getElementById('f-k-iban')) Object.assign(p.epa, readEpaStage('Fördergesuch')); }
+
+function docUpload(input) {
+  const p = currentPlanung(), file = input.files[0];
+  if (!file) return;
+  const key = input.dataset.doc, def = EPA_DOKUMENTE.find(d => d.key === key);
+  if (key === 'formular' && !/\.pdf$/i.test(file.name)) { toast('Das unterschriebene Formular muss als PDF hochgeladen werden.'); input.value = ''; return; }
+  saveGesuchDraft(p);
+  const old = p.epa.dokumente[key];
+  if (old && old.url) URL.revokeObjectURL(old.url);
+  p.epa.dokumente[key] = { name: file.name, size: file.size, datum: todayIso(), url: URL.createObjectURL(file) };
+  toast(`«${def.label}» hochgeladen.`);
+  keepScroll(render);
+}
+
+function removeDoc(key) {
+  const p = currentPlanung(), old = p.epa.dokumente[key];
+  if (!old) return;
+  saveGesuchDraft(p);
+  if (old.url) URL.revokeObjectURL(old.url);
+  delete p.epa.dokumente[key];
+  keepScroll(render);
+}
+
+/* ---------- Förderabschlussformular (druckbare Vorlage) ---------- */
+function formularHtml(p) {
+  const e = p.epa, k = e.konto;
+  const jn = v => `<span>${v === 'Ja' ? '☒' : '☐'} Ja</span> <span>${v === 'Nein' ? '☒' : '☐'} Nein</span>`;
+  const mass = p.massnahmen.slice().sort((a, b) => (a.esNr || '').localeCompare(b.esNr || '', 'de', { numeric: true }));
+  const beilagen = [['Kick-Off Präsentation', 1], ['Abschlusspräsentation', 1], ['Beratungscheckliste (für zertifizierte Energiestädte optional)', e.dokumente.checkliste ? 1 : 0], ['Ausgefülltes Feedbackformular', 1], ['Kopie Rechnung Beratungsbüro', 1]];
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Förderabschlussformular ${esc(p.gemeinde)}</title><style>
+    @page{size:A4; margin:18mm 20mm}
+    body{font:11pt/1.4 "Segoe UI",Arial,sans-serif; color:#111; margin:0}
+    .bar{background:#f4f6f8; padding:8px 20px; text-align:right} .bar button{font:inherit; padding:6px 14px; cursor:pointer}
+    .page{max-width:170mm; margin:0 auto; padding:10mm 0}
+    .logo{display:flex; align-items:center; gap:14px; font-size:20pt; line-height:1.05; letter-spacing:.5px} .logo i{display:block; width:12mm; height:16mm; background:#009fe3}
+    .dept{margin:10px 0 28px; font-size:10.5pt}
+    h1{font-size:22pt; line-height:1.15; margin:0 0 16px} h2{font-size:18pt; margin:26px 0 8px}
+    .box{background:#dbe5f1; padding:6px 10px} .box table{width:100%} .box td:last-child{text-align:right}
+    table.m{width:100%; border-collapse:collapse; margin-top:10px} table.m th{text-align:left; border-bottom:2px solid #111; padding:4px 6px}
+    table.m td{padding:6px; border-bottom:1px solid #111} table.m tr:nth-child(odd) td{background:#dbe5f1}
+    .row{display:flex; justify-content:space-between; padding:2px 0} .k td{padding:1px 14px 1px 0}
+    .sig{display:flex; gap:12px} .sig>div{flex:1} .sig .line{height:22mm; background:#dbe5f1; border-bottom:1px solid #ccc; margin-top:8px}
+    .sig .cap{background:#dbe5f1; font-size:9.5pt; padding:2px 6px; min-height:9mm}
+    ul.b{list-style:none; padding:0; columns:2} ul.b li{margin-bottom:4px} ul.b li::before{content:"x "; font-weight:700}
+    .pb{page-break-before:always} @media print{.bar{display:none}}
+  </style></head><body>
+  <div class="bar"><button onclick="window.print()">Drucken / Als PDF speichern</button></div>
+  <div class="page">
+    <div class="logo"><i></i><div>KANTON<br><b>LUZERN</b></div></div>
+    <div class="dept">Bau-, Umwelt- und Wirtschaftsdepartement<br><b>Umwelt und Energie (uwe)<br>Energie</b></div>
+    <h1>Förderabschlussformular:<br>Energiepotenzialanalyse für Gemeinden<br>(EPA-Beratung)</h1>
+    <div class="box"><table><tr><td><b>Gemeinde:</b></td><td>${esc(p.gemeinde)}</td></tr><tr><td><b>Energieplanung:</b></td><td>Energieplanung ${esc(p.gemeinde)}</td></tr></table></div>
+    <p>Dieses Dokument bestätigt die Durchführung der EPA-Beratung gemäss den Förderbedingungen und Qualitätsvorgaben des Kantons Luzern. Der Gemeinderat bezeugt die Kenntnisnahme der Massnahmen (vgl. Punkt 1) sowie des Bedarfs einer räumlichen Abstimmung (vgl. Punkt 2) und bestätigt die kontinuierliche Umsetzung und Nachführung der Massnahmen. Die Nachführung der Massnahmen soll in einem Turnus von vier Jahren erfolgen. Bei Energiestädten ist dieser abgestimmt mit dem Zeitpunkt der Re-Audits.<br>
+    Das unterzeichnete Formular ist Bedingung für die Auszahlung der Fördergelder in Höhe von CHF 7’200.- und ist mit den vollständigen Beratungsunterlagen (vgl. Punkt 4) per E-Mail dem Kanton Luzern, Dienststelle Umwelt und Energie (uwe), Clara Bucher, Energieplanung.UWE@lu.ch zuzustellen.</p>
+    <div class="pb"></div>
+    <h2>1 Massnahmenprogramm</h2>
+    <p>Nachfolgende Massnahmen wurden im Rahmen der EPA-Beratung beschlossen bzw. von bereits laufenden Programmen übernommen.</p>
+    <table class="m"><tr><th>ES-Nr.</th><th>Nr.</th><th>Massnahme</th><th>Beschreibung</th></tr>
+      ${mass.map(m => `<tr><td>${esc(m.esNr)}</td><td>${esc(m.id.replace(/^M-/, ''))}</td><td>${esc(m.name)}</td><td>${esc(m.beschreibung)}</td></tr>`).join('') || '<tr><td colspan="4">Keine Massnahmen erfasst.</td></tr>'}
+    </table>
+    <h2>2 Bedarf räumlicher Abstimmung</h2>
+    <p>In der EPA-Beratung soll der Bedarf eines Energierichtplans (§ 5 Abs. 2 KEnG), der Bedarf einer Koordination mit weiteren Gemeinden (§ 5 Abs. 3 KEnG) sowie allfällige Gebiet mit Koordinationsbedarf (z. B. Lärmproblematik in dicht bebauten Gebieten) geklärt werden.</p>
+    <p>Der / die EPA-Berater/in beurteilt den Bedarf räumlicher Abstimmung wie folgt:</p>
+    <div class="box">
+      <div class="row"><span>Bedarf eines Energierichtplans?</span><span>${jn(e.bedarfEnergierichtplan)}</span></div>
+      <div class="row"><span>Bedarf einer Koordination mit weiteren Gemeinde(n)?</span><span>${jn(e.bedarfKoordination)}</span></div>
+      <div class="row"><span>Gebiete mit Koordinationsbedarf vorhanden?</span><span>${jn(e.gebieteKoordination)}</span></div>
+    </div>
+    <h2>3 Kontoinformationen</h2>
+    <p>Bitte teilen Sie uns mit untenstehendem Formular Ihre Kontoinformationen mit, damit die Zahlung des Förderbeitrags ausgelöst werden kann.</p>
+    <div class="box"><table class="k"><tr><td>Name</td><td>${esc(k.inhaber)}</td></tr><tr><td>Adresse</td><td>${esc(k.adresse)}</td></tr><tr><td>IBAN</td><td>${esc(k.iban)}</td></tr><tr><td>Bank</td><td>${esc(k.bank)}</td></tr><tr><td>Vermerk</td><td>${esc(k.vermerk)}</td></tr></table></div>
+    <div class="pb"></div>
+    <h2>4 Bestätigung</h2>
+    <div class="sig">
+      <div><b>EPA-Berater/in</b><p>Der / die EPA-Berater/in bestätigt hiermit, die EPA-Beratung gemäss den aktuellen Förderbedingungen und gemäss den Qualitätsanforderungen des Pflichtenhefts durchgeführt zu haben.</p><div class="line"></div><div class="cap">${esc(e.beratungsperson || p.berater)}<br>Ort, Datum:</div></div>
+      <div><b>Gemeinderat</b><p>Der Gemeinderat bestätigt hiermit, die vorgeschlagenen Massnahmen kontinuierlich umzusetzen und den Umsetzungsstatus im Energieplanungs-Modul nachzuführen.</p><div class="line"></div><div class="cap"><br>Ort, Datum:</div></div>
+    </div>
+    <h2>5 Beilagen</h2>
+    <ul class="b">${beilagen.filter(b => b[1]).map(b => `<li>${esc(b[0])}</li>`).join('')}</ul>
+  </div></body></html>`;
+}
+
 
 function epaAbschlussBody(p, st) {
   const e = p.epa;
@@ -736,8 +859,7 @@ function readEpaStage(s) {
   };
   if (s === 'Verabschiedung') return { verabschiedetAm: readField('f-verabschiedet') };
   if (s === 'Fördergesuch') return {
-    konto: { inhaber: readField('f-k-inhaber'), adresse: readField('f-k-adresse'), iban: readField('f-k-iban'), bank: readField('f-k-bank'), vermerk: readField('f-k-vermerk') },
-    foerderformular: readField('f-foerderformular')
+    konto: { inhaber: readField('f-k-inhaber'), adresse: readField('f-k-adresse'), iban: readField('f-k-iban'), bank: readField('f-k-bank'), vermerk: readField('f-k-vermerk') }
   };
   return {};
 }
@@ -758,7 +880,9 @@ function renderTabFoerderung(p) {
     <li class="done"><span class="mt-dot">${ICON.check}</span><div><strong>Gesuch eingereicht</strong><span>${fmtDate(e.gesuchEingereichtAm)} · durch ${show(p.berater)}</span></div></li>
     <li class="${ctrlKomplett ? 'done' : 'current'}"><span class="mt-dot">${ctrlKomplett ? ICON.check : ''}</span><div><strong>Gesuch geprüft, Auszahlung erfasst</strong><span>${ctrlKomplett ? `${formatChf(p.controlling.auszahlungsbetrag)} · Eingang ${fmtDate(p.controlling.gesuchseingang)}` : 'In Prüfung beim Kanton'}</span></div></li>
     <li class="${abgeschl ? 'done' : ctrlKomplett ? 'current' : ''}"><span class="mt-dot">${abgeschl ? ICON.check : ''}</span><div><strong>EPA-Beratung abgeschlossen</strong><span>${abgeschl ? fmtDate(e.abgeschlossenAm) : 'Ausstehend'}</span></div></li>
-  </ol>`;
+  </ol>
+  <div class="card"><div class="card-head"><h3>Eingereichte Unterlagen</h3></div>
+    <div class="doc-list">${EPA_DOKUMENTE.map(d => docRow(p, d, true)).join('')}</div></div>`;
 
   if (state.role !== 'Controller') {
     return `${timeline}
@@ -1466,6 +1590,15 @@ const actions = {
     render();
   },
 
+  'formular-open': () => {
+    const p = currentPlanung();
+    saveGesuchDraft(p);
+    const url = URL.createObjectURL(new Blob([formularHtml(p)], { type: 'text/html' }));
+    if (!window.open(url, '_blank')) toast('Das Formular konnte nicht geöffnet werden – bitte Pop-ups für diese Seite erlauben.');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  },
+  'doc-remove': el => removeDoc(el.dataset.doc),
+
   /* --- Förderung / Controlling --- */
   'ctrl-save': el => {
     const p = currentPlanung();
@@ -1676,6 +1809,7 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.matches('input[type=file][data-doc]')) { docUpload(t); return; }
   // Bei "Erledigt"/"Gestrichen" entfällt die Frage nach der Weiterführung.
   if (t.name === 'nf-status' || t.id === 'f-m-status') {
     const closed = isClosedStatus(t.value);

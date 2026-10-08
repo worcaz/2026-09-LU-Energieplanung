@@ -763,3 +763,22 @@ table.data-table tfoot td{background:var(--gray-50); border-top:1px solid var(--
   .kv-list, .kv-list.compact{grid-template-columns:1fr;}
   .kv dt{padding-bottom:0; border-bottom:none; font-size:12.5px;}
 }
+
+/* ---------- Unterlagen zum Fördergesuch ---------- */
+.doc-intro{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:13.5px; color:var(--gray-700); margin-bottom:10px;}
+.doc-list{border:1px solid var(--gray-200); border-radius:6px; background:#fff; margin-bottom:14px;}
+.doc-row{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto; align-items:center; gap:12px; padding:9px 12px; border-bottom:1px solid var(--gray-200);}
+.doc-row:last-child{border-bottom:none;}
+.doc-label{font-weight:600; font-size:13.5px; color:var(--navy);}
+.doc-label .req{color:var(--red); margin-left:3px;}
+.doc-hint{display:block; font-weight:400; font-size:12px; color:var(--gray-500);}
+.doc-empty{font-size:13px; color:var(--gray-500);}
+.doc-file{display:flex; align-items:center; gap:6px; font-size:13px; min-width:0;}
+.doc-file svg{width:16px; height:16px; fill:var(--green); flex:none;}
+.doc-name{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.doc-meta{color:var(--gray-500); white-space:nowrap;}
+.doc-actions{display:flex; align-items:center; gap:10px; justify-content:flex-end; min-width:150px;}
+.doc-upload{cursor:pointer;}
+.doc-row.has-error{background:var(--red-bg);}
+.doc-row .field-error-msg{grid-column:1/-1; margin-top:0;}
+@media (max-width:700px){.doc-row{grid-template-columns:1fr;}.doc-actions{justify-content:flex-start;}}

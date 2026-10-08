@@ -50,6 +50,15 @@ const NACHFUEHRUNG_ENDE_JAHR = 2050;
 const NACHFUEHRUNG_VORLAUF_MONATE = 6;
 
 const EPA_STUFEN = ['Entwurf', 'Verabschiedung', 'Fördergesuch', 'Abschluss'];
+// Unterlagen zum Fördergesuch: das unterschriebene Formular und die fünf Beilagen gemäss Förderabschlussformular.
+const EPA_DOKUMENTE = [
+  { key: 'formular', label: 'Unterschriebenes Förderabschlussformular', pflicht: true, accept: '.pdf,application/pdf', hint: 'PDF mit den Unterschriften der EPA-Beraterin / des EPA-Beraters und des Gemeinderats.' },
+  { key: 'kickoff', label: 'Kick-Off Präsentation', pflicht: true },
+  { key: 'abschlusspraesentation', label: 'Abschlusspräsentation', pflicht: true },
+  { key: 'checkliste', label: 'Beratungscheckliste', pflicht: false, hint: 'Für zertifizierte Energiestädte optional.' },
+  { key: 'feedback', label: 'Ausgefülltes Feedbackformular', pflicht: true },
+  { key: 'rechnung', label: 'Kopie Rechnung Beratungsbüro', pflicht: true },
+];
 const PLANUNGSTYPEN = ['Kommunale Energieplanung', 'Regionale Energieplanung'];
 
 const MASSNAHME_STATUS = [
@@ -203,7 +212,7 @@ function neuePlanung({ gemeinde, typ, jahr }) {
       bedarfEnergierichtplan: '', bedarfKoordination: '', gebieteKoordination: '',
       verabschiedetAm: '',
       konto: { inhaber: '', adresse: '', iban: '', bank: '', vermerk: '204071003 Kommunale Energieplanung' },
-      foerderformular: '',
+      dokumente: {},                   // { <EPA_DOKUMENTE.key>: { name, size, datum, url } }
       gesuchEingereichtAm: '',
       abgeschlossenAm: ''
     },
@@ -251,6 +260,7 @@ const PFLICHT_EPA = {
     ['f-k-adresse', 'Adresse', p => p.epa.konto.adresse],
     ['f-k-iban', 'IBAN', p => p.epa.konto.iban],
     ['f-k-bank', 'Bankname', p => p.epa.konto.bank],
+    ...EPA_DOKUMENTE.filter(d => d.pflicht).map(d => [`f-d-${d.key}`, d.label, p => (p.epa.dokumente[d.key] ? 'ok' : '')]),
   ],
 };
 const PFLICHT_CONTROLLING = [
@@ -349,7 +359,7 @@ function naechsteAktion(p) {
   if (e.status === 'Fördergesuch' && !e.gesuchEingereichtAm) return {
     key: 'foerdergesuch', art: 'aufgabe', wer: 'Berater', tab: 'epa', cta: 'Fördergesuch einreichen',
     titel: 'Fördergesuch einreichen',
-    text: 'Erfassen Sie die Kontoangaben der Gemeinde und reichen Sie das Gesuch für den Förderbeitrag beim Kanton ein.'
+    text: 'Erfassen Sie die Kontoangaben der Gemeinde, laden Sie das unterschriebene Förderabschlussformular samt Beilagen hoch und reichen Sie das Gesuch beim Kanton ein.'
   };
   if (e.status === 'Fördergesuch') {
     const fehlCtrl = fehlend(PFLICHT_CONTROLLING, p);
@@ -561,6 +571,8 @@ function baueDemoPlanung(gemeinde, szenario) {
 
   const eingereicht = abschluss ? addDays(verabschiedet, randomInt(10, 40)) : notAfterToday(addDays(verabschiedet, randomInt(10, 40)));
   e.gesuchEingereichtAm = toIso(eingereicht);
+  const demoDateien = { formular: ['Foerderabschlussformular_unterschrieben.pdf', 410], kickoff: ['Kick-Off_Praesentation.pdf', 2300], abschlusspraesentation: ['Abschlusspraesentation.pdf', 3100], feedback: ['Feedbackformular.pdf', 180], rechnung: ['Rechnung_Beratungsbuero.pdf', 120], checkliste: ['Beratungscheckliste.pdf', 150] };
+  EPA_DOKUMENTE.forEach(d => { if (d.pflicht || chance(0.5)) e.dokumente[d.key] = { name: demoDateien[d.key][0], size: demoDateien[d.key][1] * 1024, datum: toIso(eingereicht), url: '' }; });
   if (lvl < 6) return p;
 
   // Schritt 2b: Controlling durch den Kanton
