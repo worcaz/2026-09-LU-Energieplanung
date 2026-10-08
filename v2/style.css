@@ -1013,3 +1013,75 @@ table.data-table tbody tr.is-overdue:hover{background:#fbe7e5;}
 .list-bar .result-bar{margin:0;}
 .list-bar .search-input-wrap{flex:0 1 380px; max-width:none;}
 .list-bar .search-input-wrap input{height:34px;}
+
+/* ---------- Filterleiste flach: kein Kasten, eine Zeile ---------- */
+.filter-panel{background:none; border:none; padding:0; margin:0 0 14px; border-radius:0;}
+.filter-panel .filter-body{display:flex; flex-wrap:wrap; align-items:center; gap:10px;}
+.filter-panel .search-input-wrap{margin-left:auto; flex:0 1 260px; min-width:160px;}
+.filter-tags{padding-left:0; margin-top:10px;}
+.flt-toggle{display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--gray-300); background:#fff; color:var(--gray-700); font-size:13px; font-weight:600; cursor:pointer; transition:background .12s, border-color .12s, color .12s;}
+.flt-toggle svg{width:14px; height:14px; fill:var(--gray-500);}
+.flt-toggle:hover{border-color:var(--amber); color:var(--amber-dark);}
+.flt-toggle.active{background:var(--amber-bg); border-color:var(--amber); color:var(--amber-dark);}
+.flt-toggle.active svg, .flt-toggle:hover svg{fill:var(--amber);}
+
+/* Zeilen-Chevron: zeigt, dass die Zeile anklickbar ist */
+.th-go, .cell-go{width:32px; padding-left:0; padding-right:12px; text-align:right;}
+.cell-go svg{width:18px; height:18px; color:var(--gray-400); transition:transform .12s, color .12s; vertical-align:middle;}
+table.data-table tbody tr[data-action]:hover .cell-go svg{color:var(--blue-primary); transform:translateX(2px);}
+
+/* Suche bleibt in der Filterzeile: darf bis auf 140px schrumpfen, bricht erst bei sehr schmalen Fenstern um */
+.filter-panel .search-input-wrap{flex:1 1 140px; max-width:280px; min-width:140px;}
+.filter-panel .seg-toggle button{padding:0 10px;}
+
+/* ---------- Angleichung Liste / Startseite ---------- */
+/* Gleiche Inhaltsbreite und linke Kante auf allen Seiten */
+.page, .page-narrow{max-width:1100px;}
+
+/* Fortschritt: vier Segmente */
+.pseg{display:inline-flex; align-items:center; gap:2px; flex:none;}
+.pseg i{display:block; width:11px; height:4px; border-radius:2px; background:currentColor; opacity:.25;}
+.pseg i.on{opacity:1;}
+.phase-badge{gap:8px;}
+.phase-track .pseg{color:var(--blue-primary);}
+.phase-track .pseg i{width:14px; height:5px; border-radius:3px;}
+
+/* Überfällig: überall rot */
+.due-block{display:flex; flex-direction:column; gap:1px; align-items:flex-start;}
+.due-sub{font-size:12px; font-weight:400; color:var(--gray-600);}
+.todo-date .due-block{align-items:flex-end;}
+.todo-date.is-overdue, .tone-warn .todo-date.is-overdue{color:var(--red-dark);}
+.todo-card.is-overdue{border-left-color:var(--red);}
+
+/* Tastatur-Fokus der Haupt-Tabs: innen und dezent statt eines dicken Rahmens um den Tab */
+.panel-tab:focus-visible{outline:2px solid var(--blue-border); outline-offset:-6px; border-radius:8px;}
+
+/* Controller-Startseite: Wartezeit des Gesuchs */
+.task-item-date .due-block{align-items:flex-end; text-align:right;}
+.task-item-date .due-title{color:var(--gray-700); font-weight:600; font-size:12.5px;}
+.task-item-date .due-block.is-wait .due-title, .task-item-date .due-block.is-wait .due-sub{color:var(--amber-dark);}
+.task-item-date .due-block.is-wait .due-sub{font-weight:700;}
+
+/* ---------- Startseite als Aufgabeneingang (bewusst anders als das Register «Energieplanungen») ---------- */
+.kpi-row{display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 26px;}
+.kpi{display:flex; align-items:baseline; gap:10px; background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow-card);}
+.kpi strong{font-size:28px; line-height:1; color:var(--navy);}
+.kpi span{font-size:13px; font-weight:600; color:var(--gray-600);}
+.kpi-red{border-top:3px solid var(--red);}
+.kpi-red strong{color:var(--red-dark);}
+.kpi-blue{border-top:3px solid var(--blue-primary);}
+.kpi-gray{border-top:3px solid var(--gray-300);}
+.kpi.is-zero{box-shadow:none; background:transparent; border-top-width:1px;}
+.kpi.is-zero strong, .kpi.is-zero span{color:var(--gray-400);}
+.block-title{display:flex; align-items:center; gap:8px;}
+.block-count{font-size:12px; font-weight:700; min-width:22px; height:22px; padding:0 7px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; background:var(--gray-100); color:var(--gray-700);}
+.block-red{color:var(--red-dark);}
+.block-red .block-count{background:var(--red-bg); color:var(--red-dark);}
+.block-blue .block-count{background:var(--blue-light-bg); color:var(--blue-primary-dark);}
+.todo-card{padding:12px 16px;}
+.rest-links{display:flex; flex-wrap:wrap; gap:8px;}
+.rest-link{display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 8px 0 12px; border-radius:16px; border:1px solid var(--gray-200); background:#fff; font-size:13px; font-weight:600; color:var(--navy);}
+.rest-link svg{width:14px; height:14px; color:var(--gray-400);}
+.rest-link:hover{border-color:var(--blue-primary); background:var(--blue-light-bg);}
+.rest-hint{margin:10px 0 0; font-size:12.5px; color:var(--gray-500);}
+@media (max-width:760px){.kpi-row{grid-template-columns:repeat(2, 1fr);}}

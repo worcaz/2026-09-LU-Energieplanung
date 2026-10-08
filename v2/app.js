@@ -39,7 +39,7 @@ const state = {
   planungId: null,            // gesetzt = Dossier einer Energieplanung offen
   detailTab: 'energieplanung',
   editing: null,              // 'stammdaten' | 'epa-<Stufe>' | 'controlling'
-  list: { search: '', phase: '', aufgabe: '', nurMeine: true, sort: { key: 'naechster', dir: 'asc' } },
+  list: { search: '', phase: '', aufgabe: '', faellig: false, nurMeine: true, sort: { key: 'naechster', dir: 'asc' } },
   mass: { filter: 'offen', search: '' },
   reviewId: null,             // aktuell geöffnete Massnahme im Nachführungs-Durchgang
   drawer: null,               // { type: 'massnahme' | 'neuePlanung' | 'kontakt', id, mode }
@@ -74,6 +74,12 @@ function toast(msg) {
 
 function statusPill(s) { return s ? `<span class="status-pill status-${statusSlug(s)}">${esc(s)}</span>` : ''; }
 
+// Gemeinsames Fortschrittselement (Liste und Startseite): vier Segmente, alle erreichten Schritte gefüllt
+function phaseSegmente(nr, mitTitel = true) {
+  const t = `Schritt ${nr} von 4`;
+  return `<span class="pseg" role="img" aria-label="${t}"${mitTitel ? ` title="${t}"` : ''}>${[1, 2, 3, 4].map(i => `<i class="${i <= nr ? 'on' : ''}"></i>`).join('')}</span>`;
+}
+
 function phaseBadge(p) {
   const ph = phaseOf(p);
   let sub = '', warn = false;
@@ -86,15 +92,15 @@ function phaseBadge(p) {
     else if (st === 'bald') sub = 'bald fällig';
     else if (st === 'ende') sub = `bis ${NACHFUEHRUNG_ENDE_JAHR} erledigt`;
   }
-  return `<span class="phase-badge phase-${ph}${warn ? ' is-warn' : ''}"><span class="phase-dots" role="img" aria-label="Schritt ${PHASEN[ph].nr} von 4" title="Schritt ${PHASEN[ph].nr} von 4">${[1, 2, 3, 4].map(i => `<i class="${i <= PHASEN[ph].nr ? 'on' : ''}"></i>`).join('')}</span>${PHASEN[ph].label}${sub ? `<span class="phase-sub">· ${esc(sub)}</span>` : ''}</span>`;
+  return `<span class="phase-badge phase-${ph}${warn ? ' is-warn' : ''}">${phaseSegmente(PHASEN[ph].nr)}${PHASEN[ph].label}${sub ? `<span class="phase-sub">· ${esc(sub)}</span>` : ''}</span>`;
 }
 
 // Eine Metazeile: Balken + Phase (+ Rückblick nur bei Nachführungs-Aufgaben).
 function phaseTrack(p, kontext) {
   const ph = phaseOf(p), nr = PHASEN[ph].nr;
-  return `<span class="phase-track" title="Phase ${nr} von 4: ${esc(PHASEN[ph].label)}">
-    <span class="pt-dots">${Object.values(PHASEN).map(x => `<i class="${x.nr < nr ? 'done' : x.nr === nr ? 'now' : ''}"></i>`).join('')}</span>
-    Phase ${nr} von 4${kontext ? ` · ${esc(kontext)}` : ''}</span>`;
+  return `<span class="phase-track" title="Schritt ${nr} von 4: ${esc(PHASEN[ph].label)}">
+    ${phaseSegmente(nr, false)}
+    Schritt ${nr} von 4${kontext ? ` · ${esc(kontext)}` : ''}</span>`;
 }
 
 const GLOSSAR = [
@@ -114,6 +120,14 @@ const GLOSSAR_TIPPS = [
   [/Nachführung(?!en)/, GLOSSAR[4][1]],
   [/Verabschiedung/, GLOSSAR[3][1]],
 ];
+
+// Dringlichkeit: überfällige eigene Aufgaben → eigene Aufgaben (nach Frist, dann Aufgabentyp) → Wartendes → nichts zu tun
+function dringlichkeitKey(p, a) {
+  const eigene = a.wer === state.role && a.art !== 'ok';
+  const rang = eigene ? (istUeberfaellig(a) ? 0 : 1) : a.art === 'ok' ? 3 : 2;
+  const typ = Math.max(0, AUFGABEN_TYPEN.findIndex(t => t.key === a.key));
+  return [rang, a.termin || '9999', String(typ).padStart(2, '0'), p.gemeinde].join('|');
+}
 
 function istUeberfaellig(a) { return !!a.termin && a.key !== 'controlling' && fromIso(a.termin) <= TODAY; }
 
@@ -142,6 +156,10 @@ function ueberfaelligSeit(a) {
   if (tage < 1) return 'seit heute';
   if (tage <= 60) return `seit ${plural(tage, 'Tag', 'Tagen')}`;
   return `seit ${plural(Math.floor(tage / 30.4375), 'Monat', 'Monaten')}`;
+}
+
+function ueberfaelligHtml(a) {
+  return `<span class="due-block"><span class="due-title">${ICON.warn}Überfällig</span><span class="due-sub">${ueberfaelligSeit(a)} · ${fmtDate(a.termin)}</span></span>`;
 }
 
 function terminLabel(a) {
@@ -286,15 +304,15 @@ function todoCard({ p, a }, wartet) {
   const tone = wartet ? 'wait' : a.art === 'info' ? 'info' : a.key.startsWith('nachfuehrung') ? 'warn' : 'action';
   const ueber = !wartet && istUeberfaellig(a);
   const fristHtml = wartet ? ''
-    : a.termin ? `<span class="todo-date${ueber ? ' is-overdue' : ''}">${ueber ? ICON.warn : ''}${terminLabel(a)}</span>`
+    : a.termin ? `<span class="todo-date${ueber ? ' is-overdue' : ''}">${ueber ? ueberfaelligHtml(a) : terminLabel(a)}</span>`
     : '<span class="todo-date is-none">Keine Frist</span>';
-  return `<li><button class="todo-card tone-${tone}" data-action="open-planung" data-id="${p.id}">
+  return `<li><button class="todo-card tone-${tone}${ueber ? ' is-overdue' : ''}" data-action="open-planung" data-id="${p.id}">
     <span class="todo-main">
       <span class="todo-gemeinde">${esc(p.gemeinde)}</span>
       <span class="todo-title">${mitTooltips(esc(a.titel))}</span>
       ${kurzText(p, a) ? `<span class="todo-text">${mitTooltips(esc(kurzText(p, a)))}</span>` : ''}
       ${fortschrittBalken(p)}
-      ${phaseTrack(p, a.key === 'nachfuehrung-faellig' ? kontextZeile(p) : '')}
+      ${a.key === 'nachfuehrung-faellig' && kontextZeile(p) ? `<span class="todo-text">${esc(kontextZeile(p))}</span>` : ''}
     </span>
     <span class="todo-side">
       ${fristHtml}
@@ -312,53 +330,49 @@ function renderHilfePanel() {
 }
 
 function renderStartBerater() {
-  const prio = key => AUFGABEN_TYPEN.findIndex(t => t.key === key);
   const meine = planungenFuerRolle('Berater').map(p => ({ p, a: naechsteAktion(p) }));
   const alle = meine.filter(x => x.a.wer === 'Berater' && x.a.art !== 'ok');
-  // Überfällige zuerst, dann nach Frist, dann nach Priorität des Aufgabentyps.
-  const sortKey = x => [istUeberfaellig(x.a) ? 0 : 1, x.a.termin || '9999', String(prio(x.a.key)).padStart(2, '0')].join('|');
+  // Gleiche Reihenfolge wie in der Liste der Energieplanungen (siehe dringlichkeitKey).
+  const sortKey = x => dringlichkeitKey(x.p, x.a);
   const sortiert = alle.slice().sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
   const wartet = sortiert.filter(x => x.a.key === 'verabschiedung');
   const todo = sortiert.filter(x => !wartet.includes(x));
   const rest = meine.filter(x => !alle.includes(x)).sort((x, y) => x.p.gemeinde.localeCompare(y.p.gemeinde));
   const vorname = ANGEMELDETER_BERATER.split(' ')[0];
-  const dringend = todo.filter(x => x.a.art === 'aufgabe').length;
+  const ueberfaellig = todo.filter(x => istUeberfaellig(x.a));
+  const jetzt = todo.filter(x => !ueberfaellig.includes(x) && x.a.art === 'aufgabe');
+  const demnaechst = todo.filter(x => x.a.art === 'info');
+  const kpi = (n, label, ton) => `<div class="kpi kpi-${ton}${n ? '' : ' is-zero'}"><strong>${n}</strong><span>${label}</span></div>`;
+  const gruppe = (titel, items, ton, wartend) => items.length ? `<section class="block">
+      <h2 class="block-title block-${ton}">${titel}<span class="block-count">${items.length}</span></h2>
+      <ul class="todo-list">${items.map(x => todoCard(x, !!wartend)).join('')}</ul>
+    </section>` : '';
 
   $panel.innerHTML = `<div class="page page-narrow">
     <header class="hero hero-row">
       <div>
-      <h1>Guten Tag, ${esc(vorname)}</h1>
-      <p>Sie betreuen ${plural(meine.length, 'Energieplanung', 'Energieplanungen')}.
-        ${dringend ? `<strong>${dringend === 1 ? 'Eine braucht' : `${dringend} brauchen`} jetzt Ihre Aufmerksamkeit.</strong>` : 'Aktuell ist nichts zu tun.'}
-        ${wartet.length ? `${wartet.length === 1 ? 'Eine wartet' : `${wartet.length} warten`} auf den Gemeinderat.` : ''}</p>
+        <h1>Guten Tag, ${esc(vorname)}</h1>
+        <p>Ihre Aufgaben für ${plural(meine.length, 'Energieplanung', 'Energieplanungen')}.</p>
       </div>
       <button class="link-btn hilfe-btn${state.hilfeOpen ? ' is-open' : ''}" data-action="toggle-hilfe" aria-expanded="${!!state.hilfeOpen}">${ICON.info}Benötigen Sie Hilfe?</button>
     </header>
     ${renderHilfePanel()}
+    <div class="kpi-row">
+      ${kpi(ueberfaellig.length, 'überfällig', 'red')}
+      ${kpi(jetzt.length, 'zu erledigen', 'blue')}
+      ${kpi(demnaechst.length, 'demnächst fällig', 'gray')}
+      ${kpi(wartet.length, 'warten auf die Gemeinde', 'gray')}
+    </div>
 
-    ${todo.length ? `<section class="block">
-      <h2 class="block-title">Zu erledigen</h2>
-      <ul class="todo-list">${todo.map(x => todoCard(x, false)).join('')}</ul>
-    </section>` : `<div class="empty-card">${ICON.check}<div><strong>Alles erledigt.</strong><div>Die App meldet sich hier, sobald wieder etwas ansteht – z.B. die nächste Nachführung.</div></div></div>`}
+    ${todo.length ? `${gruppe('Überfällig', ueberfaellig, 'red')}${gruppe('Jetzt zu erledigen', jetzt, 'blue')}${gruppe('Demnächst', demnaechst, 'gray')}`
+      : `<div class="empty-card">${ICON.check}<div><strong>Alles erledigt.</strong><div>Die App meldet sich hier, sobald wieder etwas ansteht – z.B. die nächste Nachführung.</div></div></div>`}
+    ${gruppe('Wartet auf die Gemeinde', wartet, 'gray', true)}
 
-    ${wartet.length ? `<section class="block">
-      <h2 class="block-title">Wartet auf die Gemeinde</h2>
-      <ul class="todo-list">${wartet.map(x => todoCard(x, true)).join('')}</ul>
+    ${rest.length ? `<section class="block rest-block">
+      <h2 class="block-title block-gray">Hier ist nichts zu tun<span class="block-count">${rest.length}</span></h2>
+      <div class="rest-links">${rest.map(({ p, a }) => `<button class="rest-link" data-action="open-planung" data-id="${p.id}" title="${esc(a.art === 'ok' ? (a.termin ? `Nächste Nachführung am ${fmtDate(a.termin)}` : a.titel) : `Beim Kanton: ${a.titel}`)}">${esc(p.gemeinde)}${ICON.chevron}</button>`).join('')}</div>
+      <p class="rest-hint">Den vollständigen Stand aller Energieplanungen finden Sie unter «Energieplanungen».</p>
     </section>` : ''}
-
-
-    ${rest.length ? `<section class="block">
-      <h2 class="block-title">Ihre übrigen Energieplanungen <span class="block-sub">· hier ist nichts zu tun</span></h2>
-      <ul class="mine-list">${rest.map(({ p, a }) => `<li><button class="mine-row" data-action="open-planung" data-id="${p.id}">
-        <span class="mine-gemeinde">${esc(p.gemeinde)}</span>
-        ${phaseBadge(p)}
-        <span class="mine-status">${a.art === 'ok'
-          ? (a.termin ? `Nächste Nachführung am ${fmtDate(a.termin)}` : esc(a.titel))
-          : `Beim Kanton: ${esc(a.titel)}`}</span>
-        <span class="task-item-arrow">${ICON.chevron}</span>
-      </button></li>`).join('')}</ul>
-    </section>` : ''}
-
   </div>`;
 }
 
@@ -377,6 +391,17 @@ function renderStartController() {
   </div>`;
 }
 
+// Wie lange wartet das Gesuch schon beim Kanton? Ab 30 Tagen amber hervorgehoben.
+function wartezeitHtml(a) {
+  const tage = daysBetween(fromIso(a.termin), TODAY);
+  const seit = tage < 1 ? 'seit heute' : tage <= 60 ? `seit ${plural(tage, 'Tag', 'Tagen')}` : `seit ${plural(Math.floor(tage / 30.4375), 'Monat', 'Monaten')}`;
+  return `<span class="due-block${tage > 30 ? ' is-wait' : ''}"><span class="due-title">Eingereicht ${fmtDate(a.termin)}</span><span class="due-sub">${seit}</span></span>`;
+}
+function controllerZeilenInfo(p, a) {
+  if (a.key === 'abschluss') return `Geprüft · Auszahlung ${formatChf(p.controlling.auszahlungsbetrag)}`;
+  return `Berater/in: ${p.berater || '–'}`;
+}
+
 function renderTaskGroup(g) {
   const max = 5;
   return `<div class="task-group tone-${g.typ.ton}">
@@ -392,9 +417,9 @@ function renderTaskGroup(g) {
         <li><button class="task-item" data-action="open-planung" data-id="${p.id}">
           <span class="task-item-main">
             <span class="task-item-title">${esc(p.gemeinde)}</span>
-            <span class="task-item-sub">${esc(a.text)}</span>
+            <span class="task-item-sub">${esc(controllerZeilenInfo(p, a))}</span>
           </span>
-          ${a.termin ? `<span class="task-item-date">${terminLabel(a)}</span>` : ''}
+          ${a.termin ? `<span class="task-item-date">${a.key === 'controlling' ? wartezeitHtml(a) : terminLabel(a)}</span>` : ''}
           <span class="task-item-arrow">${ICON.chevron}</span>
         </button></li>`).join('')}
     </ul>
@@ -426,7 +451,7 @@ function renderProzess() {
 /* =============================================================
    LISTE DER ENERGIEPLANUNGEN
    ============================================================= */
-const LIST_PHASEN = [['', 'Alle Schritte'], ['erfassung', 'Erfassung'], ['epa', 'EPA-Beratung'], ['foerderung', 'Förderung'], ['nachfuehrung', 'Nachführung'], ['faellig', 'Nachführung fällig']];
+const LIST_PHASEN = [['', 'Alle Schritte'], ['erfassung', 'Erfassung'], ['epa', 'EPA-Beratung'], ['foerderung', 'Förderung'], ['nachfuehrung', 'Nachführung']];
 
 function matchesPhase(p, phase) {
   if (!phase) return true;
@@ -441,6 +466,7 @@ function filteredPlanungen() {
   return listBasis()
     .filter(p => !q || [p.gemeinde, p.id, p.berater, p.typ].some(v => String(v).toLowerCase().includes(q)))
     .filter(p => matchesPhase(p, state.list.phase))
+    .filter(p => !state.list.faellig || matchesPhase(p, 'faellig'))
     .filter(p => !state.list.aufgabe || naechsteAktion(p).key === state.list.aufgabe)
     .sort(comparePlanungen);
 }
@@ -449,12 +475,7 @@ function filteredPlanungen() {
 const PLANUNG_SPALTEN = [
   { key: 'gemeinde', label: 'Gemeinde', value: p => p.gemeinde },
   { key: 'phase', label: 'Prozessschritt', value: p => PHASEN[phaseOf(p)].nr },
-  { key: 'naechster', label: 'Nächster Schritt', value: p => {
-      // Dringlichkeit: überfällig (eigene Aufgabe) → eigene Aufgabe → wartet auf andere / bald fällig → nichts zu tun
-      const a = naechsteAktion(p), eigene = a.wer === state.role && a.art === 'aufgabe';
-      const rang = eigene ? (istUeberfaellig(a) ? 0 : 1) : a.art === 'ok' ? 3 : 2;
-      return `${rang}|${a.termin || '9999'}`;
-    } },
+  { key: 'naechster', label: 'Nächster Schritt', value: p => dringlichkeitKey(p, naechsteAktion(p)) },
   { key: 'termin', label: 'Termin', value: p => naechsteAktion(p).termin || '' },
 ];
 // Gemeinsam für alle sortierbaren Tabellen: Leere Werte stehen immer am Ende.
@@ -493,7 +514,6 @@ function renderPlanungList() {
     </div>
     <section class="filter-panel" aria-label="Filter">
       <div class="filter-body">
-        <span class="filter-icon" title="Filter">${ICON.filter}</span>
         ${state.role === 'Berater' ? `<div class="seg seg-toggle" role="group" aria-label="Gemeinden">
           <button class="${state.list.nurMeine ? 'active' : ''}" data-action="list-scope" data-meine="1">Meine</button>
           <button class="${state.list.nurMeine ? '' : 'active'}" data-action="list-scope" data-meine="0">Alle Gemeinden</button>
@@ -501,16 +521,14 @@ function renderPlanungList() {
         <div class="seg seg-toggle seg-phase" role="group" aria-label="Prozessschritt">
           ${LIST_PHASEN.map(([k, l]) => `<button class="${state.list.phase === k && !state.list.aufgabe ? 'active' : ''}" data-action="list-phase" data-phase="${k}" aria-pressed="${state.list.phase === k && !state.list.aufgabe}">${l}</button>`).join('')}
         </div>
+        <button type="button" class="flt-toggle${state.list.faellig ? ' active' : ''}" data-action="list-faellig" aria-pressed="${state.list.faellig}" title="Nur Energieplanungen mit fälliger oder laufender Nachführung">${ICON.warn}Nur fällige</button>
+        <div class="search-input-wrap">
+          <input type="search" id="planung-search" placeholder="Suchen …" value="${esc(state.list.search)}" aria-label="Energieplanungen durchsuchen (Gemeinde, ID, Berater/in)">
+          ${ICON.search}
+        </div>
       </div>
       <div class="filter-tags" id="filter-tags">${renderFilterTags()}</div>
     </section>
-    <div class="list-bar">
-      <span class="result-bar" id="result-count">${resultCountText()}</span>
-      <div class="search-input-wrap">
-        <input type="search" id="planung-search" placeholder="Gemeinde, ID, Berater/in suchen …" value="${esc(state.list.search)}" aria-label="Energieplanungen durchsuchen">
-        ${ICON.search}
-      </div>
-    </div>
     <div id="planung-results">${renderPlanungResults()}</div>
   </div>`;
 }
@@ -524,7 +542,7 @@ function renderPlanungResults() {
   const list = filteredPlanungen();
   if (!list.length) return `<div class="empty-state">Keine Energieplanungen gefunden.</div>`;
   return `<div class="table-scroll"><table class="data-table planung-table">
-    <thead><tr>${PLANUNG_SPALTEN.map(c => sortHeader(c, state.list.sort, 'list-sort')).join('')}</tr></thead>
+    <thead><tr>${PLANUNG_SPALTEN.map(c => sortHeader(c, state.list.sort, 'list-sort')).join('')}<th class="th-go"></th></tr></thead>
     <tbody>
       ${list.map(p => {
         const a = naechsteAktion(p);
@@ -534,12 +552,14 @@ function renderPlanungResults() {
           <td>${phaseBadge(p)}</td>
           <td><div class="cell-next${a.art === 'ok' ? ' is-ok' : ''}">${esc(a.titel)}</div>${a.art !== 'ok' && a.wer !== state.role ? `<div class="cell-sub">zuständig: ${WER_LABEL[a.wer]}</div>` : ''}</td>
           <td class="cell-date">${!a.termin ? '<span class="muted">–</span>' : istUeberfaellig(a)
-            ? `<div class="due-title">${ICON.warn}Überfällig</div><div class="cell-sub">${ueberfaelligSeit(a)} · ${fmtDate(a.termin)}</div>`
+            ? ueberfaelligHtml(a)
             : esc(terminLabel(a))}</td>
+          <td class="cell-go">${ICON.chevron}</td>
         </tr>`;
       }).join('')}
     </tbody>
-  </table></div>`;
+  </table></div>
+  <div class="table-foot">${resultCountText()}</div>`;
 }
 
 /* =============================================================
@@ -1845,7 +1865,8 @@ const actions = {
   'list-phase': el => { state.tab = 'planungen'; state.planungId = null; state.list.phase = el.dataset.phase; state.list.aufgabe = ''; render(); },
   'list-aufgabe': el => { state.tab = 'planungen'; state.planungId = null; state.list.aufgabe = el.dataset.key; state.list.phase = ''; render(); },
   'list-search-clear': () => { state.list.search = ''; render(); },
-  'list-reset': () => { state.list.search = ''; state.list.phase = ''; state.list.aufgabe = ''; render(); },
+  'list-reset': () => { state.list.search = ''; state.list.phase = ''; state.list.aufgabe = ''; state.list.faellig = false; render(); },
+  'list-faellig': () => { state.list.faellig = !state.list.faellig; render(); },
   'list-scope': el => { state.list.nurMeine = el.dataset.meine === '1'; render(); },
   'toggle-hilfe': () => { state.hilfeOpen = !state.hilfeOpen; render(); },
   'toggle-process': () => { state.processOpen = !state.processOpen; render(); },
@@ -2212,7 +2233,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.id === 'planung-search') { state.list.search = t.value; document.getElementById('planung-results').innerHTML = renderPlanungResults(); document.getElementById('result-count').textContent = resultCountText(); return; }
+  if (t.id === 'planung-search') { state.list.search = t.value; document.getElementById('planung-results').innerHTML = renderPlanungResults(); return; }
   if (t.id === 'mass-search') { state.mass.search = t.value; document.getElementById('mass-results').innerHTML = renderMassResults(currentPlanung()); return; }
   if (t.id === 'contact-search') { state.contactSearch = t.value; document.getElementById('contact-results').innerHTML = renderKontaktResults(); return; }
   clearFieldError(t);
