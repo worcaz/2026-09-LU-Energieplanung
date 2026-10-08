@@ -780,11 +780,11 @@ function epaStufeFelder(p, s) {
     const k = e.konto;
     return `<h4 class="form-section-title">Kontoinformationen für den Förderbeitrag</h4>
     <div class="form-grid">
-      ${field({ id: 'f-k-inhaber', label: 'Kontoinhaber/in', value: k.inhaber || `Gemeinde ${p.gemeinde}`, required: true, help: 'Das Konto lautet auf die Gemeinde.' })}
-      ${field({ id: 'f-k-adresse', label: 'Adresse', value: k.adresse, required: true })}
+      ${field({ id: 'f-k-inhaber', label: 'Kontoinhaber/in (Gemeinde)', value: k.inhaber || `Gemeinde ${p.gemeinde}`, required: true })}
+      ${field({ id: 'f-k-adresse', label: 'Adresse Kontoinhaber/in', value: k.adresse, required: true })}
       ${field({ id: 'f-k-iban', label: 'IBAN', value: k.iban, required: true, placeholder: 'CH00 0000 0000 0000 0000 0' })}
       ${field({ id: 'f-k-bank', label: 'Bankname', value: k.bank, required: true })}
-      ${field({ id: 'f-k-vermerk', label: 'Vermerk', value: k.vermerk })}
+      ${field({ id: 'f-k-vermerk', label: 'Vermerk', value: k.vermerk, full: true })}
     </div>
     ${renderGesuchUnterlagen(p)}`;
   }
@@ -829,14 +829,14 @@ function docRow(p, d, readonly) {
   const name = f ? (f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a>` : esc(f.name)) : '';
   const status = f
     ? `<span class="doc-file">${ICON.check}<span class="doc-name">${name}</span><span class="doc-meta">${fmtBytes(f.size)}</span></span>`
-    : `<span class="doc-empty">${d.pflicht ? 'fehlt' : 'optional'}</span>`;
+    : `<span class="doc-empty${d.pflicht ? ' is-missing' : ''}">${d.pflicht ? 'Noch nicht hochgeladen' : 'Optional'}</span>`;
   const actions = readonly ? '' : `<span class="doc-actions">
       <label class="btn btn-outline btn-sm doc-upload">${f ? 'Ersetzen' : 'Hochladen'}<input type="file" data-doc="${d.key}" accept="${esc(d.accept || '')}" hidden></label>
       ${f ? `<button type="button" class="link-btn" data-action="doc-remove" data-doc="${d.key}">Entfernen</button>` : ''}
     </span>`;
   return `<div class="doc-row" data-field="f-d-${d.key}">
-    <div class="doc-label">${esc(d.label)}${d.pflicht ? '<span class="req" aria-hidden="true">*</span>' : ''}${d.hint && !readonly ? `<span class="doc-hint">${esc(d.hint)}</span>` : ''}</div>
-    <div class="doc-status">${status}</div>
+    <div class="doc-main"><div class="doc-label">${esc(d.label)}${d.pflicht ? '<span class="req" aria-hidden="true">*</span>' : ''}${d.hint && !readonly ? `<span class="doc-hint">${esc(d.hint)}</span>` : ''}</div>
+      <div class="doc-status">${status}</div></div>
     ${actions}
   </div>`;
 }

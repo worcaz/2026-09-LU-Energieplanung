@@ -258,7 +258,7 @@ const PFLICHT_EPA = {
   ],
   'Fördergesuch': [
     ['f-k-inhaber', 'Kontoinhaber/in', p => p.epa.konto.inhaber],
-    ['f-k-adresse', 'Adresse', p => p.epa.konto.adresse],
+    ['f-k-adresse', 'Adresse Kontoinhaber/in', p => p.epa.konto.adresse],
     ['f-k-iban', 'IBAN', p => p.epa.konto.iban],
     ['f-k-bank', 'Bankname', p => p.epa.konto.bank],
     ...EPA_DOKUMENTE.filter(d => d.pflicht).map(d => [`f-d-${d.key}`, d.label, p => (p.epa.dokumente[d.key] ? 'ok' : '')]),
@@ -463,20 +463,21 @@ function schliesseNachfuehrungAb(p, datum) {
 
 /* ---------------------- DEMO-DATEN ---------------------- */
 const SZENARIO_REIHENFOLGE = ['erfassung', 'epa-bereit', 'entwurf', 'verabschiedung', 'foerdergesuch', 'eingereicht', 'geprueft', 'abgeschlossen', 'bald', 'faellig', 'nachgefuehrt'];
-const SZENARIO_GEWICHTE = [
-  ['erfassung', 7], ['epa-bereit', 5], ['entwurf', 11], ['verabschiedung', 8], ['foerdergesuch', 5],
-  ['eingereicht', 7], ['geprueft', 3], ['abgeschlossen', 28], ['faellig', 12], ['nachgefuehrt', 14],
+// Jede Demo-Energieplanung steht an einem anderen Punkt im Prozess (kein Punkt doppelt).
+const DEMO_PLANUNGEN = [
+  ['Alberswil', 'erfassung'],       // 1 Erfassung: Grunddaten unvollständig
+  ['Meggen', 'epa-bereit'],         // 2 EPA-Beratung kann starten
+  ['Aesch', 'entwurf'],             // 2 Entwurf
+  ['Horw', 'verabschiedung'],       // 2 Verabschiedung
+  ['Ebikon', 'foerdergesuch'],      // 2 Fördergesuch noch nicht eingereicht
+  ['Adligenswil', 'eingereicht'],   // 3 Gesuch liegt beim Controller
+  ['Ballwil', 'geprueft'],          // 3 Gesuch geprüft, Abschluss offen
+  ['Sursee', 'abgeschlossen'],      // 4 Abgeschlossen, Nachführung später
+  ['Rothenburg', 'bald'],           // 4 Nachführung bald fällig
+  ['Buchrain', 'faellig'],          // 4 Nachführung fällig
+  ['Kriens', 'faellig'],            // 4 Nachführung läuft (siehe unten)
+  ['Emmen', 'nachgefuehrt'],        // 4 Nachführung durchgeführt
 ];
-// Feste Szenarien für gut demonstrierbare Gemeinden.
-const SZENARIO_FIX = {
-  Buchrain: 'faellig', Kriens: 'faellig', Adligenswil: 'eingereicht', Ballwil: 'geprueft',
-  Aesch: 'entwurf', Horw: 'verabschiedung', Alberswil: 'erfassung', Emmen: 'nachgefuehrt', Sursee: 'abgeschlossen',
-  // Zusätzliche Demo-Aufgaben für die Beraterin (alle Aufgabentypen abgedeckt)
-  Meggen: 'epa-bereit', Ebikon: 'foerdergesuch', Hochdorf: 'faellig', Rothenburg: 'bald', Malters: 'entwurf',
-  Willisau: 'verabschiedung', 'Schüpfheim': 'erfassung', Root: 'bald', Ruswil: 'faellig',
-  // Fördergesuche für den Kanton (Controller)
-  Hitzkirch: 'eingereicht', Wolhusen: 'eingereicht', 'Beromünster': 'eingereicht', Dagmersellen: 'geprueft', Reiden: 'geprueft'
-};
 
 const gesuchsLaufNr = {};
 function nextGesuchsNr(jahr) {
@@ -518,6 +519,27 @@ function baueDemoMassnahme(p, index, szenario, nf) {
     if (!m.bemerkung) m.bemerkung = m.pruefungen[0].bemerkung;
   }
   return m;
+}
+
+// Erzeugt ein kleines, echtes PDF (Blob-URL), damit Demo-Anhänge in der App geöffnet werden können.
+function demoPdfUrl(titel, untertitel) {
+  if (typeof Blob === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return '';
+  const umlaute = { 'ä': '\\344', 'ö': '\\366', 'ü': '\\374', 'Ä': '\\304', 'Ö': '\\326', 'Ü': '\\334', 'é': '\\351', 'è': '\\350' };
+  const t = x => x.replace(/[\\()]/g, '\\$&').replace(/[^\x20-\x7e]/g, c => umlaute[c] || '?');
+  const stream = `BT /F1 20 Tf 60 760 Td (${t(titel)}) Tj 0 -30 Td /F1 12 Tf (${t(untertitel)}) Tj 0 -20 Td (Demo-Dokument, nur Beispieldatei) Tj ET`;
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 5 0 R /Resources << /Font << /F1 4 0 R >> >> >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
+  ];
+  let pdf = '%PDF-1.4\n';
+  const off = [];
+  objs.forEach((o, i) => { off.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${off.map(o => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
 }
 
 function baueDemoPlanung(gemeinde, szenario) {
@@ -580,7 +602,9 @@ function baueDemoPlanung(gemeinde, szenario) {
   const eingereicht = abschluss ? addDays(verabschiedet, randomInt(10, 40)) : notAfterToday(addDays(verabschiedet, randomInt(10, 40)));
   e.gesuchEingereichtAm = toIso(eingereicht);
   const demoDateien = { formular: ['Foerderabschlussformular_unterschrieben.pdf', 410], kickoff: ['Kick-Off_Praesentation.pdf', 2300], abschlusspraesentation: ['Abschlusspraesentation.pdf', 3100], feedback: ['Feedbackformular.pdf', 180], rechnung: ['Rechnung_Beratungsbuero.pdf', 120], checkliste: ['Beratungscheckliste.pdf', 150] };
-  EPA_DOKUMENTE.forEach(d => { if (d.pflicht || chance(0.5)) e.dokumente[d.key] = { name: demoDateien[d.key][0], size: demoDateien[d.key][1] * 1024, datum: toIso(eingereicht), url: '' }; });
+  EPA_DOKUMENTE.forEach(d => {
+    e.dokumente[d.key] = { name: demoDateien[d.key][0], size: demoDateien[d.key][1] * 1024, datum: toIso(eingereicht), url: demoPdfUrl(d.label, `Gemeinde ${gemeinde}`) };
+  });
   if (lvl < 6) return p;
 
   // Schritt 2b: Controlling durch den Kanton
@@ -614,10 +638,10 @@ function baueDemoPlanung(gemeinde, szenario) {
   return p;
 }
 
-const planungen = GEMEINDEN_LUZERN_PLZ.map(g => baueDemoPlanung(g.name, SZENARIO_FIX[g.name] || weightedPick(SZENARIO_GEWICHTE)));
+const planungen = DEMO_PLANUNGEN.map(([gemeinde, szenario]) => baueDemoPlanung(gemeinde, szenario));
 
-// Demo: In Kriens und Ruswil wurde die fällige Nachführung bereits begonnen (3 Massnahmen überprüft).
-['Kriens', 'Ruswil'].forEach(function (name) {
+// Demo: In Kriens wurde die fällige Nachführung bereits begonnen (3 Massnahmen überprüft).
+['Kriens'].forEach(function (name) {
   const p = planungen.find(x => x.gemeinde === name);
   if (!p || p.epa.status !== 'Abschluss') return;
   starteNachfuehrung(p);
