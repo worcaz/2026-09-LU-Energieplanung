@@ -300,12 +300,12 @@ function renderStart() {
 }
 
 // Berater: eine kurze, flache Liste – pro Gemeinde höchstens eine Zeile.
-function todoCard({ p, a }, wartet) {
+function todoCard({ p, a }, wartet, primaer) {
   const tone = wartet ? 'wait' : a.art === 'info' ? 'info' : a.key.startsWith('nachfuehrung') ? 'warn' : 'action';
   const ueber = !wartet && istUeberfaellig(a);
   const fristHtml = wartet ? ''
-    : a.termin ? `<span class="todo-date${ueber ? ' is-overdue' : ''}">${ueber ? ueberfaelligHtml(a) : terminLabel(a)}</span>`
-    : '<span class="todo-date is-none">Keine Frist</span>';
+    : a.termin ? `<span class="todo-date${ueber ? ' is-overdue' : ''}"${ueber ? ` title="Frist: ${fmtDate(a.termin)}"` : ''}>${ueber ? ueberfaelligSeit(a) : terminLabel(a)}</span>`
+    : '';
   return `<li><button class="todo-card tone-${tone}${ueber ? ' is-overdue' : ''}" data-action="open-planung" data-id="${p.id}">
     <span class="todo-main">
       <span class="todo-gemeinde">${esc(p.gemeinde)}</span>
@@ -316,8 +316,18 @@ function todoCard({ p, a }, wartet) {
     </span>
     <span class="todo-side">
       ${fristHtml}
-      <span class="btn ${tone === 'action' || tone === 'warn' ? 'btn-primary' : 'btn-outline'} btn-sm">${esc(a.cta)}${ICON.arrow}</span>
+      <span class="btn ${primaer ? 'btn-primary' : 'btn-outline'} btn-sm">${esc(a.cta.toLowerCase() === a.titel.toLowerCase() ? 'Öffnen' : a.cta)}${ICON.arrow}</span>
     </span>
+  </button></li>`;
+}
+
+// Schlanke Zeile (ohne Button) für «Demnächst» und «Wartet auf die Gemeinde»
+function todoRow({ p, a }) {
+  return `<li><button class="mine-row todo-row" data-action="open-planung" data-id="${p.id}">
+    <span class="mine-gemeinde">${esc(p.gemeinde)}</span>
+    <span class="todo-row-title">${mitTooltips(esc(a.titel))}</span>
+    <span class="todo-row-date">${a.termin ? esc(terminLabel(a)) : ''}</span>
+    <span class="task-item-arrow">${ICON.chevron}</span>
   </button></li>`;
 }
 
@@ -342,34 +352,38 @@ function renderStartBerater() {
   const ueberfaellig = todo.filter(x => istUeberfaellig(x.a));
   const jetzt = todo.filter(x => !ueberfaellig.includes(x) && x.a.art === 'aufgabe');
   const demnaechst = todo.filter(x => x.a.art === 'info');
-  const kpi = (n, label, ton) => `<div class="kpi kpi-${ton}${n ? '' : ' is-zero'}"><strong>${n}</strong><span>${label}</span></div>`;
-  const gruppe = (titel, items, ton, wartend) => items.length ? `<section class="block">
-      <h2 class="block-title block-${ton}">${titel}<span class="block-count">${items.length}</span></h2>
-      <ul class="todo-list">${items.map(x => todoCard(x, !!wartend)).join('')}</ul>
+  const kommend = todo.filter(x => x.a.termin && !istUeberfaellig(x.a)).sort((x, y) => x.a.termin.localeCompare(y.a.termin))[0];
+  const naechsteFristText = !todo.length && !wartet.length ? 'Aktuell ist nichts zu tun.'
+    : kommend ? `Nächste Frist: <strong>${fmtDate(kommend.a.termin)}</strong> · ${esc(kommend.p.gemeinde)}`
+    : ueberfaellig.length ? 'Beginnen Sie mit den überfälligen Aufgaben.' : 'Es stehen keine Fristen an.';
+  const kpi = (n, label, ton, ziel) => `<button type="button" class="kpi kpi-${ton}${n ? '' : ' is-zero'}" data-action="scroll-to" data-target="${ziel}"${n ? '' : ' disabled'} aria-label="${n} ${label} – zur Gruppe springen"><strong>${n}</strong><span>${label}</span></button>`;
+  const gruppe = (titel, items, ton, wartend, id, kompakt) => items.length ? `<section class="block${kompakt ? ' block-compact' : ''}" id="${id}">
+      <h2 class="block-title block-${ton}">${titel}</h2>
+      ${kompakt ? `<ul class="mine-list">${items.map(todoRow).join('')}</ul>` : `<ul class="todo-list">${items.map(x => todoCard(x, !!wartend, !wartend && x === todo[0])).join('')}</ul>`}
     </section>` : '';
 
   $panel.innerHTML = `<div class="page page-narrow">
     <header class="hero hero-row">
       <div>
         <h1>Guten Tag, ${esc(vorname)}</h1>
-        <p>Ihre Aufgaben für ${plural(meine.length, 'Energieplanung', 'Energieplanungen')}.</p>
+        <p>${naechsteFristText}</p>
       </div>
       <button class="link-btn hilfe-btn${state.hilfeOpen ? ' is-open' : ''}" data-action="toggle-hilfe" aria-expanded="${!!state.hilfeOpen}">${ICON.info}Benötigen Sie Hilfe?</button>
     </header>
     ${renderHilfePanel()}
     <div class="kpi-row">
-      ${kpi(ueberfaellig.length, 'überfällig', 'red')}
-      ${kpi(jetzt.length, 'zu erledigen', 'blue')}
-      ${kpi(demnaechst.length, 'demnächst fällig', 'gray')}
-      ${kpi(wartet.length, 'warten auf die Gemeinde', 'gray')}
+      ${kpi(ueberfaellig.length, 'überfällig', 'red', 'grp-ueberfaellig')}
+      ${kpi(jetzt.length, 'zu erledigen', 'blue', 'grp-jetzt')}
+      ${kpi(demnaechst.length, 'demnächst fällig', 'gray', 'grp-demnaechst')}
+      ${kpi(wartet.length, 'warten auf Gemeinde', 'gray', 'grp-wartet')}
     </div>
 
-    ${todo.length ? `${gruppe('Überfällig', ueberfaellig, 'red')}${gruppe('Jetzt zu erledigen', jetzt, 'blue')}${gruppe('Demnächst', demnaechst, 'gray')}`
+    ${todo.length ? `${gruppe('Überfällig', ueberfaellig, 'red', false, 'grp-ueberfaellig')}${gruppe('Jetzt zu erledigen', jetzt, 'blue', false, 'grp-jetzt')}${gruppe('Demnächst', demnaechst, 'gray', false, 'grp-demnaechst', true)}`
       : `<div class="empty-card">${ICON.check}<div><strong>Alles erledigt.</strong><div>Die App meldet sich hier, sobald wieder etwas ansteht – z.B. die nächste Nachführung.</div></div></div>`}
-    ${gruppe('Wartet auf die Gemeinde', wartet, 'gray', true)}
+    ${gruppe('Wartet auf die Gemeinde', wartet, 'gray', true, 'grp-wartet', true)}
 
     ${rest.length ? `<section class="block rest-block">
-      <h2 class="block-title block-gray">Hier ist nichts zu tun<span class="block-count">${rest.length}</span></h2>
+      <h2 class="block-title block-gray">Hier ist nichts zu tun</h2>
       <div class="rest-links">${rest.map(({ p, a }) => `<button class="rest-link" data-action="open-planung" data-id="${p.id}" title="${esc(a.art === 'ok' ? (a.termin ? `Nächste Nachführung am ${fmtDate(a.termin)}` : a.titel) : `Beim Kanton: ${a.titel}`)}">${esc(p.gemeinde)}${ICON.chevron}</button>`).join('')}</div>
       <p class="rest-hint">Den vollständigen Stand aller Energieplanungen finden Sie unter «Energieplanungen».</p>
     </section>` : ''}
@@ -1866,6 +1880,14 @@ const actions = {
   'list-aufgabe': el => { state.tab = 'planungen'; state.planungId = null; state.list.aufgabe = el.dataset.key; state.list.phase = ''; render(); },
   'list-search-clear': () => { state.list.search = ''; render(); },
   'list-reset': () => { state.list.search = ''; state.list.phase = ''; state.list.aufgabe = ''; state.list.faellig = false; render(); },
+  'scroll-to': el => {
+    const ziel = document.getElementById(el.dataset.target);
+    if (!ziel) return;
+    ziel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    ziel.classList.remove('flash');
+    void ziel.offsetWidth;
+    ziel.classList.add('flash');
+  },
   'list-faellig': () => { state.list.faellig = !state.list.faellig; render(); },
   'list-scope': el => { state.list.nurMeine = el.dataset.meine === '1'; render(); },
   'toggle-hilfe': () => { state.hilfeOpen = !state.hilfeOpen; render(); },
@@ -2308,6 +2330,10 @@ function askConfirm({ titel, text, ok = 'Bestätigen', danger = false, onOk }) {
   root.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
   root.querySelector('[data-dlg="ok"]').focus();
 }
+
+// Fokus-Rahmen nur zeigen, wenn mit der Tastatur navigiert wird
+document.addEventListener('keydown', e => { if (e.key === 'Tab') document.body.classList.add('kbd'); });
+document.addEventListener('mousedown', () => document.body.classList.remove('kbd'));
 
 /* ---------------------- HAUPT-NAVIGATION ---------------------- */
 document.querySelectorAll('.panel-tab').forEach(btn => {
