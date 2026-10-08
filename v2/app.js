@@ -48,6 +48,7 @@ const state = {
   layoutMode: 'data',
   processOpen: false,
   hilfeOpen: false,
+  import: null,               // CSV-Import der Massnahmen (Nachführung)
   epaOpen: {},                // aufgeklappte, erledigte Stufen der EPA-Beratung
 };
 
@@ -1182,7 +1183,10 @@ function renderNfStatus(p) {
         <h3>${titel}</h3>
         <p>${st === 'faellig' ? `Fällig seit ${fmtDate(toIso(due))}.` : `Fällig am ${fmtDate(toIso(due))}.`} ${plural(offen, 'offene Massnahme wird', 'offene Massnahmen werden')} überprüft.</p>
       </div>
-      <button class="btn ${st === 'ok' ? 'btn-outline' : 'btn-primary'}" data-action="nf-start">${st === 'ok' ? 'Vorzeitig starten' : `Nachführung ${due.getFullYear()} starten`}${ICON.arrow}</button>
+      <div class="nf-start-actions">
+        <button class="btn ${st === 'ok' ? 'btn-outline' : 'btn-primary'}" data-action="nf-start">${st === 'ok' ? 'Vorzeitig starten' : `Nachführung ${due.getFullYear()} starten`}${ICON.arrow}</button>
+        <button class="btn btn-outline" data-action="import-open">${ICON.upload}Massnahmen importieren (CSV)</button>
+      </div>
     </div>
     ${renderNfHowto()}
   </div>`;
@@ -1284,14 +1288,16 @@ function reviewCard(p, m, idx, total) {
       </fieldset>
       <div class="q-note" data-closed-note${closed ? '' : ' hidden'}>${ICON.info}Erledigte und gestrichene Massnahmen werden nicht weitergeführt und künftig nicht mehr überprüft.</div>
       <div class="q" data-field="nf-bemerkung">
-        <label class="q-label" for="nf-bemerkung"><span class="q-nr">3</span>Bemerkungen / aktueller Stand<span class="req">*</span></label>
+        <label class="q-label" for="nf-bemerkung"><span class="q-nr">3</span>Bemerkungen / aktueller Stand</label>
         <textarea id="nf-bemerkung" rows="3" placeholder="Was wurde seit der letzten Überprüfung erreicht? Wie geht es weiter?">${esc(cur.bem)}</textarea>
         ${!reviewed && prevText ? `<button type="button" class="link-btn" data-action="nf-copy-prev" data-text="${esc(prevText)}">Bisherige Bemerkung übernehmen</button>` : ''}
       </div>
     </div>
     <div class="review-actions">
       <button class="btn btn-outline" data-action="nf-nav" data-dir="-1"${idx === 0 ? ' disabled' : ''}>Zurück</button>
-      <button class="btn btn-primary" data-action="nf-save" data-id="${m.id}">${reviewed ? 'Änderungen speichern' : 'Als überprüft markieren'} & weiter${ICON.arrow}</button>
+      ${reviewItems(p).some(x => x.id !== m.id && !isReviewed(p, x))
+        ? `<button class="btn btn-primary" data-action="nf-save" data-id="${m.id}">${reviewed ? 'Änderungen speichern' : 'Als überprüft markieren'} & weiter${ICON.arrow}</button>`
+        : `<button class="btn btn-primary" data-action="nf-save" data-id="${m.id}">${reviewed ? 'Änderungen speichern' : 'Als überprüft markieren'}</button>`}
     </div>`;
 }
 
@@ -1325,10 +1331,175 @@ function renderDrawer() {
     html = drawerNeuePlanung();
   } else if (d.type === 'kontakt') {
     html = drawerKontakt(d.id);
+  } else if (d.type === 'import') {
+    html = drawerImport(currentPlanung());
   }
   root.innerHTML = `<div class="drawer-backdrop" data-action="close-drawer"></div>
-    <aside class="drawer" role="dialog" aria-modal="true">${html}</aside>`;
+    <aside class="drawer${d.type === 'import' ? ' drawer-wide' : ''}" role="dialog" aria-modal="true">${html}</aside>`;
   document.body.classList.add('drawer-open');
+}
+
+/* ---------- CSV-Import der Massnahmen (Nachführung) ---------- */
+const IMPORT_ALT_AKTIONEN = [['bleibt', 'Unverändert lassen'], ['Erledigt', 'Als erledigt markieren'], ['Sistiert', 'Sistieren'], ['Gestrichen', 'Streichen']];
+const IMPORT_SPALTEN = ['ES-Nr.', 'Massnahme', 'Beschreibung', 'Status', 'Bemerkung'];
+
+function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const head = text.split(/\r?\n/)[0] || '';
+  const delim = (head.match(/;/g) || []).length >= (head.match(/,/g) || []).length ? ';' : ',';
+  const rows = [];
+  let row = [], cur = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else quoted = false; } else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === delim) { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ''));
+}
+
+function csvZuMassnahmen(rows) {
+  const key = h => { const n = h.trim().toLowerCase().replace(/[^a-zäöü]/g, ''); return { esnr: 'esNr', massnahme: 'name', name: 'name', beschreibung: 'beschreibung', status: 'status', bemerkung: 'bemerkung' }[n]; };
+  const cols = rows[0].map(key);
+  if (!cols.includes('name')) return null;
+  return rows.slice(1).map(r => {
+    const o = { esNr: '', name: '', beschreibung: '', status: '', bemerkung: '' };
+    cols.forEach((k, i) => { if (k) o[k] = (r[i] || '').trim(); });
+    const st = MASSNAHME_STATUS.find(s => s.id.toLowerCase() === o.status.toLowerCase());
+    o.status = st ? st.id : '';
+    return o;
+  }).filter(o => o.name);
+}
+
+function importVorschlag(p, r) {
+  const n = s => (s || '').trim().toLowerCase();
+  const m = (r.esNr && p.massnahmen.find(x => n(x.esNr) === n(r.esNr))) || p.massnahmen.find(x => n(x.name) === n(r.name));
+  return m ? m.id : '';
+}
+
+function importStarten(p, rows, datei) {
+  state.import = { step: 2, datei, rows, auto: rows.map(r => importVorschlag(p, r)), ziel: [], alt: {}, fehler: '' };
+  state.import.ziel = state.import.auto.map(id => id || 'neu');
+}
+
+function importDemoZeilen(p) {
+  const offen = p.massnahmen.filter(istOffen);
+  const weiter = { 'Geplant': 'In Umsetzung', 'In Umsetzung': 'Erledigt', 'Sistiert': 'In Umsetzung' };
+  const rows = offen.slice(0, 3).map(m => ({ esNr: m.esNr, name: m.name, beschreibung: m.beschreibung, status: weiter[m.status] || m.status, bemerkung: 'Stand gemäss Import aktualisiert.' }));
+  if (offen[3]) rows.push({ esNr: '', name: `${offen[3].name} (neu formuliert)`, beschreibung: offen[3].beschreibung, status: offen[3].status, bemerkung: 'Umbenannt, ohne ES-Nr. – bitte zuordnen.' });
+  rows.push({ esNr: '', name: 'Photovoltaik auf Schulhausdächern', beschreibung: 'Neue Massnahme aus der Importdatei.', status: 'Geplant', bemerkung: '' });
+  return rows;
+}
+
+function importZielOptionen(p, wert) {
+  return `<option value="neu"${wert === 'neu' ? ' selected' : ''}>Als neue Massnahme anlegen</option>
+    <option value="skip"${wert === 'skip' ? ' selected' : ''}>Nicht importieren</option>
+    <optgroup label="Bestehende Massnahme überschreiben">${p.massnahmen.map(m => `<option value="${esc(m.id)}"${wert === m.id ? ' selected' : ''}>${esc(m.esNr ? `${m.esNr} · ` : '')}${esc(m.name)}${istOffen(m) ? '' : ` (${m.status})`}</option>`).join('')}</optgroup>`;
+}
+
+function importNichtErwaehnt(p) {
+  const imp = state.import;
+  return p.massnahmen.filter(m => istOffen(m) && !imp.ziel.includes(m.id));
+}
+
+function drawerImport(p) {
+  const imp = state.import;
+  const steps = ['Datei', 'Zuordnung', 'Zusammenfassung'];
+  const stepper = `<ol class="imp-steps">${steps.map((s, i) => `<li class="${i + 1 === imp.step ? 'current' : i + 1 < imp.step ? 'done' : ''}"><span>${i + 1 < imp.step ? ICON.check : i + 1}</span>${s}</li>`).join('')}</ol>`;
+  let body = '', foot = '';
+  if (imp.step === 1) {
+    body = `<p>Laden Sie eine CSV-Datei mit den Massnahmen hoch. Im nächsten Schritt legen Sie fest, welche bestehenden Massnahmen überschrieben werden und was mit den übrigen Massnahmen geschieht.</p>
+      <div class="imp-drop">
+        <label class="btn btn-primary">${ICON.upload}CSV-Datei auswählen<input type="file" accept=".csv,text/csv" data-import-file hidden></label>
+        <span class="muted">oder</span>
+        <button type="button" class="btn btn-outline" data-action="import-demo">Beispieldatei verwenden</button>
+      </div>
+      ${imp.fehler ? `<div class="info-box tone-warn">${ICON.warn}<div>${esc(imp.fehler)}</div></div>` : ''}
+      <h3 class="drawer-section">Erwartete Spalten</h3>
+      <p>${IMPORT_SPALTEN.map(c => `<code>${esc(c)}</code>`).join(' ')}</p>
+      <p class="muted">Trennzeichen Semikolon oder Komma, Kopfzeile erforderlich. Pflichtspalte ist «Massnahme». <button type="button" class="link-btn" data-action="import-template">Vorlage herunterladen</button></p>`;
+    foot = `<span class="spacer"></span><button class="btn btn-outline" data-action="close-drawer">Abbrechen</button>`;
+  } else if (imp.step === 2) {
+    const rest = importNichtErwaehnt(p);
+    body = `<p><strong>${esc(imp.datei)}</strong> · ${plural(imp.rows.length, 'Massnahme', 'Massnahmen')} in der Datei.</p>
+      <h3 class="drawer-section">1 · Massnahmen aus der Datei</h3>
+      <p class="muted">Entscheiden Sie pro Zeile, ob eine bestehende Massnahme überschrieben, eine neue angelegt oder die Zeile ignoriert wird.</p>
+      <ul class="imp-list">${imp.rows.map((r, i) => `<li class="imp-row">
+        <div class="imp-main"><div class="imp-name">${esc(r.name)}${imp.auto[i] && imp.ziel[i] === imp.auto[i] ? '<span class="imp-badge">automatisch erkannt</span>' : ''}</div>
+          <div class="imp-meta">${[r.esNr && `ES-Nr. ${esc(r.esNr)}`, r.status && esc(r.status)].filter(Boolean).join(' · ') || 'keine weiteren Angaben'}</div></div>
+        <select data-imp-ziel="${i}" aria-label="Zuordnung für ${esc(r.name)}">${importZielOptionen(p, imp.ziel[i])}</select>
+      </li>`).join('')}</ul>
+      <h3 class="drawer-section">2 · Bestehende Massnahmen, die nicht in der Datei vorkommen</h3>
+      ${rest.length ? `<div class="imp-bulk"><span class="muted">Für alle:</span>
+          <select data-imp-alt-all aria-label="Für alle setzen"><option value="">Auswählen …</option>${IMPORT_ALT_AKTIONEN.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
+        <ul class="imp-list">${rest.map(m => `<li class="imp-row">
+          <div class="imp-main"><div class="imp-name">${esc(m.name)}</div><div class="imp-meta">${m.esNr ? `ES-Nr. ${esc(m.esNr)} · ` : ''}aktuell ${esc(m.status)}</div></div>
+          <select data-imp-alt="${esc(m.id)}" aria-label="Was geschieht mit ${esc(m.name)}?">${IMPORT_ALT_AKTIONEN.map(([v, l]) => `<option value="${v}"${(imp.alt[m.id] || 'bleibt') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+        </li>`).join('')}</ul>`
+        : '<p class="muted">Alle offenen Massnahmen sind in der Datei enthalten.</p>'}`;
+    foot = `<button class="btn btn-outline" data-action="import-step" data-step="1">Zurück</button><span class="spacer"></span>
+      <button class="btn btn-primary" data-action="import-step" data-step="3">Weiter zur Zusammenfassung${ICON.arrow}</button>`;
+  } else {
+    const z = imp.ziel, rest = importNichtErwaehnt(p);
+    const nUeber = z.filter(v => v !== 'neu' && v !== 'skip').length, nNeu = z.filter(v => v === 'neu').length, nSkip = z.filter(v => v === 'skip').length;
+    const altN = a => rest.filter(m => (imp.alt[m.id] || 'bleibt') === a).length;
+    const zeile = (n, t) => `<li class="${n ? '' : 'zero'}"><strong>${n}</strong><span>${t}</span></li>`;
+    body = `<p>Bitte prüfen Sie die Zusammenfassung, bevor Sie importieren.</p>
+      <ul class="imp-summary">
+        ${zeile(nUeber, 'bestehende Massnahmen werden überschrieben')}
+        ${zeile(nNeu, 'neue Massnahmen werden angelegt')}
+        ${zeile(nSkip, 'Zeilen aus der Datei werden nicht importiert')}
+        ${zeile(altN('Erledigt'), 'nicht enthaltene Massnahmen werden als erledigt markiert')}
+        ${zeile(altN('Sistiert'), 'nicht enthaltene Massnahmen werden sistiert')}
+        ${zeile(altN('Gestrichen'), 'nicht enthaltene Massnahmen werden gestrichen')}
+        ${zeile(altN('bleibt'), 'nicht enthaltene Massnahmen bleiben unverändert')}
+      </ul>
+      <div class="info-box compact">${ICON.info}<div>Beim Überschreiben werden Name, Beschreibung, Status und Bemerkung aus der Datei übernommen. Leere Felder in der Datei lassen den bisherigen Wert unverändert.</div></div>`;
+    foot = `<button class="btn btn-outline" data-action="import-step" data-step="2">Zurück</button><span class="spacer"></span>
+      <button class="btn btn-primary" data-action="import-run">Import durchführen</button>`;
+  }
+  return `${drawerHead(`Nachführung ${esc(p.gemeinde)}`, 'Massnahmen aus CSV importieren')}
+    <div class="drawer-body">${stepper}${body}</div>
+    <div class="drawer-foot">${foot}</div>`;
+}
+
+function importAusfuehren(p) {
+  const imp = state.import;
+  let ueber = 0, neu = 0, alt = 0;
+  imp.rows.forEach((r, i) => {
+    const z = imp.ziel[i];
+    if (z === 'skip') return;
+    if (z === 'neu') {
+      p.massnahmen.push(neueMassnahme({ esNr: r.esNr, name: r.name, beschreibung: r.beschreibung, status: r.status || 'Geplant', bemerkung: r.bemerkung, ausEpa: 'Nein', weiterfuehren: isClosedStatus(r.status) ? 'Nein' : 'Ja' }));
+      neu++;
+      return;
+    }
+    const m = p.massnahmen.find(x => x.id === z);
+    if (!m) return;
+    ['esNr', 'name', 'beschreibung', 'status', 'bemerkung'].forEach(k => { if (r[k]) m[k] = r[k]; });
+    if (isClosedStatus(m.status)) m.weiterfuehren = 'Nein';
+    ueber++;
+  });
+  importNichtErwaehnt(p).forEach(m => {
+    const a = imp.alt[m.id] || 'bleibt';
+    if (a === 'bleibt') return;
+    m.status = a;
+    if (isClosedStatus(a)) m.weiterfuehren = 'Nein';
+    alt++;
+  });
+  return { ueber, neu, alt };
+}
+
+function rerenderDrawerKeepScroll() {
+  const b = document.querySelector('.drawer-body');
+  const top = b ? b.scrollTop : 0;
+  renderDrawer();
+  const nb = document.querySelector('.drawer-body');
+  if (nb) nb.scrollTop = top;
 }
 
 function drawerHead(eyebrow, title) {
@@ -1700,12 +1871,17 @@ const actions = {
   },
   'delete-planung': () => {
     const p = currentPlanung();
-    if (!confirm(`Energieplanung ${p.gemeinde} (${p.id}) wirklich löschen? Alle Massnahmen und Nachführungen gehen verloren.`)) return;
-    planungen.splice(planungen.indexOf(p), 1);
-    state.planungId = null;
-    state.editing = null;
-    toast(`Energieplanung ${p.gemeinde} wurde gelöscht.`);
-    render();
+    askConfirm({
+      titel: `Energieplanung ${p.gemeinde} löschen?`, danger: true, ok: 'Endgültig löschen',
+      text: `<p>Die Energieplanung <strong>${esc(p.gemeinde)}</strong> (${esc(p.id)}) wird gelöscht. Alle Massnahmen und Nachführungen gehen verloren.</p>`,
+      onOk: () => {
+        planungen.splice(planungen.indexOf(p), 1);
+        state.planungId = null;
+        state.editing = null;
+        toast(`Energieplanung ${p.gemeinde} wurde gelöscht.`);
+        render();
+      }
+    });
   },
 
   /* --- EPA-Beratung --- */
@@ -1760,20 +1936,25 @@ const actions = {
     Object.assign(probe.controlling, values);
     const missing = fehlend(PFLICHT_CONTROLLING, probe);
     if (strict && missing.length) { showFormErrors(el.closest('.form-box'), missing); return; }
-    if (close) {
-      const first = addYears(TODAY, NACHFUEHRUNG_INTERVALL_JAHRE);
-      if (!confirm(`EPA-Beratung ${p.gemeinde} abschliessen?\n\nDamit beginnt der Nachführungsrhythmus. Die erste Nachführung ist am ${fmtDate(toIso(first))} fällig.`)) return;
-    }
-    const jahr = fromIso(values.gesuchseingang || todayIso()).getFullYear();
-    if (values.gesuchsNr && values.gesuchsNr === vorschlagGesuchsNr(jahr)) gesuchsLaufNr[jahr] = (gesuchsLaufNr[jahr] || 0) + 1;
-    Object.assign(p.controlling, values);
-    state.editing = null;
-    if (close) {
-      p.epa.status = 'Abschluss';
-      p.epa.abgeschlossenAm = todayIso();
-      toast(`EPA-Beratung ${p.gemeinde} abgeschlossen. Die Nachführung startet in ${NACHFUEHRUNG_INTERVALL_JAHRE} Jahren.`);
-    } else toast('Angaben zum Fördergesuch gespeichert.');
-    render();
+    const speichern = () => {
+      const jahr = fromIso(values.gesuchseingang || todayIso()).getFullYear();
+      if (values.gesuchsNr && values.gesuchsNr === vorschlagGesuchsNr(jahr)) gesuchsLaufNr[jahr] = (gesuchsLaufNr[jahr] || 0) + 1;
+      Object.assign(p.controlling, values);
+      state.editing = null;
+      if (close) {
+        p.epa.status = 'Abschluss';
+        p.epa.abgeschlossenAm = todayIso();
+        toast(`EPA-Beratung ${p.gemeinde} abgeschlossen. Die Nachführung startet in ${NACHFUEHRUNG_INTERVALL_JAHRE} Jahren.`);
+      } else toast('Angaben zum Fördergesuch gespeichert.');
+      render();
+    };
+    if (!close) { speichern(); return; }
+    const first = addYears(TODAY, NACHFUEHRUNG_INTERVALL_JAHRE);
+    askConfirm({
+      titel: `EPA-Beratung ${p.gemeinde} abschliessen?`, ok: 'EPA-Beratung abschliessen',
+      text: `<p>Mit dem Abschluss beginnt der Nachführungsrhythmus.</p><dl class="dialog-facts"><div><dt>Erste Nachführung fällig</dt><dd>${fmtDate(toIso(first))}</dd></div></dl>`,
+      onOk: speichern
+    });
   },
 
   /* --- Massnahmen --- */
@@ -1822,13 +2003,18 @@ const actions = {
   'delete-massnahme': () => {
     const p = currentPlanung();
     const m = p.massnahmen.find(x => x.id === state.drawer.id);
-    if (!confirm(`Massnahme «${m.name}» wirklich löschen?\n\nTipp: Wird eine Massnahme nicht umgesetzt, setzen Sie besser den Status «Gestrichen» – so bleibt der Verlauf erhalten.`)) return;
-    p.massnahmen = p.massnahmen.filter(x => x.id !== m.id);
-    const lauf = p.laufendeNachfuehrung;
-    if (lauf) ['zuPruefen', 'geprueft', 'neu'].forEach(k => { lauf[k] = lauf[k].filter(id => id !== m.id); });
-    state.drawer = null;
-    toast('Massnahme gelöscht.');
-    render();
+    askConfirm({
+      titel: 'Massnahme löschen?', danger: true, ok: 'Endgültig löschen',
+      text: `<p>Die Massnahme <strong>«${esc(m.name)}»</strong> wird gelöscht.</p><div class="dialog-tip">${ICON.info}<span>Tipp: Wird eine Massnahme nicht umgesetzt, setzen Sie besser den Status «Gestrichen» – so bleibt der Verlauf erhalten.</span></div>`,
+      onOk: () => {
+        p.massnahmen = p.massnahmen.filter(x => x.id !== m.id);
+        const lauf = p.laufendeNachfuehrung;
+        if (lauf) ['zuPruefen', 'geprueft', 'neu'].forEach(k => { lauf[k] = lauf[k].filter(id => id !== m.id); });
+        state.drawer = null;
+        toast('Massnahme gelöscht.');
+        render();
+      }
+    });
   },
   'close-drawer': () => { state.drawer = null; renderDrawer(); },
 
@@ -1837,10 +2023,36 @@ const actions = {
     const p = currentPlanung();
     const st = nachfuehrungStatus(p);
     const due = naechsteNachfuehrung(p);
-    if (st === 'ok' && !confirm(`Die Nachführung ist erst am ${fmtDate(toIso(due))} fällig. Trotzdem jetzt starten?`)) return;
-    starteNachfuehrung(p);
-    state.reviewId = null;
-    toast(`Nachführung ${due.getFullYear()} gestartet.`);
+    const starten = () => {
+      starteNachfuehrung(p);
+      state.reviewId = null;
+      toast(`Nachführung ${due.getFullYear()} gestartet.`);
+      render();
+    };
+    if (st !== 'ok') { starten(); return; }
+    askConfirm({
+      titel: 'Nachführung vorzeitig starten?', ok: 'Jetzt starten',
+      text: `<p>Die Nachführung ist erst am <strong>${fmtDate(toIso(due))}</strong> fällig. Möchten Sie trotzdem jetzt starten?</p>`,
+      onOk: starten
+    });
+  },
+  /* --- CSV-Import der Massnahmen --- */
+  'import-open': () => { state.import = { step: 1, datei: '', rows: [], auto: [], ziel: [], alt: {}, fehler: '' }; state.drawer = { type: 'import' }; renderDrawer(); },
+  'import-demo': () => { const p = currentPlanung(); importStarten(p, importDemoZeilen(p), 'Beispieldatei_Massnahmen.csv'); renderDrawer(); },
+  'import-step': el => { state.import.step = Number(el.dataset.step); renderDrawer(); },
+  'import-template': () => {
+    const csv = '\uFEFF' + [IMPORT_SPALTEN.join(';'), '1.2.1;Beispiel-Massnahme;Kurze Beschreibung;In Umsetzung;Aktueller Stand'].join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'Vorlage_Massnahmen.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  },
+  'import-run': () => {
+    const p = currentPlanung();
+    const r = importAusfuehren(p);
+    state.drawer = null; state.import = null;
+    toast(`Import abgeschlossen: ${r.ueber} überschrieben, ${r.neu} neu, ${r.alt} angepasst.`);
     render();
   },
   'nf-select': el => { state.reviewId = el.dataset.id; render(); scrollToReviewCard(); },
@@ -1862,7 +2074,6 @@ const actions = {
     const missing = [];
     if (!status) missing.push(['nf-status', 'Aktueller Stand']);
     if (!closed && !weiter) missing.push(['nf-weiter', 'Weiterführung']);
-    if (!bemerkung) missing.push(['nf-bemerkung', 'Bemerkungen / aktueller Stand']);
     if (missing.length) { showFormErrors(document.querySelector('#review-card .form-box'), missing); return; }
     pruefeMassnahme(p, m, { status, weiterfuehren: weiter, bemerkung });
     const next = naechstePruefungMassnahme(p, m);
@@ -1888,12 +2099,22 @@ const actions = {
     }
     const nextDue = addYears(TODAY, NACHFUEHRUNG_INTERVALL_JAHRE);
     const jahr = fromIso(lauf.faelligAm).getFullYear();
-    if (!confirm(`Nachführung ${jahr} abschliessen?\n\n${plural(lauf.geprueft.length, 'Massnahme', 'Massnahmen')} überprüft${lauf.neu.length ? `, ${lauf.neu.length} neu erfasst` : ''}.\nNächste Nachführung: ${nextDue.getFullYear() > NACHFUEHRUNG_ENDE_JAHR ? 'keine mehr' : fmtDate(toIso(nextDue))}.`)) return;
-    schliesseNachfuehrungAb(p);
-    state.reviewId = null;
-    toast(`Nachführung ${jahr} abgeschlossen.`);
-    render();
-    $panel.scrollTop = 0;
+    const keine = nextDue.getFullYear() > NACHFUEHRUNG_ENDE_JAHR;
+    askConfirm({
+      titel: `Nachführung ${jahr} abschliessen?`, ok: 'Nachführung abschliessen',
+      text: `<dl class="dialog-facts">
+        <div><dt>Überprüft</dt><dd>${plural(lauf.geprueft.length, 'Massnahme', 'Massnahmen')}</dd></div>
+        ${lauf.neu.length ? `<div><dt>Neu erfasst</dt><dd>${plural(lauf.neu.length, 'Massnahme', 'Massnahmen')}</dd></div>` : ''}
+        <div><dt>Nächste Nachführung</dt><dd>${keine ? 'keine mehr nötig' : fmtDate(toIso(nextDue))}</dd></div>
+      </dl>`,
+      onOk: () => {
+        schliesseNachfuehrungAb(p);
+        state.reviewId = null;
+        toast(`Nachführung ${jahr} abgeschlossen.`);
+        render();
+        $panel.scrollTop = 0;
+      }
+    });
   },
 
   /* --- Kontakte --- */
@@ -1911,11 +2132,17 @@ const actions = {
   },
   'delete-kontakt': () => {
     const c = contacts[state.drawer.id];
-    if (!confirm(`Kontakt ${c.vorname} ${c.nachname} wirklich löschen?`)) return;
-    contacts.splice(state.drawer.id, 1);
-    state.drawer = null;
-    toast('Kontakt gelöscht.');
-    render();
+    const idx = state.drawer.id;
+    askConfirm({
+      titel: 'Kontakt löschen?', danger: true, ok: 'Löschen',
+      text: `<p>Der Kontakt <strong>${esc(c.vorname)} ${esc(c.nachname)}</strong> wird gelöscht.</p>`,
+      onOk: () => {
+        contacts.splice(idx, 1);
+        state.drawer = null;
+        toast('Kontakt gelöscht.');
+        render();
+      }
+    });
   },
 };
 
@@ -1957,6 +2184,27 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.matches('input[type=file][data-doc]')) { docUpload(t); return; }
+  if (state.import) {
+    if (t.matches('input[type=file][data-import-file]')) {
+      const f = t.files[0];
+      if (!f) return;
+      f.text().then(txt => {
+        const rows = parseCsv(txt);
+        const items = rows.length ? csvZuMassnahmen(rows) : null;
+        if (!items || !items.length) { state.import.fehler = 'Die Datei konnte nicht gelesen werden: Es braucht eine Kopfzeile mit der Spalte «Massnahme» und mindestens eine Zeile.'; renderDrawer(); return; }
+        importStarten(currentPlanung(), items, f.name);
+        renderDrawer();
+      });
+      return;
+    }
+    if (t.dataset.impZiel !== undefined) { state.import.ziel[Number(t.dataset.impZiel)] = t.value; rerenderDrawerKeepScroll(); return; }
+    if (t.dataset.impAlt !== undefined) { state.import.alt[t.dataset.impAlt] = t.value; return; }
+    if (t.matches('[data-imp-alt-all]')) {
+      if (t.value) importNichtErwaehnt(currentPlanung()).forEach(m => { state.import.alt[m.id] = t.value; });
+      rerenderDrawerKeepScroll();
+      return;
+    }
+  }
   // Bei "Erledigt"/"Gestrichen" entfällt die Frage nach der Weiterführung.
   if (t.name === 'nf-status' || t.id === 'f-m-status') {
     const closed = isClosedStatus(t.value);
@@ -1975,6 +2223,31 @@ function clearFieldError(t) {
   if (msg) msg.remove();
   const box = f.closest('.form-box');
   if (box && !box.querySelector('.has-error')) { const b = box.querySelector('.form-error-banner'); if (b) b.remove(); }
+}
+
+/* ---------------------- BESTÄTIGUNGSDIALOG ---------------------- */
+// Ersetzt window.confirm(): { titel, text (HTML, Inhalte vorher escapen), ok, danger, onOk }
+function askConfirm({ titel, text, ok = 'Bestätigen', danger = false, onOk }) {
+  let root = document.getElementById('dialog-root');
+  if (!root) { root = document.createElement('div'); root.id = 'dialog-root'; document.body.appendChild(root); }
+  const close = () => { root.innerHTML = ''; };
+  root.innerHTML = `<div class="dialog-backdrop" data-dlg="cancel"></div>
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title">
+      <h2 id="dlg-title">${esc(titel)}</h2>
+      <div class="dialog-text">${text}</div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-outline" data-dlg="cancel">Abbrechen</button>
+        <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-dlg="ok">${esc(ok)}</button>
+      </div>
+    </div>`;
+  root.onclick = e => {
+    const btn = e.target.closest('[data-dlg]');
+    if (!btn) return;
+    close();
+    if (btn.dataset.dlg === 'ok') onOk();
+  };
+  root.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  root.querySelector('[data-dlg="ok"]').focus();
 }
 
 /* ---------------------- HAUPT-NAVIGATION ---------------------- */
