@@ -16,6 +16,8 @@ const ICON = {
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>',
   back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-18-5.5 5.5 1.41 1.41L11 5.83V16h2V5.83l3.09 3.08 1.41-1.41L12 2z"/></svg>',
+  down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12.17l5.59-5.58L19 12l-7 7-7-7 1.41-1.41L11 16.17V4z"/></svg>',
   chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>',
   clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>',
@@ -36,14 +38,17 @@ const state = {
   planungId: null,            // gesetzt = Dossier einer Energieplanung offen
   detailTab: 'energieplanung',
   editing: null,              // 'stammdaten' | 'epa-<Stufe>' | 'controlling'
-  list: { search: '', phase: '', aufgabe: '', nurMeine: true },
+  list: { search: '', phase: '', aufgabe: '', nurMeine: true, sort: { key: 'gemeinde', dir: 'asc' } },
   mass: { filter: 'offen', search: '' },
   reviewId: null,             // aktuell geöffnete Massnahme im Nachführungs-Durchgang
   drawer: null,               // { type: 'massnahme' | 'neuePlanung' | 'kontakt', id, mode }
   reportView: null,
   contactSearch: '',
+  contactSort: { key: 'name', dir: 'asc' },
   layoutMode: 'data',
   processOpen: false,
+  hilfeOpen: false,
+  epaOpen: {},                // aufgeklappte, erledigte Stufen der EPA-Beratung
 };
 
 const $panel = document.getElementById('panel-content');
@@ -82,13 +87,60 @@ function phaseBadge(p) {
   return `<span class="phase-badge phase-${ph}${warn ? ' is-warn' : ''}"><span class="phase-nr">${PHASEN[ph].nr}</span>${PHASEN[ph].label}${sub ? `<span class="phase-sub">· ${esc(sub)}</span>` : ''}</span>`;
 }
 
+// Eine Metazeile: Balken + Phase (+ Rückblick nur bei Nachführungs-Aufgaben).
+function phaseTrack(p, kontext) {
+  const ph = phaseOf(p), nr = PHASEN[ph].nr;
+  return `<span class="phase-track" title="Phase ${nr} von 4: ${esc(PHASEN[ph].label)}">
+    <span class="pt-dots">${Object.values(PHASEN).map(x => `<i class="${x.nr < nr ? 'done' : x.nr === nr ? 'now' : ''}"></i>`).join('')}</span>
+    Phase ${nr} von 4${kontext ? ` · ${esc(kontext)}` : ''}</span>`;
+}
+
+const GLOSSAR = [
+  ['Energieplanung (EPA)', 'Das Planungsdokument einer Gemeinde mit den Massnahmen für ihre Energieversorgung.'],
+  ['EPA-Beratung', 'Die Beratung, in der Berater/in und Gemeinde die Massnahmen gemeinsam erarbeiten.'],
+  ['Massnahme', 'Ein einzelnes Vorhaben der Gemeinde, z. B. «Wärmeverbund prüfen».'],
+  ['Verabschiedung', 'Der Gemeinderat beschliesst die Energieplanung offiziell.'],
+  ['Nachführung', 'Alle 4 Jahre: Stand der Massnahmen überprüfen und aktualisieren.'],
+];
+
+// Fachbegriffe im (bereits escapten) Text mit Tooltip versehen.
+function mitTooltips(html) {
+  return GLOSSAR_TIPPS.reduce((h, [re, tip]) => h.replace(re, m => `<abbr class="term" title="${esc(tip)}" tabindex="0">${m}</abbr>`), html);
+}
+const GLOSSAR_TIPPS = [
+  [/EPA-Beratung/, GLOSSAR[1][1]],
+  [/Nachführung(?!en)/, GLOSSAR[4][1]],
+  [/Verabschiedung/, GLOSSAR[3][1]],
+];
+
+function istUeberfaellig(a) { return !!a.termin && a.key !== 'controlling' && fromIso(a.termin) <= TODAY; }
+
+// Rückblick (kurz): nur sinnvoll, wenn schon eine Nachführung stattgefunden hat.
+function kontextZeile(p) {
+  const last = p.nachfuehrungen[p.nachfuehrungen.length - 1];
+  return last ? `letzte Nachführung ${last.jahr}` : '';
+}
+
+// Nur wo der Titel allein nicht reicht: was konkret fehlt. Sonst tragen Titel und Button die Aussage.
+function kurzText(p, a) {
+  if (a.key === 'stammdaten') return `Es fehlt: ${fehlend(PFLICHT_STAMMDATEN, p).map(f => f[1]).join(', ')}`;
+  return '';
+}
+
+function fortschrittBalken(p) {
+  const l = p.laufendeNachfuehrung;
+  if (!l || !l.zuPruefen.length) return '';
+  const n = l.zuPruefen.filter(id => l.geprueft.includes(id)).length, t = l.zuPruefen.length;
+  return `<span class="todo-progress"><span class="bar"><i style="width:${Math.round(n / t * 100)}%"></i></span>${n} von ${t} Massnahmen geprüft</span>`;
+}
+
 function terminLabel(a) {
   if (!a.termin) return '';
   const d = fromIso(a.termin);
   if (a.key === 'controlling') return `Eingereicht ${fmtDate(a.termin)}`;
   if (d <= TODAY) {
     const tage = daysBetween(d, TODAY);
-    return `Fällig seit ${tage > 60 ? fmtDate(a.termin) : plural(tage, 'Tag', 'Tagen')}`;
+    return `Überfällig seit ${tage > 60 ? fmtDate(a.termin) : plural(tage, 'Tag', 'Tagen')}`;
   }
   return `Fällig am ${fmtDate(a.termin)}`;
 }
@@ -208,6 +260,7 @@ function render() {
   else if (state.tab === 'kontakte') renderKontakte();
   else if (state.tab === 'auswertungen') renderAuswertungen();
   renderDrawer();
+  syncUrl();
 }
 
 /* =============================================================
@@ -219,43 +272,73 @@ function renderStart() {
 }
 
 // Berater: eine kurze, flache Liste – pro Gemeinde höchstens eine Zeile.
+function todoCard({ p, a }, wartet) {
+  const tone = wartet ? 'wait' : a.art === 'info' ? 'info' : a.key.startsWith('nachfuehrung') ? 'warn' : 'action';
+  const ueber = !wartet && istUeberfaellig(a);
+  const fristHtml = wartet ? ''
+    : a.termin ? `<span class="todo-date${ueber ? ' is-overdue' : ''}">${ueber ? ICON.warn : ''}${terminLabel(a)}</span>`
+    : '<span class="todo-date is-none">Keine Frist</span>';
+  return `<li><button class="todo-card tone-${tone}" data-action="open-planung" data-id="${p.id}">
+    <span class="todo-main">
+      <span class="todo-gemeinde">${esc(p.gemeinde)}</span>
+      <span class="todo-title">${mitTooltips(esc(a.titel))}</span>
+      ${kurzText(p, a) ? `<span class="todo-text">${mitTooltips(esc(kurzText(p, a)))}</span>` : ''}
+      ${fortschrittBalken(p)}
+      ${phaseTrack(p, a.key === 'nachfuehrung-faellig' ? kontextZeile(p) : '')}
+    </span>
+    <span class="todo-side">
+      ${fristHtml}
+      <span class="btn ${tone === 'action' || tone === 'warn' ? 'btn-primary' : 'btn-outline'} btn-sm">${esc(a.cta)}${ICON.arrow}</span>
+    </span>
+  </button></li>`;
+}
+
+function renderHilfePanel() {
+  if (!state.hilfeOpen) return '';
+  return `<aside class="hilfe-panel">
+    <ol class="mini-phases-row">${Object.values(PHASEN).map(x => `<li><span class="mini-nr">${x.nr}</span>${esc(x.label)}</li>`).join('')}</ol>
+    <dl>${GLOSSAR.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>
+  </aside>`;
+}
+
 function renderStartBerater() {
   const prio = key => AUFGABEN_TYPEN.findIndex(t => t.key === key);
   const meine = planungenFuerRolle('Berater').map(p => ({ p, a: naechsteAktion(p) }));
-  const todo = meine
-    .filter(x => x.a.wer === 'Berater' && x.a.art !== 'ok')
-    .sort((x, y) => prio(x.a.key) - prio(y.a.key) || (x.a.termin || '9999').localeCompare(y.a.termin || '9999'));
-  const rest = meine.filter(x => !todo.includes(x)).sort((x, y) => x.p.gemeinde.localeCompare(y.p.gemeinde));
+  const alle = meine.filter(x => x.a.wer === 'Berater' && x.a.art !== 'ok');
+  // Überfällige zuerst, dann nach Frist, dann nach Priorität des Aufgabentyps.
+  const sortKey = x => [istUeberfaellig(x.a) ? 0 : 1, x.a.termin || '9999', String(prio(x.a.key)).padStart(2, '0')].join('|');
+  const sortiert = alle.slice().sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
+  const wartet = sortiert.filter(x => x.a.key === 'verabschiedung');
+  const todo = sortiert.filter(x => !wartet.includes(x));
+  const rest = meine.filter(x => !alle.includes(x)).sort((x, y) => x.p.gemeinde.localeCompare(y.p.gemeinde));
   const vorname = ANGEMELDETER_BERATER.split(' ')[0];
   const dringend = todo.filter(x => x.a.art === 'aufgabe').length;
 
   $panel.innerHTML = `<div class="page page-narrow">
-    <header class="hero">
+    <header class="hero hero-row">
+      <div>
       <h1>Guten Tag, ${esc(vorname)}</h1>
       <p>Sie betreuen ${plural(meine.length, 'Energieplanung', 'Energieplanungen')}.
-        ${dringend ? `<strong>${dringend === 1 ? 'Eine braucht' : `${dringend} brauchen`} jetzt Ihre Aufmerksamkeit.</strong>` : 'Aktuell ist nichts zu tun.'}</p>
+        ${dringend ? `<strong>${dringend === 1 ? 'Eine braucht' : `${dringend} brauchen`} jetzt Ihre Aufmerksamkeit.</strong>` : 'Aktuell ist nichts zu tun.'}
+        ${wartet.length ? `${wartet.length === 1 ? 'Eine wartet' : `${wartet.length} warten`} auf den Gemeinderat.` : ''}</p>
+      </div>
+      <button class="link-btn hilfe-btn${state.hilfeOpen ? ' is-open' : ''}" data-action="toggle-hilfe" aria-expanded="${!!state.hilfeOpen}">${ICON.info}Benötigen Sie Hilfe?</button>
     </header>
+    ${renderHilfePanel()}
 
     ${todo.length ? `<section class="block">
       <h2 class="block-title">Zu erledigen</h2>
-      <ul class="todo-list">${todo.map(({ p, a }) => {
-        const tone = a.art === 'info' ? 'info' : a.key.startsWith('nachfuehrung') ? 'warn' : 'action';
-        return `<li><button class="todo-card tone-${tone}" data-action="open-planung" data-id="${p.id}">
-          <span class="todo-main">
-            <span class="todo-gemeinde">${esc(p.gemeinde)}</span>
-            <span class="todo-title">${esc(a.titel)}</span>
-            <span class="todo-text">${esc(a.text)}</span>
-          </span>
-          <span class="todo-side">
-            ${a.termin ? `<span class="todo-date">${terminLabel(a)}</span>` : ''}
-            <span class="btn ${tone === 'info' ? 'btn-outline' : 'btn-primary'} btn-sm">${esc(a.cta)}${ICON.arrow}</span>
-          </span>
-        </button></li>`;
-      }).join('')}</ul>
+      <ul class="todo-list">${todo.map(x => todoCard(x, false)).join('')}</ul>
     </section>` : `<div class="empty-card">${ICON.check}<div><strong>Alles erledigt.</strong><div>Die App meldet sich hier, sobald wieder etwas ansteht – z.B. die nächste Nachführung.</div></div></div>`}
 
+    ${wartet.length ? `<section class="block">
+      <h2 class="block-title">Wartet auf die Gemeinde</h2>
+      <ul class="todo-list">${wartet.map(x => todoCard(x, true)).join('')}</ul>
+    </section>` : ''}
+
+
     ${rest.length ? `<section class="block">
-      <h2 class="block-title">Ihre übrigen Energieplanungen</h2>
+      <h2 class="block-title">Ihre übrigen Energieplanungen <span class="block-sub">· hier ist nichts zu tun</span></h2>
       <ul class="mine-list">${rest.map(({ p, a }) => `<li><button class="mine-row" data-action="open-planung" data-id="${p.id}">
         <span class="mine-gemeinde">${esc(p.gemeinde)}</span>
         ${phaseBadge(p)}
@@ -266,7 +349,6 @@ function renderStartBerater() {
       </button></li>`).join('')}</ul>
     </section>` : ''}
 
-    ${renderProzess()}
   </div>`;
 }
 
@@ -350,8 +432,31 @@ function filteredPlanungen() {
     .filter(p => !q || [p.gemeinde, p.id, p.berater, p.typ].some(v => String(v).toLowerCase().includes(q)))
     .filter(p => matchesPhase(p, state.list.phase))
     .filter(p => !state.list.aufgabe || naechsteAktion(p).key === state.list.aufgabe)
-    .sort((a, b) => a.gemeinde.localeCompare(b.gemeinde));
+    .sort(comparePlanungen);
 }
+
+// Sortierbare Spalten der Tabelle. Leere Termine stehen immer am Ende, Gleichstände werden nach Gemeinde sortiert.
+const PLANUNG_SPALTEN = [
+  { key: 'gemeinde', label: 'Gemeinde', value: p => p.gemeinde },
+  { key: 'phase', label: 'Prozessschritt', value: p => PHASEN[phaseOf(p)].nr },
+  { key: 'naechster', label: 'Nächster Schritt', value: p => naechsteAktion(p).titel },
+  { key: 'termin', label: 'Termin', value: p => naechsteAktion(p).termin || '' },
+];
+// Gemeinsam für alle sortierbaren Tabellen: Leere Werte stehen immer am Ende.
+function compareBy(cols, sort, a, b, fallback) {
+  const col = cols.find(c => c.key === sort.key) || cols[0];
+  const va = col.value(a), vb = col.value(b);
+  if (va === '' && vb !== '') return 1;
+  if (vb === '' && va !== '') return -1;
+  const c = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'de');
+  return (sort.dir === 'desc' ? -c : c) || fallback(a, b);
+}
+function comparePlanungen(a, b) { return compareBy(PLANUNG_SPALTEN, state.list.sort, a, b, (x, y) => x.gemeinde.localeCompare(y.gemeinde)); }
+function sortHeader(c, sort, action) {
+  const aktiv = sort.key === c.key;
+  return `<th aria-sort="${aktiv ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button class="th-sort${aktiv ? ' is-sorted' : ''}" data-action="${action}" data-key="${c.key}">${c.label}<span class="sort-ind" aria-hidden="true">${aktiv ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span></button></th>`;
+}
+function nextSort(sort, key) { return { key, dir: sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc' }; }
 
 function renderPlanungList() {
   const aufgabeTyp = AUFGABEN_TYPEN.find(t => t.key === state.list.aufgabe);
@@ -385,7 +490,7 @@ function renderPlanungResults() {
   const list = filteredPlanungen();
   if (!list.length) return `<div class="empty-state">Keine Energieplanungen gefunden.</div>`;
   return `<div class="table-scroll"><table class="data-table planung-table">
-    <thead><tr><th>Gemeinde</th><th>Prozessschritt</th><th>Nächster Schritt</th><th>Termin</th></tr></thead>
+    <thead><tr>${PLANUNG_SPALTEN.map(c => sortHeader(c, state.list.sort, 'list-sort')).join('')}</tr></thead>
     <tbody>
       ${list.map(p => {
         const a = naechsteAktion(p);
@@ -408,7 +513,6 @@ const DETAIL_TABS = [
   { key: 'energieplanung', nr: 1, label: 'Energieplanung' },
   { key: 'epa', nr: 2, label: 'EPA-Beratung' },
   { key: 'foerderung', nr: 3, label: 'Förderung' },
-  { key: 'massnahmen', label: 'Massnahmen' },
   { key: 'nachfuehrung', nr: 4, label: 'Nachführung' },
 ];
 
@@ -437,17 +541,22 @@ function renderDossier() {
         <h1 class="page-title">Energieplanung ${esc(p.gemeinde)}</h1>
         <div class="dossier-meta">Berater/in: ${show(p.berater)} <span class="dot">·</span> Gemeinde: ${show(p.verantwortlichGemeinde)}</div>
       </div>
-      ${phaseBadge(p)}
     </div>
-    ${renderJourney(p)}
     ${renderNextStep(p, a)}
-    <nav class="tabs" id="detail-tabs" role="tablist">
-      ${DETAIL_TABS.map(t => `<button role="tab" aria-selected="${state.detailTab === t.key}" class="tab${state.detailTab === t.key ? ' active' : ''}" data-action="detail-tab" data-tab="${t.key}">
-        ${t.nr ? `<span class="tab-nr">${t.nr}</span>` : ''}${t.label}
-        ${t.key === 'massnahmen' ? `<span class="tab-count">${p.massnahmen.length}</span>` : ''}
-        ${a.art === 'aufgabe' && a.wer === state.role && a.tab === t.key ? '<span class="tab-dot" title="Hier ist etwas zu tun"></span>' : ''}
-      </button>`).join('')}
+    <div class="tabs-wrap">
+    <nav class="tabs" id="detail-tabs" role="tablist" aria-label="Phasen der Energieplanung">
+      ${(() => { const steps = Object.fromEntries(journeySteps(p).map(x => [x.tab, x])); return DETAIL_TABS.map(t => {
+        const st = steps[t.key];
+        const marker = !t.nr ? '' : st.st === 'done' ? `<span class="tab-nr is-done">${ICON.check}</span>` : `<span class="tab-nr is-${st.st}">${t.nr}</span>`;
+        // Zuständigkeit nur zeigen, wenn die aktuelle Phase nicht bei mir liegt.
+        const fremd = st && st.st !== 'done' && st.st !== 'upcoming' && st.wer !== state.role ? `<span class="tab-who">· ${esc(WER_LABEL[st.wer])}</span>` : '';
+        return `<button role="tab" aria-selected="${state.detailTab === t.key}" class="tab${state.detailTab === t.key ? ' active' : ''}" data-action="detail-tab" data-tab="${t.key}"${st ? ` title="${esc(st.sub)}"` : ''}>
+          ${marker}${t.label}${fremd}
+            ${a.art === 'aufgabe' && a.wer === state.role && a.tab === t.key ? '<span class="tab-dot" title="Hier ist etwas zu tun"></span>' : ''}
+        </button>`; }).join(''); })()}
     </nav>
+    ${state.detailTab === 'nachfuehrung' && p.epa.status === 'Abschluss' ? renderZyklus(p) : ''}
+    </div>
     <div class="tab-body" role="tabpanel">${renderDetailTab(p)}</div>
   </div>`;
 }
@@ -474,35 +583,18 @@ function journeySteps(p) {
   ];
 }
 
-function renderJourney(p) {
-  return `<ol class="journey" aria-label="Lebenszyklus der Energieplanung">
-    ${journeySteps(p).map(s => `<li class="journey-step st-${s.st}${state.detailTab === s.tab ? ' is-viewing' : ''}">
-      <button data-action="detail-tab" data-tab="${s.tab}">
-        <span class="journey-marker">${s.st === 'done' ? ICON.check : s.nr}</span>
-        <span class="journey-text">
-          <span class="journey-title">${esc(s.titel)}</span>
-          <span class="journey-sub">${esc(s.sub)}</span>
-          <span class="who-chip who-${s.wer.toLowerCase()}">${WER_LABEL[s.wer]}</span>
-        </span>
-      </button>
-    </li>`).join('')}
-  </ol>`;
-}
-
 function renderNextStep(p, a) {
   const mine = a.wer === state.role;
   const tone = a.art === 'ok' ? 'ok' : a.art === 'info' ? 'info' : !mine ? 'wait' : a.key.startsWith('nachfuehrung') ? 'warn' : 'action';
-  const icon = { ok: ICON.check, wait: ICON.clock, warn: ICON.warn, info: ICON.clock, action: ICON.arrow }[tone];
   const eyebrow = a.art === 'ok' ? 'Status' : mine ? 'Ihr nächster Schritt' : `Nächster Schritt · zuständig: ${WER_LABEL[a.wer]}`;
-  const text = !mine && a.art === 'aufgabe' ? `${a.text} Für Sie als ${ROLLEN[state.role].label} gibt es hier aktuell nichts zu tun.` : a.text;
-  return `<div class="next-step tone-${tone}">
-    <div class="next-step-icon">${icon}</div>
+  const hint = !mine && a.art === 'aufgabe' ? 'Für Sie gibt es hier aktuell nichts zu tun.' : '';
+  return `<div class="next-step tone-${tone}" title="${esc(a.text)}">
     <div class="next-step-body">
       <div class="next-step-eyebrow">${esc(eyebrow)}</div>
       <div class="next-step-title">${esc(a.titel)}</div>
-      <div class="next-step-text">${esc(text)}</div>
+      ${hint ? `<div class="next-step-text">${hint}</div>` : ''}
     </div>
-    ${mine && a.cta ? `<button class="btn btn-primary" data-action="detail-tab" data-tab="${a.tab}" data-scroll="1">${esc(a.cta)}${ICON.arrow}</button>` : ''}
+    ${mine && a.cta ? `<button class="next-step-link" data-action="detail-tab" data-tab="${a.tab}" data-scroll="1">Zur Aufgabe${ICON.down}</button>` : ''}
   </div>`;
 }
 
@@ -511,7 +603,6 @@ function renderDetailTab(p) {
     case 'energieplanung': return renderTabEnergieplanung(p);
     case 'epa': return renderTabEpa(p);
     case 'foerderung': return renderTabFoerderung(p);
-    case 'massnahmen': return renderTabMassnahmen(p);
     case 'nachfuehrung': return renderTabNachfuehrung(p);
   }
   return '';
@@ -529,7 +620,7 @@ function renderTabEnergieplanung(p) {
   const isMissing = id => fehl.some(f => f[0] === id);
   return `
     ${fehl.length ? `<div class="info-box tone-warn">${ICON.warn}<div><strong>${plural(fehl.length, 'Angabe fehlt', 'Angaben fehlen')} noch</strong>, damit die EPA-Beratung starten kann: ${fehl.map(f => esc(f[1])).join(', ')}.</div></div>` : ''}
-    <div class="card">
+    <div class="card" data-anchor="1">
       <div class="card-head"><h3>Grunddaten</h3><button class="btn btn-outline btn-sm" data-action="edit" data-section="stammdaten">${ICON.edit}Bearbeiten</button></div>
       <dl class="kv-list">
         ${kv('Gemeinde', p.gemeinde, isMissing('f-gemeinde'))}
@@ -556,7 +647,7 @@ function renderTabEnergieplanung(p) {
 }
 
 function formStammdaten(p) {
-  return `<div class="card form-box">
+  return `<div class="card form-box" data-anchor="1">
     <div class="card-head"><h3>Grunddaten bearbeiten</h3></div>
     <div class="form-grid">
       ${field({ id: 'f-gemeinde', label: 'Gemeinde', type: 'select', options: [['', 'Gemeinde wählen …'], ...GEMEINDEN], value: p.gemeinde, required: true })}
@@ -615,7 +706,20 @@ function renderTabEpa(p) {
       <button class="btn btn-primary" data-action="epa-start">EPA-Beratung jetzt starten${ICON.arrow}</button>
     </div>`;
   }
-  return `<ol class="vstepper">${EPA_STUFEN.map((s, i) => renderEpaStufe(p, s, i)).join('')}</ol>`;
+  return `<ol class="vstepper">${EPA_STUFEN.map((s, i) => renderEpaStufe(p, s, i)).join('')}</ol>
+    <section class="mass-section" id="massnahmen-section">
+      <h2 class="section-title">Massnahmen <span class="tab-count">${p.massnahmen.length}</span></h2>
+      ${renderTabMassnahmen(p)}
+    </section>`;
+}
+
+// Einzeiler für eingeklappte, erledigte Stufen.
+function epaStufeKurz(p, s) {
+  const e = p.epa;
+  if (s === 'Entwurf') return `${plural(p.massnahmen.length, 'Massnahme', 'Massnahmen')} · Beginn ${fmtDate(e.beratungsbeginn)}`;
+  if (s === 'Verabschiedung') return `verabschiedet am ${fmtDate(e.verabschiedetAm)}`;
+  if (s === 'Fördergesuch') return `eingereicht am ${fmtDate(e.gesuchEingereichtAm)}`;
+  return `abgeschlossen am ${fmtDate(e.abgeschlossenAm)}`;
 }
 
 function renderEpaStufe(p, s, i) {
@@ -623,23 +727,28 @@ function renderEpaStufe(p, s, i) {
   const info = EPA_STUFEN_INFO[s];
   const editing = state.editing === `epa-${s}`;
   const stLabel = { done: 'Erledigt', current: 'In Bearbeitung', waiting: 'Wartet auf den Kanton', upcoming: 'Ausstehend' }[st];
+  const einklappbar = st === 'done' && !editing;
+  const offen = !einklappbar || !!state.epaOpen[s];
   let body = '';
   if (s === 'Abschluss') body = epaAbschlussBody(p, st);
   else if (editing) body = epaStufeForm(p, s, 'edit');
   else if (st === 'current') body = epaStufeForm(p, s, 'advance');
   else if (st === 'done') body = epaStufeSummary(p, s);
-  return `<li class="vstep vstep-${st}${editing ? ' is-editing' : ''}">
+  const meta = einklappbar && !offen
+    ? `<span class="vstep-state">${stLabel}</span> · ${esc(epaStufeKurz(p, s))}`
+    : `<span class="vstep-state">${stLabel}</span> · zuständig: ${WER_LABEL[info.wer]}`;
+  const headInner = `<div class="vstep-title">${s}</div><div class="vstep-meta">${meta}</div>`;
+  return `<li class="vstep vstep-${st}${editing ? ' is-editing' : ''}${einklappbar ? (offen ? ' is-open' : ' is-collapsed') : ''}"${st === 'current' || editing ? ' data-anchor="1"' : ''}>
     <div class="vstep-marker">${st === 'done' ? ICON.check : i + 1}</div>
     <div class="vstep-content">
       <div class="vstep-head">
-        <div>
-          <div class="vstep-title">${s}</div>
-          <div class="vstep-meta"><span class="vstep-state">${stLabel}</span> · zuständig: ${WER_LABEL[info.wer]}</div>
-        </div>
-        ${st === 'done' && !editing && s !== 'Abschluss' ? `<button class="link-btn" data-action="edit" data-section="epa-${s}">${ICON.edit}Ändern</button>` : ''}
+        ${einklappbar
+          ? `<button class="vstep-toggle" data-action="toggle-epa-stufe" data-stufe="${s}" aria-expanded="${offen}"><span class="vstep-chev">${ICON.chevron}</span><span>${headInner}</span></button>`
+          : `<div>${headInner}</div>`}
+        ${offen && einklappbar && s !== 'Abschluss' ? `<button class="link-btn" data-action="edit" data-section="epa-${s}">${ICON.edit}Ändern</button>` : ''}
       </div>
       ${st !== 'done' || editing ? `<p class="vstep-text">${esc(info.text)}</p>` : ''}
-      ${body}
+      ${offen ? body : ''}
     </div>
   </li>`;
 }
@@ -905,7 +1014,7 @@ function formControlling(p) {
   const eingang = c.gesuchseingang || e.gesuchEingereichtAm;
   const jahr = fromIso(eingang).getFullYear();
   const abgeschl = e.status === 'Abschluss';
-  return `<div class="card form-box">
+  return `<div class="card form-box" data-anchor="1">
     <div class="card-head"><h3>Fördergesuch prüfen <span class="badge-intern">intern</span></h3></div>
     <div class="context-box">
       <div class="context-title">Angaben aus dem Gesuch</div>
@@ -965,6 +1074,7 @@ function renderTabMassnahmen(p) {
     ${p.epa.status === 'Entwurf' ? `<div class="info-box">${ICON.info}<div>Erfassen Sie hier die Massnahmen, die in der EPA-Beratung erarbeitet werden. Für die Verabschiedung braucht es mindestens eine Massnahme.</div></div>` : ''}
     <div class="toolbar">
       <button class="btn btn-primary" data-action="new-massnahme">${ICON.plus}Massnahme erfassen</button>
+      <button class="btn btn-outline" type="button">${ICON.upload}Importieren</button>
       <div class="search-input-wrap">
         <input type="search" id="mass-search" placeholder="Massnahme oder ES-Nr. suchen …" value="${esc(state.mass.search)}" aria-label="Massnahmen durchsuchen">
         ${ICON.search}
@@ -1013,7 +1123,7 @@ function renderTabNachfuehrung(p) {
     return lockBox('Die Nachführung beginnt nach Abschluss der EPA-Beratung',
       `Sobald der Kanton die EPA-Beratung abgeschlossen hat, überprüfen Sie alle ${NACHFUEHRUNG_INTERVALL_JAHRE} Jahre – bis ${NACHFUEHRUNG_ENDE_JAHR} – jede offene Massnahme. Die App erinnert Sie rechtzeitig.`) + renderNfHowto();
   }
-  return `${renderNfErfolg(p)}${renderZyklus(p)}${p.laufendeNachfuehrung ? renderReview(p) : renderNfStatus(p)}${renderNfHistory(p)}`;
+  return `${renderNfErfolg(p)}${p.laufendeNachfuehrung ? renderReview(p) : renderNfStatus(p)}${renderNfHistory(p)}`;
 }
 
 function renderNfHowto() {
@@ -1046,9 +1156,16 @@ function renderZyklus(p) {
   kuenftigeNachfuehrungsJahre(p).forEach((j, i) => items.push(i === 0
     ? { cls: p.laufendeNachfuehrung ? 'current' : st === 'faellig' ? 'warn' : 'next', jahr: j, text: p.laufendeNachfuehrung ? 'Läuft' : st === 'faellig' ? 'Fällig' : 'Nächste' }
     : { cls: 'future', jahr: j, text: 'Geplant' }));
-  return `<div class="card">
-    <div class="card-head"><h3>Nachführungs-Rhythmus</h3><span class="muted">alle ${NACHFUEHRUNG_INTERVALL_JAHRE} Jahre bis ${NACHFUEHRUNG_ENDE_JAHR}</span></div>
-    <ol class="cycle">${items.map(it => `<li class="cycle-item ${it.cls}"><span class="cycle-dot">${it.cls === 'done' ? ICON.check : ''}</span><span class="cycle-year">${it.jahr}</span><span class="cycle-text">${esc(it.text)}</span></li>`).join('')}</ol>
+  // Kompakt: Erledigte, aktuelle und nächste Nachführung, dann «…» und das Endjahr (alle Jahre im Tooltip).
+  const firstOpen = items.findIndex(it => it.cls !== 'done');
+  const cut = firstOpen < 0 ? items.length : Math.min(items.length, firstOpen + 2);
+  const shown = items.slice(0, cut).map(it => ({ ...it, show: true }));
+  const rest = items.slice(cut);
+  if (rest.length > 1) shown.push({ cls: 'more', jahr: '…' });
+  if (rest.length) shown.push({ ...rest[rest.length - 1] });
+  const alle = items.map(it => it.jahr).join(' · ');
+  return `<div class="cycle-line" title="Nachführung alle ${NACHFUEHRUNG_INTERVALL_JAHRE} Jahre bis ${NACHFUEHRUNG_ENDE_JAHR}: ${alle}" aria-label="Nachführungs-Rhythmus: ${alle}">
+    <ul class="cycle-pills">${shown.map(it => `<li class="cpill ${it.cls}" ${it.text ? `title="${esc(it.text)}"` : ''}>${it.cls === 'done' ? ICON.check : ''}${it.jahr}</li>`).join('')}</ul>
   </div>`;
 }
 
@@ -1059,7 +1176,7 @@ function renderNfStatus(p) {
   const offen = p.massnahmen.filter(istOffen).length;
   const titel = st === 'faellig' ? `Nachführung ${due.getFullYear()} ist fällig`
     : st === 'bald' ? `Nachführung ${due.getFullYear()} steht bald an` : `Nächste Nachführung: ${due.getFullYear()}`;
-  return `<div class="card nf-start tone-${st}">
+  return `<div class="card nf-start tone-${st}" data-anchor="1">
     <div class="nf-start-head">
       <div>
         <h3>${titel}</h3>
@@ -1090,7 +1207,7 @@ function renderReview(p) {
   const sel = items.find(m => m.id === state.reviewId) || items.find(m => !isReviewed(p, m)) || items[0];
   if (sel) state.reviewId = sel.id;
   const nextDue = addYears(TODAY, NACHFUEHRUNG_INTERVALL_JAHRE);
-  return `<div class="card review">
+  return `<div class="card review" data-anchor="1">
     <div class="review-head">
       <div>
         <h3>Nachführung ${fromIso(lauf.faelligAm).getFullYear()}</h3>
@@ -1098,12 +1215,8 @@ function renderReview(p) {
       </div>
       <button class="btn btn-outline btn-sm" data-action="new-massnahme">${ICON.plus}Neue Massnahme</button>
     </div>
-    <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${pct}%"></div></div>
-    <div class="progress-label"><strong>${doneN} von ${total}</strong> Massnahmen überprüft</div>
-
-    ${allDone ? `<div class="review-done">${ICON.check}<div><strong>${total ? 'Alle Massnahmen sind überprüft.' : 'Es gibt keine offenen Massnahmen zu überprüfen.'}</strong>
-      <div>Schliessen Sie die Nachführung ab. Die nächste Nachführung ist dann ${nextDue.getFullYear() > NACHFUEHRUNG_ENDE_JAHR ? 'nicht mehr nötig' : `am ${fmtDate(toIso(nextDue))} fällig`}.</div></div>
-      <button class="btn btn-primary" data-action="nf-finish">Nachführung abschliessen</button></div>` : ''}
+    ${allDone ? '' : `<div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${pct}%"></div></div>
+    <div class="progress-label"><strong>${doneN} von ${total}</strong> Massnahmen überprüft</div>`}
 
     ${total ? `<div class="review-layout">
       <ol class="review-list">
@@ -1115,6 +1228,10 @@ function renderReview(p) {
       </ol>
       <div class="review-card" id="review-card">${sel ? reviewCard(p, sel, items.indexOf(sel), total) : ''}</div>
     </div>` : ''}
+
+    ${allDone ? `<div class="review-done is-bottom" id="review-done">${ICON.check}<div><strong>${total ? 'Alle Massnahmen sind überprüft.' : 'Es gibt keine offenen Massnahmen zu überprüfen.'}</strong>
+      <div>Die nächste Nachführung ist nach dem Abschluss ${nextDue.getFullYear() > NACHFUEHRUNG_ENDE_JAHR ? 'nicht mehr nötig' : `am ${fmtDate(toIso(nextDue))} fällig`}.</div></div>
+      <button class="btn btn-primary" data-action="nf-finish">Nachführung abschliessen</button></div>` : ''}
 
     ${!allDone ? `<div class="review-foot"><span class="muted">Noch ${total - doneN} offen</span><button class="btn btn-outline" data-action="nf-finish">Nachführung abschliessen</button></div>` : ''}
   </div>`;
@@ -1363,14 +1480,19 @@ function renderKontakte() {
     <div id="contact-results">${renderKontaktResults()}</div>
   </div>`;
 }
+const KONTAKT_SPALTEN = [
+  { key: 'name', label: 'Name', value: c => `${c.nachname || ''} ${c.vorname || ''}`.trim() },
+  { key: 'organisation', label: 'Organisation', value: c => c.organisation || '' },
+  { key: 'email', label: 'E-Mail', value: c => c.email || '' },
+];
 function renderKontaktResults() {
   const q = state.contactSearch.trim().toLowerCase();
   const list = contacts.map((c, idx) => ({ c, idx }))
     .filter(({ c }) => !q || [c.vorname, c.nachname, c.organisation, c.email].some(v => String(v || '').toLowerCase().includes(q)))
-    .sort((a, b) => `${a.c.nachname} ${a.c.vorname}`.localeCompare(`${b.c.nachname} ${b.c.vorname}`));
+    .sort((a, b) => compareBy(KONTAKT_SPALTEN, state.contactSort, a.c, b.c, (x, y) => `${x.nachname} ${x.vorname}`.localeCompare(`${y.nachname} ${y.vorname}`, 'de')));
   if (!list.length) return `<div class="empty-state">Keine Kontakte gefunden.</div>`;
   return `<div class="table-scroll"><table class="data-table">
-    <thead><tr><th>Name</th><th>Organisation</th><th>E-Mail</th></tr></thead>
+    <thead><tr>${KONTAKT_SPALTEN.map(c => sortHeader(c, state.contactSort, 'contact-sort')).join('')}</tr></thead>
     <tbody>${list.map(({ c, idx }) => `<tr data-action="open-kontakt" data-idx="${idx}" tabindex="0">
       <td class="cell-title">${esc(c.vorname)} ${esc(c.nachname)}</td><td>${show(c.organisation)}</td><td>${esc(c.email)}</td>
     </tr>`).join('')}</tbody>
@@ -1505,17 +1627,42 @@ const actions = {
   /* --- Navigation --- */
   'open-planung': el => openPlanung(el.dataset.id, el.dataset.tab),
   'back-to-list': () => { state.planungId = null; state.editing = null; render(); },
+  'contact-sort': el => {
+    state.contactSort = nextSort(state.contactSort, el.dataset.key);
+    document.getElementById('contact-results').innerHTML = renderKontaktResults();
+  },
+  'toggle-epa-stufe': el => { const k = el.dataset.stufe; state.epaOpen[k] = !state.epaOpen[k]; render(); },
+  'list-sort': el => {
+    state.list.sort = nextSort(state.list.sort, el.dataset.key);
+    document.getElementById('planung-results').innerHTML = renderPlanungResults();
+  },
   'list-phase': el => { state.tab = 'planungen'; state.planungId = null; state.list.phase = el.dataset.phase; state.list.aufgabe = ''; render(); },
   'list-aufgabe': el => { state.tab = 'planungen'; state.planungId = null; state.list.aufgabe = el.dataset.key; state.list.phase = ''; render(); },
   'list-scope': el => { state.list.nurMeine = el.dataset.meine === '1'; render(); },
+  'toggle-hilfe': () => { state.hilfeOpen = !state.hilfeOpen; render(); },
   'toggle-process': () => { state.processOpen = !state.processOpen; render(); },
   'detail-tab': el => {
-    const scroll = !!(el.dataset.scroll || el.closest('.tab-body') || el.closest('.journey'));
-    state.detailTab = el.dataset.tab;
+    const toMass = el.dataset.tab === 'massnahmen';             // Massnahmen leben im Tab «EPA-Beratung»
+    const toAnchor = !!el.dataset.scroll && !toMass;            // Button «Nächster Schritt» → direkt zur Aktion
+    const toTabs = !toAnchor && !toMass && !!el.closest('.tab-body');
+    state.detailTab = toMass ? 'epa' : el.dataset.tab;
     state.editing = null;
     render();
+    if (toAnchor) {
+      const anchor = document.querySelector('.tab-body [data-anchor]');
+      if (anchor) {
+        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        anchor.classList.add('anchor-pulse');
+        setTimeout(() => anchor.classList.remove('anchor-pulse'), 1800);
+        return;
+      }
+    }
+    if (toMass) {
+      const sec = document.getElementById('massnahmen-section');
+      if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    }
     const tabs = document.getElementById('detail-tabs');
-    if (tabs && scroll) tabs.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (tabs && (toAnchor || toTabs)) tabs.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
   'edit': el => { state.editing = el.dataset.section; render(); },
   'cancel-edit': () => { state.editing = null; render(); },
@@ -1953,5 +2100,39 @@ L.control.zoom({ position: 'topright' }).addTo(map);
 L.control.scale({ imperial: false }).addTo(map);
 L.marker(LUZERN_CENTER).addTo(map).bindPopup('Luzern');
 
+/* ---------------------- URL-ROUTING (Hash) ---------------------- */
+// #/start · #/planungen · #/planungen/EP-938/epa · #/kontakte · #/auswertungen
+// Beim Neuladen bleibt man so bei derselben Energieplanung und im selben Prozessschritt.
+const ROUTE_TABS = ['start', 'planungen', 'kontakte', 'auswertungen'];
+let urlInitialisiert = false;
+
+function hashFromState() {
+  if (state.tab === 'planungen' && state.planungId) return `#/planungen/${encodeURIComponent(state.planungId)}/${state.detailTab}`;
+  return `#/${state.tab}`;
+}
+function syncUrl() {
+  const h = hashFromState();
+  if (location.hash === h) { urlInitialisiert = true; return; }
+  // Erster Aufruf ersetzt den Eintrag, danach entsteht pro Navigation ein Verlaufseintrag (Zurück-Button).
+  history[urlInitialisiert ? 'pushState' : 'replaceState'](null, '', h);
+  urlInitialisiert = true;
+}
+function applyHash() {
+  const [t, rawId, sub] = location.hash.replace(/^#\/?/, '').split('/');
+  if (!ROUTE_TABS.includes(t)) return;
+  state.tab = t;
+  state.planungId = null;
+  state.editing = null; state.reviewId = null; state.drawer = null; state.reportView = null;
+  const id = rawId ? decodeURIComponent(rawId) : '';
+  const p = t === 'planungen' && id ? findPlanung(id) : null;
+  if (p) {
+    state.planungId = p.id;
+    state.detailTab = DETAIL_TABS.some(x => x.key === sub) ? sub : naechsteAktion(p).tab;
+    state.mass = { filter: 'offen', search: '' };
+  }
+}
+window.addEventListener('popstate', () => { applyHash(); render(); });
+
 /* ---------------------- INIT ---------------------- */
+applyHash();
 render();
