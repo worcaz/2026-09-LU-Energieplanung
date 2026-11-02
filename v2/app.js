@@ -46,7 +46,7 @@ const state = {
   reportView: null,
   contactSearch: '',
   contactSort: { key: 'name', dir: 'asc' },
-  layoutMode: 'data',
+  layoutMode: 'split',
   processOpen: false,
   hilfeOpen: false,
   import: null,               // CSV-Import der Massnahmen (Nachführung)
@@ -523,9 +523,11 @@ function renderPlanungList() {
       <div>
         <h1 class="page-title">Energieplanungen</h1>
         <p class="page-sub">Alle Energieplanungen mit ihrem aktuellen Prozessschritt und dem nächsten Schritt.</p>
+        <button class="link-btn hilfe-btn${state.hilfeOpen ? ' is-open' : ''}" data-action="toggle-hilfe" aria-expanded="${!!state.hilfeOpen}">${ICON.info}Benötigen Sie Hilfe?</button>
       </div>
       <button class="btn btn-primary" data-action="new-planung">${ICON.plus}Neue Energieplanung</button>
     </div>
+    ${renderHilfePanel()}
     <section class="filter-panel" aria-label="Filter">
       <div class="filter-body">
         ${state.role === 'Berater' ? `<div class="seg seg-toggle" role="group" aria-label="Gemeinden">
@@ -1731,7 +1733,7 @@ function renderKontaktResults() {
     .filter(({ c }) => !q || [c.vorname, c.nachname, c.organisation, c.email].some(v => String(v || '').toLowerCase().includes(q)))
     .sort((a, b) => compareBy(KONTAKT_SPALTEN, state.contactSort, a.c, b.c, (x, y) => `${x.nachname} ${x.vorname}`.localeCompare(`${y.nachname} ${y.vorname}`, 'de')));
   if (!list.length) return `<div class="empty-state">Keine Kontakte gefunden.</div>`;
-  return `<div class="table-scroll"><table class="data-table">
+  return `<div class="table-scroll"><table class="data-table contact-table">
     <thead><tr>${KONTAKT_SPALTEN.map(c => sortHeader(c, state.contactSort, 'contact-sort')).join('')}</tr></thead>
     <tbody>${list.map(({ c, idx }) => `<tr data-action="open-kontakt" data-idx="${idx}" tabindex="0">
       <td class="cell-title">${esc(c.vorname)} ${esc(c.nachname)}</td><td>${show(c.organisation)}</td><td>${esc(c.email)}</td>
@@ -2408,6 +2410,7 @@ const $sidePanel = document.querySelector('.side-panel');
 let panelWidth = 840;
 $sidePanel.style.minWidth = '0';
 $sidePanel.style.maxWidth = 'none';
+if (state.layoutMode === 'split') { $sidePanel.style.width = `${panelWidth}px`; setTimeout(() => map.invalidateSize(), 0); }
 
 document.querySelectorAll('#view-toggle [data-view-mode]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2430,7 +2433,7 @@ $resizer.addEventListener('mousedown', e => {
 
   const onMouseMove = ev => {
     const min = 420;
-    const max = Math.min(1400, window.innerWidth - 480);
+    const max = Math.max(min, Math.round(window.innerWidth * 0.8));
     panelWidth = Math.min(max, Math.max(min, window.innerWidth - ev.clientX));
     $sidePanel.style.width = `${panelWidth}px`;
   };
@@ -2494,3 +2497,23 @@ window.addEventListener('popstate', () => { applyHash(); render(); });
 /* ---------------------- INIT ---------------------- */
 applyHash();
 render();
+
+/* ---------------------- KARTENINHALT: EIN-/AUSKLAPPEN ---------------------- */
+(function () {
+  const panel = document.querySelector('.sidebar-panel');
+  const header = panel.querySelector('.sidebar-panel-header');
+  const chevron = header.querySelector('.chevron');
+  const closeTab = document.querySelector('.sidebar-close-tab');
+  header.setAttribute('role', 'button');
+  header.tabIndex = 0;
+  const toggle = () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    header.setAttribute('aria-expanded', String(!collapsed));
+    chevron.textContent = collapsed ? '+' : '−';
+    closeTab.textContent = collapsed ? '⌂ öffnen' : '⌂ schliessen';
+  };
+  header.setAttribute('aria-expanded', 'true');
+  header.addEventListener('click', toggle);
+  header.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  closeTab.addEventListener('click', toggle);
+})();

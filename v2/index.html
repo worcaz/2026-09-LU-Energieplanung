@@ -19,10 +19,10 @@
       <button data-view-mode="map" title="Kartenansicht">
         <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
       </button>
-      <button data-view-mode="split" title="Karte &amp; Daten">
+      <button data-view-mode="split" title="Karte &amp; Daten" class="active">
         <svg viewBox="0 0 24 24"><path d="M3 3v18h8V3H3zm6 16H5V5h4v14zm4-16v18h8V3h-8zm6 16h-4V5h4v14z"/></svg>
       </button>
-      <button data-view-mode="data" title="Datenansicht" class="active">
+      <button data-view-mode="data" title="Datenansicht">
         <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4V5zm0 6h16v2H4v-2zm0 6h16v2H4v-2z"/></svg>
       </button>
     </div>
@@ -73,7 +73,7 @@
 </header>
 
 <!-- ============ MAIN LAYOUT ============ -->
-<div class="app-body mode-data">
+<div class="app-body mode-split">
 
   <!-- ---------- LEFT: MAP SIDEBAR (static) ---------- -->
   <aside class="map-sidebar">
@@ -112,7 +112,7 @@
     <div class="map-footer">© 2026 Kanton Luzern · Rechtliches · Problem melden</div>
   </main>
 
-  <div class="panel-resizer" id="panel-resizer" title="Breite anpassen"></div>
+  <div class="panel-resizer" id="panel-resizer" title="Ziehen, um die Breite anzupassen"></div>
 
   <!-- ---------- RIGHT: FUNCTIONAL PANEL ---------- -->
   <section class="side-panel">

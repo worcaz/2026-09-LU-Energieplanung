@@ -1143,7 +1143,7 @@ body:not(.kbd) .panel-tab:focus-visible{outline:none;}
 @media (max-width:760px){.kpi-row{grid-template-columns:repeat(2, 1fr);}}
 
 /* Energieplanungen-Liste: bei schmalem Panel pro Zeile eine Karte statt abgeschnittener Spalten */
-@container panel (max-width: 640px){
+@container panel (max-width: 800px){
   .table-scroll:has(.planung-table){background:transparent; border:none; box-shadow:none; overflow:visible;}
   .planung-table, .planung-table tbody{display:block;}
   .planung-table thead{display:block; margin-bottom:8px;}
@@ -1164,3 +1164,103 @@ body:not(.kbd) .panel-tab:focus-visible{outline:none;}
   .planung-table tbody td:nth-child(3){grid-column:1 / -1;}
   .planung-table tbody td.cell-date{grid-column:1 / -1; font-size:12.5px; color:var(--gray-600);}
 }
+
+/* Kontakte-Liste: bei schmalem Panel als Karten (Name, Organisation, E-Mail untereinander) */
+@container panel (max-width: 800px){
+  .table-scroll:has(.contact-table){background:transparent; border:none; box-shadow:none; overflow:visible;}
+  .contact-table, .contact-table tbody{display:block;}
+  .contact-table thead{display:block; margin-bottom:8px;}
+  .contact-table thead tr{display:flex; flex-wrap:wrap; gap:4px 12px; background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius); padding:2px 8px;}
+  .contact-table thead th{display:block; border:none; padding:6px 4px; background:none;}
+  .contact-table tbody tr{
+    display:block; background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius);
+    box-shadow:var(--shadow-card); padding:12px 14px; margin-bottom:10px;
+  }
+  .contact-table tbody td{display:block; padding:0; border:none; overflow-wrap:anywhere;}
+  .contact-table tbody td:nth-child(2){color:var(--gray-600); font-size:13px; margin-top:2px;}
+  .contact-table tbody td:nth-child(3){font-size:13px; margin-top:4px;}
+}
+
+/* Kartenmodus: Sortierleiste als Pillen, roter Balken nur am Kartenrand */
+@container panel (max-width: 800px){
+  .planung-table thead tr, .contact-table thead tr{
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px; background:none; border:none; padding:0;
+  }
+  .planung-table thead tr::before, .contact-table thead tr::before{
+    content:"Sortieren:"; font-size:12px; font-weight:600; color:var(--gray-600); margin-right:2px;
+  }
+  .planung-table thead th, .contact-table thead th{padding:0; text-transform:none; letter-spacing:0;}
+  .planung-table .th-sort, .contact-table .th-sort{
+    font-size:12.5px; font-weight:600; padding:5px 11px; background:#fff;
+    border:1px solid var(--gray-200); border-radius:999px;
+  }
+  .planung-table .th-sort.is-sorted, .contact-table .th-sort.is-sorted{border-color:var(--blue-primary); color:var(--blue-primary); background:var(--blue-light-bg);}
+  table.data-table.planung-table tbody tr.is-overdue td:first-child{box-shadow:none;}
+  .planung-table tbody tr{overflow:hidden;}
+}
+
+/* Hauptnavigation: bei schmaler Breite gleichmässig verteilt, Icon über Beschriftung */
+.panel-tabs{container:tabsbar / inline-size;}
+.panel-tab{position:relative;}
+@container tabsbar (max-width: 640px){
+  .panel-tabs{padding:0 4px; gap:0;}
+  .panel-tab{flex:1 1 0; min-width:0; flex-direction:column; gap:3px; padding:9px 2px 8px; font-size:12px; line-height:1.2; text-align:center;}
+  .panel-tab svg{width:20px; height:20px;}
+  .panel-tab-badge{position:absolute; top:4px; left:calc(50% + 6px); min-width:17px; height:17px; padding:0 4px; font-size:10.5px;}
+}
+
+/* Prozessschritt-Auswahl: bei schmalem Panel umbrechen statt abschneiden */
+@container panel (max-width: 800px){
+  .filter-panel .seg.seg-phase{display:flex; flex-wrap:wrap; width:100%; height:auto;}
+  .filter-panel .seg-phase button{flex:1 1 auto; justify-content:center;}
+  .filter-panel .search-input-wrap{flex:1 1 100%; max-width:none; margin-left:0;}
+}
+
+/* Seitenkopf: Button rutscht bei schmalem Panel unter den Titel */
+.page-head > div{min-width:0;}
+.page-head .btn{flex:none; white-space:nowrap;}
+@container panel (max-width: 560px){
+  .page-head{flex-wrap:wrap;}
+  .page-head > div{flex:1 1 100%;}
+  .page-head .btn{max-width:100%;}
+}
+
+/* Splitter: sichtbarer Griff, damit klar ist, dass die Panelbreite verstellbar ist */
+.panel-resizer{width:10px; background:var(--gray-100); border-left:1px solid var(--gray-200); border-right:1px solid var(--gray-200); display:flex; align-items:center; justify-content:center;}
+.panel-resizer::before{
+  content:""; width:4px; height:44px; border-radius:2px; flex:none;
+  background:
+    radial-gradient(circle, var(--gray-500) 1.2px, transparent 1.6px) center top / 4px 8px repeat-y;
+  opacity:.8; transition:opacity .12s;
+  animation:resizer-hint 1.4s ease-in-out 3;
+}
+.panel-resizer:hover, .panel-resizer.dragging{background:var(--blue-light-bg); border-color:var(--blue-primary);}
+.panel-resizer:hover::before, .panel-resizer.dragging::before{
+  background:radial-gradient(circle, var(--blue-primary) 1.4px, transparent 1.8px) center top / 4px 8px repeat-y; opacity:1;
+}
+@keyframes resizer-hint{0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.5); opacity:1;}}
+@media (prefers-reduced-motion: reduce){.panel-resizer::before{animation:none;}}
+
+/* Splitter dezent: feine Linie, kleiner Griff, Akzent erst bei Hover */
+.panel-resizer{width:9px; margin:0 -4px; background:transparent; border:none; position:relative; z-index:16;}
+.panel-resizer::after{content:""; position:absolute; top:0; bottom:0; left:4px; width:1px; right:auto; background:var(--gray-200); transition:background .15s, width .15s;}
+.panel-resizer::before{
+  content:""; position:relative; z-index:1; width:5px; height:34px; border-radius:3px; flex:none;
+  background:#fff; border:1px solid var(--gray-300); box-shadow:0 1px 3px rgba(20,30,45,.12);
+  animation:none; opacity:1; transition:border-color .15s, background .15s, height .15s;
+}
+.panel-resizer:hover, .panel-resizer.dragging{background:transparent; border:none;}
+.panel-resizer:hover::after, .panel-resizer.dragging::after{background:var(--blue-primary); width:2px; left:3.5px;}
+.panel-resizer:hover::before, .panel-resizer.dragging::before{background:var(--blue-primary); border-color:var(--blue-primary); height:44px; opacity:1;}
+
+/* Datenpanel und Splitter liegen über Kartenelementen (Karteninhalt, Zoom), wenn das Panel breit aufgezogen wird */
+.side-panel{position:relative; z-index:1100;}
+.panel-resizer{z-index:1101;}
+
+/* Karteninhalt ein-/ausklappbar */
+.sidebar-panel-header{cursor:pointer; user-select:none;}
+.sidebar-panel-header:hover{background:var(--blue-light-bg);}
+.sidebar-panel.collapsed > :not(.sidebar-panel-header){display:none;}
+.sidebar-panel.collapsed .sidebar-panel-header{border-bottom:none; border-radius:6px;}
+.sidebar-close-tab{cursor:pointer;}
+.sidebar-close-tab:hover{color:var(--blue-primary); border-color:var(--blue-primary);}
