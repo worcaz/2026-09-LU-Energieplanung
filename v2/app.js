@@ -24,6 +24,7 @@ const ICON = {
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>',
   edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
   lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6zm9 14H6V10h12v10zm-6-3a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>',
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>',
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
@@ -520,23 +521,24 @@ function renderFilterTags() {
 function renderPlanungList() {
   $panel.innerHTML = `<div class="page">
     <div class="page-head">
-      <div>
+      <div class="page-title-row">
         <h1 class="page-title">Energieplanungen</h1>
-        <p class="page-sub">Alle Energieplanungen mit ihrem aktuellen Prozessschritt und dem nächsten Schritt.</p>
-        <button class="link-btn hilfe-btn${state.hilfeOpen ? ' is-open' : ''}" data-action="toggle-hilfe" aria-expanded="${!!state.hilfeOpen}">${ICON.info}Benötigen Sie Hilfe?</button>
+        <button class="icon-help hilfe-btn${state.hilfeOpen ? ' is-open' : ''}" data-action="toggle-hilfe" aria-expanded="${!!state.hilfeOpen}" aria-label="Hilfe zu Prozessschritten und Begriffen" title="Hilfe zu Prozessschritten und Begriffen">${ICON.info}<span>Hilfe</span></button>
       </div>
-      <button class="btn btn-primary" data-action="new-planung">${ICON.plus}Neue Energieplanung</button>
+      <div class="page-head-actions">
+        <button class="btn btn-primary" data-action="new-planung">${ICON.plus}Neue Energieplanung</button>
+      </div>
     </div>
     ${renderHilfePanel()}
+    <nav class="phase-tabs" aria-label="Prozessschritt">
+      ${LIST_PHASEN.map(([k, l]) => { const on = state.list.phase === k && !state.list.aufgabe; return `<button class="phase-tab${on ? ' active' : ''}" data-action="list-phase" data-phase="${k}" aria-pressed="${on}">${l}</button>`; }).join('')}
+    </nav>
     <section class="filter-panel" aria-label="Filter">
       <div class="filter-body">
         ${state.role === 'Berater' ? `<div class="seg seg-toggle" role="group" aria-label="Gemeinden">
           <button class="${state.list.nurMeine ? 'active' : ''}" data-action="list-scope" data-meine="1">Meine</button>
           <button class="${state.list.nurMeine ? '' : 'active'}" data-action="list-scope" data-meine="0">Alle Gemeinden</button>
         </div>` : ''}
-        <div class="seg seg-toggle seg-phase" role="group" aria-label="Prozessschritt">
-          ${LIST_PHASEN.map(([k, l]) => `<button class="${state.list.phase === k && !state.list.aufgabe ? 'active' : ''}" data-action="list-phase" data-phase="${k}" aria-pressed="${state.list.phase === k && !state.list.aufgabe}">${l}</button>`).join('')}
-        </div>
         <button type="button" class="flt-toggle${state.list.faellig ? ' active' : ''}" data-action="list-faellig" aria-pressed="${state.list.faellig}" title="Nur Energieplanungen mit fälliger oder laufender Nachführung">${ICON.warn}Nur fällige</button>
         <div class="search-input-wrap">
           <input type="search" id="planung-search" placeholder="Suchen …" value="${esc(state.list.search)}" aria-label="Energieplanungen durchsuchen (Gemeinde, ID, Berater/in)">
@@ -575,7 +577,7 @@ function renderPlanungResults() {
       }).join('')}
     </tbody>
   </table></div>
-  <div class="table-foot">${resultCountText()}</div>`;
+  <div class="table-foot table-foot-row"><span>${resultCountText()}</span><button type="button" class="link-btn export-link" data-action="export-planungen" title="Die aktuell gefilterte Übersicht als CSV-Datei speichern">${ICON.download}Als CSV exportieren</button></div>`;
 }
 
 /* =============================================================
@@ -2117,6 +2119,21 @@ const actions = {
       text: `<p>Die Nachführung ist erst am <strong>${fmtDate(toIso(due))}</strong> fällig. Möchten Sie trotzdem jetzt starten?</p>`,
       onOk: starten
     });
+  },
+  'export-planungen': () => {
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const kopf = ['ID', 'Gemeinde', 'Typ', 'Prozessschritt', 'Nächster Schritt', 'Zuständig', 'Termin'];
+    const zeilen = filteredPlanungen().map(p => {
+      const a = naechsteAktion(p);
+      return [p.id, p.gemeinde, p.typ, PHASEN[phaseOf(p)].label, a.titel, a.art === 'ok' ? '' : WER_LABEL[a.wer], a.termin ? fmtDate(a.termin) : ''].map(q).join(';');
+    });
+    const csv = '﻿' + [kopf.map(q).join(';'), ...zeilen].join('\r\n');
+    const el = document.createElement('a');
+    el.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    el.download = `Energieplanungen_${new Date().toISOString().slice(0, 10)}.csv`;
+    el.click();
+    setTimeout(() => URL.revokeObjectURL(el.href), 10000);
+    toast(`${plural(zeilen.length, 'Energieplanung', 'Energieplanungen')} exportiert.`);
   },
   /* --- CSV-Import der Massnahmen --- */
   'import-open': () => { state.import = { step: 1, datei: '', rows: [], auto: [], ziel: [], alt: {}, fehler: '' }; state.drawer = { type: 'import' }; renderDrawer(); },

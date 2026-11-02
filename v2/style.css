@@ -1264,3 +1264,50 @@ body:not(.kbd) .panel-tab:focus-visible{outline:none;}
 .sidebar-panel.collapsed .sidebar-panel-header{border-bottom:none; border-radius:6px;}
 .sidebar-close-tab{cursor:pointer;}
 .sidebar-close-tab:hover{color:var(--blue-primary); border-color:var(--blue-primary);}
+
+/* Seitenkopf der Planungsliste: Titel links, Aktionen rechts auf einer Linie */
+.page-head{align-items:center;}
+.page-head-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;}
+.page-head-actions .hilfe-btn{margin-top:0; height:auto;}
+.page-head-actions .hilfe-btn.is-open{background:var(--blue-light-bg); border-color:var(--blue-primary); color:var(--blue-primary);}
+.page-head-actions .hilfe-btn svg{width:16px; height:16px;}
+@container panel (max-width: 560px){
+  .page-head-actions{flex:1 1 100%; justify-content:stretch;}
+  .page-head-actions .btn{flex:1 1 auto; justify-content:center;}
+}
+
+/* Planungsliste: Hilfe als dezentes Icon beim Titel, Prozessschritt als Dropdown */
+.page-title-row{display:flex; align-items:center; gap:10px; min-width:0;}
+.page-title-row .page-title{margin:0;}
+.icon-help{display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; margin:0; border:none; border-radius:50%; background:transparent; color:var(--gray-500); cursor:pointer; flex:none;}
+.icon-help svg{width:18px; height:18px;}
+.icon-help:hover, .icon-help.is-open{background:var(--blue-light-bg); color:var(--blue-primary);}
+.filter-panel .filter-select{min-width:180px;}
+@container panel (max-width: 800px){
+  .filter-panel .filter-select{flex:1 1 160px;}
+}
+
+/* Prozessschritte als Tabs mit Unterstreichung: immer sichtbar, aber ruhiger als Buttons */
+.phase-tabs{display:flex; flex-wrap:wrap; gap:0 22px; border-bottom:1px solid var(--gray-200); margin-bottom:14px;}
+.phase-tab{background:none; border:none; padding:8px 2px 10px; margin-bottom:-1px; font-size:14px; font-weight:600; color:var(--gray-600); cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap;}
+.phase-tab:hover{color:var(--blue-primary);}
+.phase-tab.active{color:var(--blue-primary); border-bottom-color:var(--blue-primary);}
+@container panel (max-width: 560px){ .phase-tabs{gap:0 14px;} .phase-tab{font-size:13px;} }
+
+/* Hilfe: dezent grau mit kurzem Text, Akzent erst bei Hover/offen */
+.icon-help{width:auto; height:28px; padding:0 10px 0 8px; gap:5px; border-radius:14px; font-size:13px; font-weight:600; color:var(--gray-500);}
+.icon-help svg{width:16px; height:16px; fill:currentColor; color:inherit;}
+.icon-help svg *{stroke:currentColor;}
+
+/* «Nur fällige» im gleichen ruhigen Stil wie der Umschalter Meine/Alle */
+.filter-panel .flt-toggle{border:none; background:var(--gray-200); color:var(--gray-700); border-radius:8px;}
+.filter-panel .flt-toggle:hover{background:var(--gray-300); color:var(--navy);}
+.filter-panel .flt-toggle.active{background:var(--amber-bg); color:var(--amber-dark); box-shadow:inset 0 0 0 1px var(--amber);}
+.filter-panel .search-input-wrap{flex:0 1 300px;}
+
+/* Export: dezenter Textlink unter der Tabelle, rechts neben der Trefferzahl */
+.table-foot-row{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;}
+.export-link{font-size:12.5px; font-weight:500; color:var(--gray-500); display:inline-flex; align-items:center; gap:5px; margin:0;}
+.export-link:hover{color:var(--blue-primary);}
+.table-foot .export-link{font-weight:400;}
+.table-foot .export-link svg{width:13px; height:13px;}
