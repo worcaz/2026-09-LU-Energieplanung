@@ -576,6 +576,7 @@ function renderPlanungList() {
           ${planungSortHeader('gemeinde', 'Gemeinden')}
           ${planungSortHeader('typ', 'Typ')}
           ${planungSortHeader('status', 'Status')}
+          <th class="col-actions"><span class="sr-only">Aktionen</span></th>
         </tr></thead>
         <tbody>
           ${list.map(p => `
@@ -586,6 +587,10 @@ function renderPlanungList() {
               <td>${p.gemeinde}</td>
               <td>${p.typ}</td>
               <td>${p.status}${pruefstatusFor(p) === 'faellig' ? ' <span class="status-pill status-pruefung-faellig" title="Überprüfung fällig">⚠ Überprüfung fällig</span>' : ''}</td>
+              <td class="col-actions">
+                <button type="button" class="row-action" data-open-planung="${p.id}" title="Ansehen" aria-label="${p.id} ansehen"><svg viewBox="0 0 24 24"><path d="M12 5C7 5 2.7 8.1 1 12.5 2.7 16.9 7 20 12 20s9.3-3.1 11-7.5C21.3 8.1 17 5 12 5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button>
+                <button type="button" class="row-action" data-open-planung="${p.id}" data-edit="1" title="Bearbeiten" aria-label="${p.id} bearbeiten"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -628,13 +633,17 @@ function renderPlanungList() {
     });
   });
   $panel.querySelectorAll('[data-open-planung]').forEach(row => {
-    row.addEventListener('click', () => {
+    row.addEventListener('click', e => {
+      // Die Aktions-Buttons in der Zeile lösen nur einmal aus (sonst würde zusätzlich die Zeile klicken)
+      if (row.tagName === 'TR' && e.target.closest('.row-action')) return;
+      const edit = row.hasAttribute('data-edit');
+      const pl = findPlanung(row.dataset.openPlanung);
       state.planungId = row.dataset.openPlanung;
       state.view = 'detail';
       state.planungTab = 'details';
-      state.planungDetailsMode = 'view';
+      state.planungDetailsMode = edit ? 'edit' : 'view';
       state.planungKontrolleMode = 'view';
-      state.planungPendingStatus = null;
+      state.planungPendingStatus = edit && pl ? pl.status : null;
       state.massnahmeId = null;
       state.mdMode = null;
       state.collapsed = {};
