@@ -350,7 +350,7 @@ const state = {
   tab: 'planungen',
   view: 'list',            // list | detail | contactForm
   planungId: null,
-  planungTab: 'details', // massnahmen | details | kontrolle (Sub-Tabs in der Planungsdetailansicht)
+  planungTab: 'grunddaten', // grunddaten | ziele | massnahmen | konto | kontrolle (Sub-Tabs in der Planungsdetailansicht)
   planungDetailsMode: 'view', // view | edit — Zustand des Planungsdetails-Tabs
   planungKontrolleMode: 'view', // view | edit — Zustand des Kontrolle-Tabs (nur Admin)
   planungPendingStatus: null, // Zielstatus, wenn ein Stepper-Klick wegen fehlender Pflichtfelder ins Bearbeiten-Formular geleitet hat
@@ -567,12 +567,19 @@ function phaseOf(p) {
   return 'epa';
 }
 // Fälligkeit: aktuell nur die wiederkehrende Überprüfung (Prüfpflicht) im Status Abschluss, sonst kein Termin.
+// Kurzform des Planungstyps für die Liste: "Kommunale Energieplanung" -> "kommunal", "Regionale Energieplanung" -> "regional"
+function typKurz(typ) {
+  const t = String(typ || '');
+  if (/region/i.test(t)) return 'regional';
+  if (/kommun/i.test(t)) return 'kommunal';
+  return t;
+}
 function terminFor(p) { return naechstePruefungFor(p); }
 function terminCell(p) {
   const t = terminFor(p);
   if (!t) return '<span class="muted">–</span>';
-  if (pruefstatusFor(p) === 'faellig') return `<span class="termin-faellig">⚠ Überfällig</span><div class="termin-sub">seit ${formatDate(t)}</div>`;
-  return `Fällig am ${formatDate(t)}`;
+  if (pruefstatusFor(p) === 'faellig') return `<span class="termin-faellig" title="Überfällig seit ${formatDate(t)}">⚠ ${formatDate(t)}</span>`;
+  return formatDate(t);
 }
 function phaseBadge(p) {
   const ph = phaseOf(p);
@@ -619,7 +626,7 @@ function renderPlanungList() {
           ${planungSortHeader('gemeinde', 'Gemeinden')}
           ${planungSortHeader('typ', 'Typ')}
           ${planungSortHeader('status', 'Status')}
-          ${planungSortHeader('termin', 'Termin')}
+          ${planungSortHeader('termin', 'Fälligkeit')}
           <th class="col-actions"><span class="sr-only">Aktionen</span></th>
         </tr></thead>
         <tbody>
@@ -629,7 +636,7 @@ function renderPlanungList() {
               <td>${p.name}</td>
               <td>${p.jahr}</td>
               <td>${p.gemeinde}</td>
-              <td>${p.typ}</td>
+              <td title="${p.typ}">${typKurz(p.typ)}</td>
               <td>${phaseBadge(p)}</td>
               <td class="cell-termin">${terminCell(p)}</td>
               <td class="col-actions">
@@ -650,7 +657,7 @@ function renderPlanungList() {
     toast(`${id} wurde angelegt.`);
     state.planungId = id;
     state.view = 'detail';
-    state.planungTab = 'details';
+    state.planungTab = 'grunddaten';
     state.planungDetailsMode = 'view';
     state.planungKontrolleMode = 'view';
     state.planungPendingStatus = null;
@@ -685,7 +692,7 @@ function renderPlanungList() {
       const pl = findPlanung(row.dataset.openPlanung);
       state.planungId = row.dataset.openPlanung;
       state.view = 'detail';
-      state.planungTab = 'details';
+      state.planungTab = 'grunddaten';
       state.planungDetailsMode = edit ? 'edit' : 'view';
       state.planungKontrolleMode = 'view';
       state.planungPendingStatus = edit && pl ? pl.status : null;
@@ -817,11 +824,16 @@ function showPlanungFieldErrors(missing) {
     a.addEventListener('click', e => {
       e.preventDefault();
       const el = document.getElementById(a.dataset.jumpField);
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+      if (el) { showPaneOf(el); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
     });
   });
   const firstInput = document.getElementById(missing[0].id);
-  if (firstInput) { firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); firstInput.focus(); }
+  if (firstInput) { showPaneOf(firstInput); firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); firstInput.focus(); }
+}
+// Liegt ein Feld in einem gerade versteckten Tab des Formulars, wird dieser Tab geöffnet.
+function showPaneOf(el) {
+  const pane = el.closest('[data-pane]');
+  if (pane && pane.hidden) activatePane(pane.dataset.pane);
 }
 function clearSinglePlanungFieldError(id) {
   const input = document.getElementById(id);
@@ -948,7 +960,7 @@ function renderPlanungDetail() {
 
   // Das Kontrolle-Tab ist Admin-exklusiv — bei Rollenwechsel weg von Admin auf Planungsdetails zurückfallen.
   if (state.planungTab === 'kontrolle' && state.role !== 'Admin') {
-    state.planungTab = 'details';
+    state.planungTab = 'grunddaten';
     state.planungKontrolleMode = 'view';
   }
 
@@ -963,15 +975,17 @@ function renderPlanungDetail() {
     ${renderPruefungBanner(p)}
 
     <div class="subtab-row">
-      <button class="subtab-btn ${state.planungTab === 'details' ? 'active' : ''}" data-subtab="details">Planungsdetails</button>
+      <button class="subtab-btn ${state.planungTab === 'grunddaten' ? 'active' : ''}" data-subtab="grunddaten">Grunddaten EPA</button>
+      <button class="subtab-btn ${state.planungTab === 'ziele' ? 'active' : ''}" data-subtab="ziele">Ziele</button>
       <button class="subtab-btn ${state.planungTab === 'massnahmen' ? 'active' : ''}" data-subtab="massnahmen">
         Massnahmen <span class="subtab-count">${p.massnahmen.length}</span>
       </button>
+      <button class="subtab-btn ${state.planungTab === 'konto' ? 'active' : ''}" data-subtab="konto">Kontoinformationen</button>
       ${state.role === 'Admin' ? `<button class="subtab-btn ${state.planungTab === 'kontrolle' ? 'active' : ''}" data-subtab="kontrolle">Kontrolle</button>` : ''}
     </div>
 
     <div class="subtab-content">
-      ${state.planungTab === 'details' ? renderPlanungDetailsTabContent(p)
+      ${PANE_TABS.includes(state.planungTab) ? renderPlanungDetailsTabContent(p)
         : state.planungTab === 'massnahmen' ? renderPlanungMassnahmenTabContent(p)
         : renderPlanungKontrolleTabContent(p)}
     </div>
@@ -982,12 +996,18 @@ function renderPlanungDetail() {
   bindPruefungBanner(p);
   $panel.querySelectorAll('[data-subtab]').forEach(btn => {
     btn.addEventListener('click', () => {
-      state.planungTab = btn.dataset.subtab;
+      const ziel = btn.dataset.subtab;
+      // Im Bearbeitungsmodus zwischen den Formular-Tabs wechseln, ohne neu zu rendern (Eingaben bleiben erhalten).
+      if (state.planungDetailsMode === 'edit' && PANE_TABS.includes(ziel) && PANE_TABS.includes(state.planungTab)) {
+        activatePane(ziel);
+        return;
+      }
+      state.planungTab = ziel;
       renderPlanungDetail();
     });
   });
 
-  if (state.planungTab === 'details') bindPlanungDetailsTab(p);
+  if (PANE_TABS.includes(state.planungTab)) bindPlanungDetailsTab(p);
   else if (state.planungTab === 'massnahmen') bindPlanungMassnahmenTab(p);
   else bindPlanungKontrolleTab(p);
 }
@@ -997,9 +1017,19 @@ function renderPlanungDetailsTabContent(p) {
   return state.planungDetailsMode === 'edit' ? renderPlanungDetailsFormContent(p) : renderPlanungDetailsViewContent(p);
 }
 
+// Tabs, deren Inhalt zu den Planungsdetails (Ansicht/Formular) gehört
+const PANE_TABS = ['grunddaten', 'ziele', 'konto'];
+function activatePane(key) {
+  state.planungTab = key;
+  document.querySelectorAll('#planung-form [data-pane]').forEach(el => { el.hidden = el.dataset.pane !== key; });
+  document.querySelectorAll('[data-subtab]').forEach(b => b.classList.toggle('active', b.dataset.subtab === key));
+}
+
 function renderPlanungDetailsViewContent(p) {
   const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
-  return `
+  let body = '';
+  if (state.planungTab === 'grunddaten') {
+    body = `
     ${section('epa', 'EPA Beratung', `
       ${field('Name EPA-Beratung', eb.name)}
       ${field('Prozessstatus', eb.prozessstatus, true)}
@@ -1011,14 +1041,6 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Förderabschlussformular', eb.foerderabschlussformular)}
     `)}
 
-    ${section('konto', 'Kontoinformationen Förderbeitrag', `
-      ${field('Kontoinhaber/in', k.kontoinhaber)}
-      ${field('Adresse', k.adresse)}
-      ${field('IBAN', k.iban)}
-      ${field('Bankname', k.bankname)}
-      ${field('Vermerk', k.vermerk)}
-    `)}
-
     ${section('energieplanung', 'Energieplanung', `
       ${field('ID', p.id)}
       ${field('Name', p.name)}
@@ -1027,10 +1049,24 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Gemeinden', p.gemeinde)}
       ${field('Verantwortlichkeit Gemeinde', ef.verantwortlichkeit)}
       ${field('Berater/in Energieplanung', ef.beraterEnergieplanung)}
+    `)}`;
+  } else if (state.planungTab === 'ziele') {
+    body = section('ziele', 'Ziele', `
       ${field('Netto-null Ziel', ef.nettoNullZiel)}
       ${field('Energieeffizienz Ziel', ef.energieeffizienzZiel)}
       ${field('Stromproduktion Ziel', ef.stromproduktionZiel)}
-    `)}
+    `);
+  } else {
+    body = section('konto', 'Kontoinformationen Förderbeitrag', `
+      ${field('Kontoinhaber/in', k.kontoinhaber)}
+      ${field('Adresse', k.adresse)}
+      ${field('IBAN', k.iban)}
+      ${field('Bankname', k.bankname)}
+      ${field('Vermerk', k.vermerk)}
+    `);
+  }
+  return `
+    ${body}
 
     <div class="btn-row">
       <button class="btn-outline-danger" id="btn-del-planung">
@@ -1042,19 +1078,43 @@ function renderPlanungDetailsViewContent(p) {
   `;
 }
 
+// Ja/Nein-Umschalter. Ohne Auswahl ist keine Stellung aktiv und ein Hinweis "Keine Angabe" steht daneben; ein Klick auf die
+// gewählte Stellung hebt die Auswahl wieder auf. Der Wert steckt in einem versteckten Feld mit der übergebenen id
+// ('Ja' | 'Nein' | '-' = keine Angabe), damit Speichern und Validierung wie bisher über die id funktionieren.
 function yesNoSelect(id, value) {
-  return `<select id="${id}">
-    <option value="-" ${(!value || value === '-') ? 'selected' : ''}>Nicht festgelegt</option>
-    <option value="Ja" ${value === 'Ja' ? 'selected' : ''}>Ja</option>
-    <option value="Nein" ${value === 'Nein' ? 'selected' : ''}>Nein</option>
-  </select>`;
+  const v = value === 'Ja' || value === 'Nein' ? value : '-';
+  const opt = val => `<button type="button" role="radio" class="tri-opt${v === val ? ' active' : ''}" data-tri-value="${val}" aria-checked="${v === val}">${val}</button>`;
+  return `<div class="tri-wrap">
+    <div class="tri-switch${v === '-' ? ' is-empty' : ''}" role="radiogroup" data-tri-for="${id}">
+      <input type="hidden" id="${id}" value="${v}">
+      ${opt('Ja')}${opt('Nein')}
+    </div>
+    <span class="tri-hint">Keine Angabe</span>
+  </div>`;
 }
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.tri-opt');
+  if (!btn) return;
+  const group = btn.closest('.tri-switch');
+  const input = group.querySelector('input[type=hidden]');
+  input.value = input.value === btn.dataset.triValue ? '-' : btn.dataset.triValue;
+  group.classList.toggle('is-empty', input.value === '-');
+  group.querySelectorAll('.tri-opt').forEach(b => {
+    const on = b.dataset.triValue === input.value;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+});
 
 function renderPlanungDetailsFormContent(p) {
   const eb = p.epaBeratung, k = p.konto, ef = p.energieplanungFelder;
   const condReq = `<span class="req cond-req">*</span>`;
+  const pane = key => `data-pane="${key}"${state.planungTab === key ? '' : ' hidden'}`;
   return `
     <div id="planung-form">
+    <div ${pane('grunddaten')}>
     <h3 class="subheading" style="margin-top:0;">EPA Beratung</h3>
     <div class="form-field"><label>Name EPA-Beratung</label><input type="text" id="f-eb-name" value="${escapeAttr(fixDash(eb.name))}"></div>
     <div class="form-field"><label>Beratungsperson${condReq}</label><input type="text" id="f-eb-beratungsperson" value="${escapeAttr(fixDash(eb.beratungsperson))}"></div>
@@ -1063,13 +1123,6 @@ function renderPlanungDetailsFormContent(p) {
     <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?${condReq}</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
     <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?${condReq}</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
     <div class="form-field"><label>Förderabschlussformular</label><input type="text" id="f-eb-foerderformular" value="${escapeAttr(fixDash(eb.foerderabschlussformular))}"></div>
-
-    <h3 class="subheading">Kontoinformationen Förderbeitrag</h3>
-    <div class="form-field"><label>Kontoinhaber/in${condReq}</label><input type="text" id="f-k-inhaber" value="${escapeAttr(fixDash(k.kontoinhaber))}"></div>
-    <div class="form-field"><label>Adresse${condReq}</label><input type="text" id="f-k-adresse" value="${escapeAttr(fixDash(k.adresse))}"></div>
-    <div class="form-field"><label>IBAN${condReq}</label><input type="text" id="f-k-iban" value="${escapeAttr(fixDash(k.iban))}"></div>
-    <div class="form-field"><label>Bankname${condReq}</label><input type="text" id="f-k-bankname" value="${escapeAttr(fixDash(k.bankname))}"></div>
-    <div class="form-field"><label>Vermerk</label><input type="text" id="f-k-vermerk" value="${escapeAttr(fixDash(k.vermerk))}"></div>
 
     <h3 class="subheading">Energieplanung</h3>
     <div class="form-field"><label>Name</label><input type="text" id="f-name" value="${escapeAttr(p.name)}"></div>
@@ -1081,9 +1134,23 @@ function renderPlanungDetailsFormContent(p) {
     </div>
     <div class="form-field"><label>Verantwortlichkeit Gemeinde</label><input type="text" id="f-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
     <div class="form-field"><label>Berater/in Energieplanung</label><input type="text" id="f-berater-energieplanung" value="${escapeAttr(fixDash(ef.beraterEnergieplanung))}"></div>
+    </div>
+
+    <div ${pane('ziele')}>
+    <h3 class="subheading" style="margin-top:0;">Ziele</h3>
     <div class="form-field"><label>Netto-null Ziel</label><input type="text" id="f-netto" value="${escapeAttr(fixDash(ef.nettoNullZiel))}"></div>
     <div class="form-field"><label>Energieeffizienz Ziel</label><input type="text" id="f-effizienz" value="${escapeAttr(fixDash(ef.energieeffizienzZiel))}"></div>
     <div class="form-field"><label>Stromproduktion Ziel</label><input type="text" id="f-strom" value="${escapeAttr(fixDash(ef.stromproduktionZiel))}"></div>
+    </div>
+
+    <div ${pane('konto')}>
+    <h3 class="subheading" style="margin-top:0;">Kontoinformationen Förderbeitrag</h3>
+    <div class="form-field"><label>Kontoinhaber/in${condReq}</label><input type="text" id="f-k-inhaber" value="${escapeAttr(fixDash(k.kontoinhaber))}"></div>
+    <div class="form-field"><label>Adresse${condReq}</label><input type="text" id="f-k-adresse" value="${escapeAttr(fixDash(k.adresse))}"></div>
+    <div class="form-field"><label>IBAN${condReq}</label><input type="text" id="f-k-iban" value="${escapeAttr(fixDash(k.iban))}"></div>
+    <div class="form-field"><label>Bankname${condReq}</label><input type="text" id="f-k-bankname" value="${escapeAttr(fixDash(k.bankname))}"></div>
+    <div class="form-field"><label>Vermerk</label><input type="text" id="f-k-vermerk" value="${escapeAttr(fixDash(k.vermerk))}"></div>
+    </div>
 
     <div class="btn-row right">
       <button class="btn btn-outline" id="btn-cancel">Abbrechen</button>
@@ -2106,7 +2173,7 @@ function renderReportPlanungen() {
     row.addEventListener('click', () => {
       state.tab = 'planungen';
       state.view = 'detail';
-      state.planungTab = 'details';
+      state.planungTab = 'grunddaten';
       state.planungDetailsMode = 'view';
       state.planungKontrolleMode = 'view';
       state.planungId = row.dataset.openReportPlanung;

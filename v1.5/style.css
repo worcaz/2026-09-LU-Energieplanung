@@ -636,3 +636,27 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 
 /* Spalte "ID" in der Planungsliste vorerst ausgeblendet (zum Wiedereinblenden diese Regel entfernen) */
 .planungen-table th:first-child, .planungen-table td:first-child{display:none;}
+
+/* Fünf Detail-Tabs: bei schmalem Panel horizontal scrollbar statt abgeschnitten */
+.subtab-row{overflow-x:auto; scrollbar-width:thin;}
+.subtab-btn{white-space:nowrap; flex:none;}
+
+/* Ja / Nein / Noch nicht gewählt als Umschalter */
+.tri-switch{display:inline-flex; gap:2px; padding:3px; border-radius:8px; background:var(--gray-100); max-width:100%; flex-wrap:wrap;}
+.tri-opt{border:none; background:transparent; color:var(--gray-700); font-size:13.5px; font-weight:600; padding:7px 16px; border-radius:6px; cursor:pointer; white-space:nowrap;}
+.tri-opt:hover{color:var(--blue-primary);}
+.tri-opt.active{background:#fff; color:var(--navy); box-shadow:0 1px 2px rgba(20,30,45,0.16);}
+.tri-opt[data-tri-value="Ja"].active{color:var(--green);}
+.tri-opt[data-tri-value="Nein"].active{color:var(--red-dark);}
+.tri-opt[data-tri-value="-"].active{color:var(--gray-600); font-weight:500;}
+.has-error .tri-switch{box-shadow:0 0 0 2px var(--red);}
+
+/* Ja/Nein-Umschalter: ohne Auswahl keine Stellung aktiv, dezenter Hinweis daneben */
+.tri-wrap{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.tri-hint{display:none; font-size:12.5px; color:var(--gray-500);}
+.tri-switch.is-empty + .tri-hint{display:inline;}
+
+/* Datenpanel liegt über den Kartenelementen (Karteninhalt, Zoom), die obere Leiste mit den Menüs (Rolle, Anwendungen) darüber */
+.side-panel{position:relative; z-index:1100;}
+.panel-resizer{z-index:1101;}
+.topbar{z-index:1500;}
