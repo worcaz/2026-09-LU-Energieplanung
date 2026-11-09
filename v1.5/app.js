@@ -438,25 +438,12 @@ document.querySelectorAll('#role-menu .role-menu-item').forEach(btn => {
 updateAvatar();
 
 /* ---------------------- ANWENDUNGEN-SWITCHER (VERSIONEN) ---------------------- */
-const $appSwitcherBtn = document.getElementById('app-switcher-btn');
-const $appSwitcherMenu = document.getElementById('app-switcher-menu');
-
-if ($appSwitcherBtn && $appSwitcherMenu) {
-  $appSwitcherBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    $appSwitcherMenu.hidden = !$appSwitcherMenu.hidden;
+document.querySelectorAll('#version-switch [data-nav]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('active')) return;
+    window.location.href = btn.dataset.nav;
   });
-  $appSwitcherMenu.addEventListener('click', e => e.stopPropagation());
-  document.addEventListener('click', () => { $appSwitcherMenu.hidden = true; });
-
-  document.querySelectorAll('#app-switcher-menu .role-menu-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $appSwitcherMenu.hidden = true;
-      if (btn.classList.contains('active')) return;
-      window.location.href = btn.dataset.nav;
-    });
-  });
-}
+});
 
 /* ---------------------- ANSICHT: KARTE / BEIDES / DATEN ---------------------- */
 const $appBody = document.querySelector('.app-body');
@@ -605,9 +592,11 @@ function planungSortHeader(field, label) {
 function renderPlanungList() {
   const list = getFilteredPlanungen();
   $panel.innerHTML = `
-    <h2 class="panel-title">Übersicht Energieplanungen</h2>
+    <div class="panel-title-row">
+      <h2 class="panel-title">Übersicht Energieplanungen</h2>
+      <button type="button" class="btn btn-primary" id="btn-add-planung">Neue Energieplanung</button>
+    </div>
     <div class="toolbar-row">
-      <button class="btn-square" id="btn-add-planung" title="Neue Energieplanung">+</button>
       <div class="search-input-wrap">
         <input type="text" id="planung-search" placeholder="Name, ID, Jahr..." value="${escapeAttr(state.list.search)}">
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
@@ -621,8 +610,6 @@ function renderPlanungList() {
       `<div class="table-scroll"><table class="data-table planungen-table">
         <thead><tr>
           ${planungSortHeader('id', 'ID')}
-          ${planungSortHeader('name', 'Name')}
-          ${planungSortHeader('jahr', 'Jahr')}
           ${planungSortHeader('gemeinde', 'Gemeinden')}
           ${planungSortHeader('typ', 'Typ')}
           ${planungSortHeader('status', 'Status')}
@@ -633,8 +620,6 @@ function renderPlanungList() {
           ${list.map(p => `
             <tr data-open-planung="${p.id}">
               <td>${p.id}</td>
-              <td>${p.name}</td>
-              <td>${p.jahr}</td>
               <td>${p.gemeinde}</td>
               <td title="${p.typ}">${typKurz(p.typ)}</td>
               <td>${phaseBadge(p)}</td>

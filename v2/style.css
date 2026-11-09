@@ -56,18 +56,35 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 .warn-text{color:var(--amber-dark); font-weight:600;}
 [hidden]{display:none !important;}
 
-/* ================= HEADER (wie v1) ================= */
+/* ================= HEADER (identisch zu v1 / v1.5) ================= */
 .topbar{
   height:56px;
-  background: #009fe3;
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 0 16px; color:#fff; position:relative; z-index:20;
+  background: linear-gradient(180deg, #34acdf, #2596c9);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 0 16px;
+  color:#fff;
+  position:relative;
+  z-index:20;
 }
 .topbar-left{display:flex; align-items:center; gap:14px;}
-.geo-logo, .geo-logo .item{display:flex; align-items:center;}
-.geo-logo a{display:flex; align-items:center; gap:8px; text-decoration:none; position:relative;}
+.geo-logo{display:flex; align-items:center;}
+.geo-logo .item{display:flex; align-items:center;}
+.geo-logo a{
+  display:flex; align-items:center; gap:8px;
+  text-decoration:none; position:relative;
+}
 .geo-logo svg{display:block; flex-shrink:0;}
-.geo-badge{font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; letter-spacing:.3px; line-height:1.4;}
+.geo-badge{
+  font-size:9px;
+  font-weight:700;
+  padding:1px 6px;
+  border-radius:8px;
+  letter-spacing:0.3px;
+  text-transform:none;
+  line-height:1.4;
+}
 .geo-test-badge{background:var(--red); color:#fff;}
 .logo-sep{width:1px; height:30px; background:rgba(255,255,255,0.5);}
 .app-title{font-size:19px; font-weight:700; color:#fff;}
@@ -80,8 +97,16 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 .icon-btn svg{width:19px; height:19px; fill:#fff;}
 .icon-btn:hover{background:rgba(255,255,255,0.18);}
 
-.view-toggle{display:flex; align-items:center; gap:2px; background:rgba(255,255,255,0.18); border-radius:8px; padding:2px;}
-.view-toggle button{width:32px; height:30px; border:none; background:transparent; border-radius:6px; display:flex; align-items:center; justify-content:center;}
+.view-toggle{
+  display:flex; align-items:center; gap:2px;
+  background:rgba(255,255,255,0.18);
+  border-radius:8px;
+  padding:2px;
+}
+.view-toggle button{
+  width:32px; height:30px; border:none; background:transparent; border-radius:6px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
 .view-toggle button svg{width:17px; height:17px; fill:#fff;}
 .view-toggle button:hover:not(.active){background:rgba(255,255,255,0.22);}
 .view-toggle button.active{background:#fff;}
@@ -89,17 +114,20 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 
 .role-switcher{position:relative;}
 .avatar-circle{
-  width:26px; height:26px; border-radius:50%; flex:none;
+  width:26px; height:26px; aspect-ratio:1/1; border-radius:50%; flex:none;
   background:#fff; color:var(--blue-primary-dark);
   display:flex; align-items:center; justify-content:center;
-  font-size:11px; font-weight:700; letter-spacing:.2px;
+  font-size:11px; font-weight:700; letter-spacing:.2px; overflow:hidden;
 }
 .role-menu{
-  position:absolute; top:calc(100% + 8px); right:0; min-width:220px;
+  position:absolute; top:calc(100% + 8px); right:0; min-width:200px;
   background:#fff; border-radius:var(--radius); box-shadow:0 4px 20px rgba(20,30,45,0.22);
   padding:6px; z-index:30; color:var(--text);
 }
-.role-menu-label{padding:8px 10px 6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--gray-500);}
+.role-menu-label{
+  padding:8px 10px 6px; font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.3px; color:var(--gray-500);
+}
 .role-menu-item{
   display:flex; align-items:center; justify-content:space-between; gap:10px;
   width:100%; padding:9px 10px; border:none; background:transparent; border-radius:4px;
@@ -110,10 +138,25 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 .role-menu-item.active{color:var(--blue-primary);}
 .role-menu-item.active .role-menu-check{visibility:visible;}
 
-.topbar-search{display:flex; align-items:center; background:#fff; border-radius:4px; overflow:hidden; width:300px; height:34px; margin-left:8px;}
-.topbar-search input{border:none; outline:none; flex:1; padding:0 12px; font-size:13px; color:var(--text);}
-.search-btn{background:var(--blue-primary); border:none; height:100%; width:40px; display:flex; align-items:center; justify-content:center;}
+.topbar-search{
+  display:flex; align-items:center; background:#fff; border-radius:4px; overflow:hidden;
+  width:340px; height:34px; margin-left:8px;
+}
+.topbar-search input{
+  border:none; outline:none; flex:1; padding:0 12px; font-size:13px; color:var(--text);
+}
+.search-btn{
+  background:var(--blue-primary); border:none; height:100%; width:40px;
+  display:flex; align-items:center; justify-content:center;
+}
 .search-btn svg{width:16px; height:16px; fill:#fff;}
+
+/* Header-Variablen aus v1 festhalten, damit v2-Farben den Header nicht verändern */
+.topbar{
+  --blue-header:#2ea6d9; --blue-primary:#1d78bd; --blue-primary-dark:#145f97;
+  --red:#d4463c; --gray-50:#f6f7f8; --gray-500:#8a929c; --text:#223142; --radius:6px;
+  line-height:normal;
+}
 
 /* ================= LAYOUT (wie v1) ================= */
 .app-body{display:flex; height:calc(100vh - 56px); position:relative;}
@@ -1314,3 +1357,9 @@ body:not(.kbd) .panel-tab:focus-visible{outline:none;}
 
 /* Obere Leiste mit Menüs (App-Wechsel, Rolle) liegt über Datenpanel und Karte */
 .topbar{z-index:1500;}
+
+/* Versions-Switch (v1 / v1.5 / v2) */
+.version-switch{display:flex; align-items:center; gap:2px; background:rgba(255,255,255,0.18); border-radius:8px; padding:2px;}
+.version-switch button{height:30px; padding:0 12px; border:none; background:transparent; border-radius:6px; color:#fff; font-size:13px; font-weight:600; cursor:pointer;}
+.version-switch button:hover:not(.active){background:rgba(255,255,255,0.22);}
+.version-switch button.active{background:#fff; color:var(--blue-primary);}

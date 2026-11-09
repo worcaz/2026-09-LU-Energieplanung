@@ -273,6 +273,9 @@ input,select,textarea{font-family:inherit; font-size: 14px;}
 
 /* ---------- shared bits ---------- */
 h2.panel-title{font-size:19px; margin:0 0 16px;}
+.panel-title-row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:0 0 16px;}
+.panel-title-row h2.panel-title{margin:0;}
+.panel-title-row .btn{margin-left:auto;}
 .nav-row{display:flex; align-items:center; gap:14px; margin-bottom:10px; flex-wrap:wrap;}
 .back-link{
   display:flex; align-items:center; gap:4px;
@@ -660,3 +663,9 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 .side-panel{position:relative; z-index:1100;}
 .panel-resizer{z-index:1101;}
 .topbar{z-index:1500;}
+
+/* Versions-Switch (v1 / v1.5 / v2) */
+.version-switch{display:flex; align-items:center; gap:2px; background:rgba(255,255,255,0.18); border-radius:8px; padding:2px;}
+.version-switch button{height:30px; padding:0 12px; border:none; background:transparent; border-radius:6px; color:#fff; font-size:13px; font-weight:600; cursor:pointer;}
+.version-switch button:hover:not(.active){background:rgba(255,255,255,0.22);}
+.version-switch button.active{background:#fff; color:var(--blue-primary);}
