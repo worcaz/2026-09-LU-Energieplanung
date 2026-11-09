@@ -73,7 +73,9 @@ const NETTO_NULL_ZIELE = [
   'Reduktion der CO2-Emissionen um 60 % bis 2035.',
   'Fossilfreie Wärmeversorgung im ganzen Gemeindegebiet bis 2045.',
   'Netto-null Ziel gemäss kantonaler Energiestrategie 2050.',
-  'CO2-Neutralität der öffentlichen Gebäude bis 2035.'
+  'CO2-Neutralität der öffentlichen Gebäude bis 2035.',
+  'Die Gemeinde verfolgt das Ziel, die Treibhausgasemissionen bis 2050 auf netto null zu senken.\nZwischenziele:\n- 2030: Reduktion der Emissionen um 40 % gegenüber 2020\n- 2040: Reduktion um 75 %, Gemeindeverwaltung und öffentliche Gebäude klimaneutral\n- 2050: Netto-null im gesamten Gemeindegebiet\nDie Fortschritte werden alle zwei Jahre im Rahmen des Energie- und Klimaberichts überprüft.',
+  'Netto-null bis 2045, d. h. fünf Jahre früher als in der kantonalen Energiestrategie vorgesehen.\nMassgebend sind die Sektoren Wärme, Mobilität und Strom. Für die Wärmeversorgung gilt ein vollständiger Ausstieg aus Öl- und Gasheizungen bis 2040; der Ausbau der Fernwärme wird in der Energierichtplanung festgelegt.'
 ];
 const ENERGIEEFFIZIENZ_ZIELE = [
   'Senkung des Energieverbrauchs pro Kopf um 30 % bis 2035.',
@@ -81,7 +83,9 @@ const ENERGIEEFFIZIENZ_ZIELE = [
   'Energetische Vorbildfunktion der Gemeindebauten stärken.',
   'Reduktion des Wärmebedarfs im Gebäudepark um 25 %.',
   'Steigerung der Energieeffizienz in Gewerbe und Industrie.',
-  'Minergie-Standard bei allen Neubauten verbindlich vorschreiben.'
+  'Minergie-Standard bei allen Neubauten verbindlich vorschreiben.',
+  'Der Energieverbrauch pro Kopf wird bis 2035 um 30 % gesenkt.\nMassnahmenschwerpunkte:\n- Erhöhung der Sanierungsrate auf 2 % pro Jahr\n- Energetische Sanierung aller Gemeindeliegenschaften bis 2032\n- Ersatz ineffizienter Beleuchtung (Strassen, Schulhäuser, Sportanlagen)\n- Beratungsangebot für private Eigentümerschaften (Gebäudeenergieberatung plus)',
+  'Steigerung der Energieeffizienz in Gewerbe und Industrie durch Zielvereinbarungen mit den zehn grössten Verbrauchern.\nDie Gemeinde unterstützt Betriebe bei Abwärmenutzung und Prozessoptimierung und prüft die Einführung eines kommunalen Förderprogramms.'
 ];
 const STROMPRODUKTION_ZIELE = [
   'Ausbau der Photovoltaik auf 50 % des Strombedarfs bis 2040.',
@@ -89,7 +93,9 @@ const STROMPRODUKTION_ZIELE = [
   'Verdopplung der lokalen Solarstromproduktion bis 2030.',
   'Förderung von PV-Anlagen auf allen geeigneten Dachflächen.',
   'Eigenversorgungsgrad mit erneuerbarem Strom auf 40 % steigern.',
-  'Ausbau erneuerbarer Stromproduktion um 5 GWh bis 2035.'
+  'Ausbau erneuerbarer Stromproduktion um 5 GWh bis 2035.',
+  'Bis 2040 deckt die lokale Photovoltaik-Produktion mindestens 50 % des Strombedarfs der Gemeinde.\nUmsetzung:\n- Alle geeigneten Dächer öffentlicher Gebäude werden bis 2030 mit PV-Anlagen ausgestattet\n- Beratung und Förderbeiträge für private Anlagen\n- Prüfung von Solaranlagen an Fassaden, Parkplätzen und Lärmschutzwänden\n- Gründung einer Energiegenossenschaft für Bürgerbeteiligungen',
+  'Verdopplung der lokalen Solarstromproduktion bis 2030, Ausbau der Kleinwasserkraft am Gemeindebach (Potenzial ca. 1.2 GWh/a) und Prüfung von Biogas aus der regionalen Landwirtschaft.\nDie Eigenversorgung soll durch lokale Speicherlösungen und ein Zusammenschluss zum Eigenverbrauch (ZEV) in neuen Quartieren erhöht werden.'
 ];
 
 // Dummy-Daten für "Kontoinformationen Förderbeitrag" — Konto lautet immer auf die jeweilige Gemeinde.
@@ -119,6 +125,7 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
       prozessstatus: status,
       beratungsperson: '-',
       datumBeratungsbeginn: '-',
+      geplanterStart: '-',
       bedarfEnergierichtplan: '-',
       bedarfKoordination: '-',
       gebieteKoordinationsbedarf: '-',
@@ -299,6 +306,8 @@ function fillPlanungDetails(planung) {
   // bleibt bei rund der Hälfte der Entwurf-Planungen alles Weitere unausgefüllt ('-'), die andere
   // Hälfte hat trotzdem bereits vollständige Angaben (z.B. weil die Beratung schon weit war, bevor
   // der Status wieder auf Entwurf zurückgesetzt wurde).
+  // Geplanter Start der EPA-Beratung (Fälligkeit für Entwürfe, deren Beratung noch nicht begonnen hat)
+  if (planung.status === 'Entwurf') planung.epaBeratung.geplanterStart = formatDate(addDays(new Date(), randomInt(-60, 420)));
   if (planung.status === 'Entwurf' && Math.random() < 0.5) return;
   const beginn = randomDate(planung.jahr - 2, planung.jahr);
   const gesuchseingang = addDays(beginn, randomInt(30, 240));
@@ -350,7 +359,7 @@ const state = {
   tab: 'planungen',
   view: 'list',            // list | detail | contactForm
   planungId: null,
-  planungTab: 'grunddaten', // grunddaten | ziele | massnahmen | konto | kontrolle (Sub-Tabs in der Planungsdetailansicht)
+  planungTab: 'grunddaten', // grunddaten | epa | nachfuehrung | massnahmen | konto | kontrolle (Sub-Tabs in der Planungsdetailansicht)
   planungDetailsMode: 'view', // view | edit — Zustand des Planungsdetails-Tabs
   planungKontrolleMode: 'view', // view | edit — Zustand des Kontrolle-Tabs (nur Admin)
   planungPendingStatus: null, // Zielstatus, wenn ein Stepper-Klick wegen fehlender Pflichtfelder ins Bearbeiten-Formular geleitet hat
@@ -524,6 +533,10 @@ function getFilteredPlanungen() {
   const dir = state.list.sortDir === 'desc' ? -1 : 1;
   list.sort((a, b) => {
     if (field === 'jahr') return (a.jahr - b.jahr) * dir;
+    if (field === 'naechster') {
+      const na = naechsterSchrittFor(a).text.toLowerCase(), nb = naechsterSchrittFor(b).text.toLowerCase();
+      return na < nb ? -1 * dir : na > nb ? 1 * dir : 0;
+    }
     if (field === 'termin') {
       const ta = terminFor(a), tb = terminFor(b);
       if (!ta && !tb) return 0;
@@ -561,9 +574,23 @@ function typKurz(typ) {
   if (/kommun/i.test(t)) return 'kommunal';
   return t;
 }
-function terminFor(p) { return naechstePruefungFor(p); }
+// Entwurf ohne Beratungsbeginn: geplanter Start der EPA-Beratung; Abschluss: nächste Nachführung/Prüfung.
+function beratungStartFor(p) {
+  if (p.status !== 'Entwurf') return null;
+  const eb = p.epaBeratung || {};
+  if (parseSwissDate(eb.datumBeratungsbeginn)) return null;
+  return parseSwissDate(eb.geplanterStart);
+}
+function terminFor(p) { return beratungStartFor(p) || naechstePruefungFor(p); }
 function terminCell(p) {
   const t = terminFor(p);
+  const start = beratungStartFor(p);
+  if (start) {
+    const late = start < new Date(new Date().setHours(0, 0, 0, 0));
+    return late
+      ? `<span class="termin-faellig" title="Geplanter Start der EPA-Beratung – überfällig seit ${formatDate(start)}">⚠ ${formatDate(start)}</span>`
+      : `<span title="Geplanter Start der EPA-Beratung">${formatDate(start)}</span>`;
+  }
   if (!t) return '<span class="muted">–</span>';
   if (pruefstatusFor(p) === 'faellig') return `<span class="termin-faellig" title="Überfällig seit ${formatDate(t)}">⚠ ${formatDate(t)}</span>`;
   return formatDate(t);
@@ -581,6 +608,171 @@ function phaseBadge(p) {
   const nr = PHASEN[ph].nr;
   const segs = [1, 2, 3, 4].map(i => `<i class="${i <= nr ? 'on' : ''}"></i>`).join('');
   return `<span class="phase-badge phase-${ph}${warn ? ' is-warn' : ''}"><span class="pseg" role="img" aria-label="Schritt ${nr} von 4" title="Schritt ${nr} von 4">${segs}</span>${PHASEN[ph].label}${sub ? `<span class="phase-sub">· ${sub}</span>` : ''}</span>`;
+}
+
+// Nächster Schritt je Energieplanung (abgeleitet aus Status / Prüfpflicht, analog v2)
+// art: 'aufgabe' | 'warn' (fällig) | 'ok' (nichts zu tun)
+function naechsterSchrittFor(p) {
+  if (p.status === 'Entwurf') return { text: 'Entwurf der EPA-Beratung fertigstellen', art: 'aufgabe' };
+  if (p.status === 'Verabschiedung') return { text: 'Verabschiedung durch den Gemeinderat erfassen', art: 'aufgabe' };
+  if (p.status === 'Fördergesuch') {
+    const ges = p.epaBeratung && p.epaBeratung.gesuchseingang;
+    return ges && ges !== '-'
+      ? { text: 'Fördergesuch prüfen und Auszahlung erfassen', art: 'aufgabe' }
+      : { text: 'Fördergesuch einreichen', art: 'aufgabe' };
+  }
+  const t = naechstePruefungFor(p);
+  if (t) {
+    if (pruefstatusFor(p) === 'faellig') return { text: `Nachführung ${t.getFullYear()} ist fällig`, art: 'warn' };
+    if (t < addYears(new Date(), 1)) return { text: `Nachführung ${t.getFullYear()} steht bald an`, art: 'aufgabe' };
+  }
+  return { text: 'Aktuell nichts zu tun', art: 'ok' };
+}
+function naechsterSchrittCell(p) {
+  const n = naechsterSchrittFor(p);
+  return `<span class="next-step next-${n.art}">${n.text}</span>`;
+}
+
+/* ---------------------- BESTÄTIGUNGS-DIALOG (ersetzt window.confirm) ---------------------- */
+function confirmDialog(message, opts = {}) {
+  const { title = 'Bestätigen', confirmLabel = 'OK', cancelLabel = 'Abbrechen', danger = false } = opts;
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="cd-title" aria-describedby="cd-text">
+        <h3 id="cd-title">${escapeHtml(title)}</h3>
+        <p class="modal-text" id="cd-text">${escapeHtml(message)}</p>
+        <div class="btn-row modal-actions">
+          <button type="button" class="btn btn-secondary" data-cd="cancel">${escapeHtml(cancelLabel)}</button>
+          <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-cd="ok">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const done = result => { overlay.remove(); document.removeEventListener('keydown', onKey, true); resolve(result); };
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      else if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    overlay.addEventListener('click', e => { if (e.target === overlay) done(false); });
+    overlay.querySelector('[data-cd="cancel"]').addEventListener('click', () => done(false));
+    overlay.querySelector('[data-cd="ok"]').addEventListener('click', () => done(true));
+    overlay.querySelector('[data-cd="cancel"]').focus();
+  });
+}
+
+/* ---------------------- NEUE ENERGIEPLANUNG (mit Prüfung auf bestehende Planung je Gemeinde) ---------------------- */
+const TYP_KOMMUNAL = 'Kommunale Energieplanung';
+const TYP_REGIONAL = 'Regionale Energieplanung';
+// Bestehende Planungen desselben Typs, die (mindestens) eine der Gemeinden betreffen.
+function planungenFuerGemeinden(gemeinden, typ) {
+  const set = new Set(gemeinden.map(g => String(g).trim().toLowerCase()));
+  return planungen.filter(p => p.typ === typ &&
+    String(p.gemeinde).split(',').some(x => set.has(x.trim().toLowerCase())));
+}
+function openPlanung(id) {
+  state.planungId = id;
+  state.view = 'detail';
+  state.planungTab = 'grunddaten';
+  state.planungDetailsMode = 'view';
+  state.planungKontrolleMode = 'view';
+  state.planungPendingStatus = null;
+  state.massnahmeId = null;
+  state.mdMode = null;
+  render();
+}
+function openNeuePlanungDialog() {
+  if (document.getElementById('neue-planung-dialog')) return;
+  const gemeinden = GEMEINDEN_LUZERN_PLZ.map(g => g.name);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'neue-planung-dialog';
+  overlay.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="np-title">
+      <h3 id="np-title">Neue Energieplanung</h3>
+      <div class="form-field">
+        <label>Planungstyp<span class="req">*</span></label>
+        <div class="np-typ">
+          <label class="np-radio"><input type="radio" name="np-typ" value="kommunal" checked> Kommunale Energieplanung <span class="np-hint">(genau eine Gemeinde)</span></label>
+          <label class="np-radio"><input type="radio" name="np-typ" value="regional"> Regionale Energieplanung <span class="np-hint">(mehrere Gemeinden)</span></label>
+        </div>
+      </div>
+      <div class="form-field" id="np-field-kommunal">
+        <label for="np-gemeinde">Gemeinde<span class="req">*</span></label>
+        <select id="np-gemeinde" class="select-input">
+          <option value="">Bitte wählen…</option>
+          ${gemeinden.map(n => `<option value="${escapeAttr(n)}">${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field" id="np-field-regional" hidden>
+        <label>Gemeinden<span class="req">*</span> <span class="np-hint" id="np-count">(mindestens 2 wählen)</span></label>
+        <input type="text" id="np-filter" placeholder="Gemeinde suchen…" class="np-filter">
+        <div class="np-list" id="np-list">
+          ${gemeinden.map(n => `<label class="np-item" data-name="${escapeAttr(n.toLowerCase())}"><input type="checkbox" value="${escapeAttr(n)}"> ${n}</label>`).join('')}
+        </div>
+      </div>
+      <div class="modal-msg" id="np-msg" hidden></div>
+      <div class="btn-row modal-actions">
+        <button type="button" class="btn btn-secondary" id="np-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="np-create">Erstellen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const $msg = overlay.querySelector('#np-msg');
+  const $sel = overlay.querySelector('#np-gemeinde');
+  const $fk = overlay.querySelector('#np-field-kommunal');
+  const $fr = overlay.querySelector('#np-field-regional');
+  const $count = overlay.querySelector('#np-count');
+  const typ = () => overlay.querySelector('input[name="np-typ"]:checked').value;
+  const checked = () => [...overlay.querySelectorAll('#np-list input:checked')].map(i => i.value);
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('#np-cancel').addEventListener('click', close);
+  const showMsg = html => { $msg.innerHTML = html; $msg.hidden = false; };
+  const updateCount = () => { const n = checked().length; $count.textContent = n ? `(${n} gewählt, mindestens 2)` : '(mindestens 2 wählen)'; };
+
+  overlay.querySelectorAll('input[name="np-typ"]').forEach(r => r.addEventListener('change', () => {
+    $msg.hidden = true;
+    $fk.hidden = typ() !== 'kommunal';
+    $fr.hidden = typ() !== 'regional';
+  }));
+  $sel.addEventListener('change', () => { $msg.hidden = true; });
+  overlay.querySelector('#np-list').addEventListener('change', () => { $msg.hidden = true; updateCount(); });
+  overlay.querySelector('#np-filter').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    overlay.querySelectorAll('#np-list .np-item').forEach(el => { el.hidden = !!q && !el.dataset.name.includes(q); });
+  });
+  $sel.focus();
+
+  overlay.querySelector('#np-create').addEventListener('click', () => {
+    const kommunal = typ() === 'kommunal';
+    const gewaehlt = kommunal ? ($sel.value ? [$sel.value] : []) : checked();
+    const typName = kommunal ? TYP_KOMMUNAL : TYP_REGIONAL;
+    if (kommunal && !gewaehlt.length) { showMsg('Bitte wählen Sie eine Gemeinde.'); return; }
+    if (!kommunal && gewaehlt.length < 2) { showMsg('Eine regionale Energieplanung betrifft mehrere Gemeinden. Bitte wählen Sie mindestens zwei Gemeinden.'); return; }
+
+    const vorhanden = planungenFuerGemeinden(gewaehlt, typName);
+    if (vorhanden.length) {
+      const links = vorhanden.map(p => `<a href="#" data-open-existing="${p.id}">${p.id} (${escapeHtml(p.gemeinde)}, ${p.status})</a>`).join(', ');
+      showMsg(kommunal
+        ? `In der Gemeinde <strong>${escapeHtml(gewaehlt[0])}</strong> existiert bereits eine kommunale Energieplanung: ${links}. Es kann keine weitere erstellt werden.`
+        : `Für mindestens eine der gewählten Gemeinden existiert bereits eine regionale Energieplanung: ${links}. Es kann keine weitere erstellt werden.`);
+      $msg.querySelectorAll('[data-open-existing]').forEach(a => a.addEventListener('click', e => {
+        e.preventDefault(); close(); openPlanung(a.dataset.openExisting);
+      }));
+      return;
+    }
+    const id = `EP-${nextPlanungSeq++}`;
+    const gemeindeText = gewaehlt.join(', ');
+    const p = makeEnergieplanung(id, gemeindeText, 'Entwurf', { typ: typName, name: `${typName} ${gemeindeText}` });
+    planungen.unshift(p);
+    close();
+    toast(`${id} wurde angelegt.`);
+    openPlanung(id);
+  });
 }
 
 function planungSortHeader(field, label) {
@@ -613,6 +805,7 @@ function renderPlanungList() {
           ${planungSortHeader('gemeinde', 'Gemeinden')}
           ${planungSortHeader('typ', 'Typ')}
           ${planungSortHeader('status', 'Status')}
+          ${planungSortHeader('naechster', 'Nächster Schritt').replace('<th ', '<th class="col-next" ')}
           ${planungSortHeader('termin', 'Fälligkeit')}
           <th class="col-actions"><span class="sr-only">Aktionen</span></th>
         </tr></thead>
@@ -623,6 +816,7 @@ function renderPlanungList() {
               <td>${p.gemeinde}</td>
               <td title="${p.typ}">${typKurz(p.typ)}</td>
               <td>${phaseBadge(p)}</td>
+              <td class="col-next">${naechsterSchrittCell(p)}</td>
               <td class="cell-termin">${terminCell(p)}</td>
               <td class="col-actions">
                 <button type="button" class="row-action" data-open-planung="${p.id}" title="Ansehen" aria-label="${p.id} ansehen"><svg viewBox="0 0 24 24"><path d="M12 5C7 5 2.7 8.1 1 12.5 2.7 16.9 7 20 12 20s9.3-3.1 11-7.5C21.3 8.1 17 5 12 5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button>
@@ -634,22 +828,7 @@ function renderPlanungList() {
       </table></div>`}
   `;
 
-  document.getElementById('btn-add-planung').addEventListener('click', () => {
-    const id = `EP-${nextPlanungSeq++}`;
-    const p = makeEnergieplanung(id, 'Neue Gemeinde', 'Entwurf');
-    p.name = 'Neue Energieplanung';
-    planungen.unshift(p);
-    toast(`${id} wurde angelegt.`);
-    state.planungId = id;
-    state.view = 'detail';
-    state.planungTab = 'grunddaten';
-    state.planungDetailsMode = 'view';
-    state.planungKontrolleMode = 'view';
-    state.planungPendingStatus = null;
-    state.massnahmeId = null;
-    state.mdMode = null;
-    render();
-  });
+  document.getElementById('btn-add-planung').addEventListener('click', openNeuePlanungDialog);
   document.getElementById('planung-search').addEventListener('input', e => {
     state.list.search = e.target.value;
     renderPlanungList();
@@ -960,18 +1139,20 @@ function renderPlanungDetail() {
     ${renderPruefungBanner(p)}
 
     <div class="subtab-row">
-      <button class="subtab-btn ${state.planungTab === 'grunddaten' ? 'active' : ''}" data-subtab="grunddaten">Grunddaten EPA</button>
-      <button class="subtab-btn ${state.planungTab === 'ziele' ? 'active' : ''}" data-subtab="ziele">Ziele</button>
+      <button class="subtab-btn ${state.planungTab === 'grunddaten' ? 'active' : ''}" data-subtab="grunddaten">Grunddaten</button>
+      <button class="subtab-btn ${state.planungTab === 'epa' ? 'active' : ''}" data-subtab="epa">EPA Beratung</button>
       <button class="subtab-btn ${state.planungTab === 'massnahmen' ? 'active' : ''}" data-subtab="massnahmen">
         Massnahmen <span class="subtab-count">${p.massnahmen.length}</span>
       </button>
       <button class="subtab-btn ${state.planungTab === 'konto' ? 'active' : ''}" data-subtab="konto">Kontoinformationen</button>
+      <button class="subtab-btn ${state.planungTab === 'nachfuehrung' ? 'active' : ''}" data-subtab="nachfuehrung">Nachführung</button>
       ${state.role === 'Admin' ? `<button class="subtab-btn ${state.planungTab === 'kontrolle' ? 'active' : ''}" data-subtab="kontrolle">Kontrolle</button>` : ''}
     </div>
 
     <div class="subtab-content">
       ${PANE_TABS.includes(state.planungTab) ? renderPlanungDetailsTabContent(p)
         : state.planungTab === 'massnahmen' ? renderPlanungMassnahmenTabContent(p)
+        : state.planungTab === 'nachfuehrung' ? renderPlanungNachfuehrungTabContent(p)
         : renderPlanungKontrolleTabContent(p)}
     </div>
   `;
@@ -994,7 +1175,51 @@ function renderPlanungDetail() {
 
   if (PANE_TABS.includes(state.planungTab)) bindPlanungDetailsTab(p);
   else if (state.planungTab === 'massnahmen') bindPlanungMassnahmenTab(p);
+  else if (state.planungTab === 'nachfuehrung') bindPlanungNachfuehrungTab(p);
   else bindPlanungKontrolleTab(p);
+}
+
+/* ---------------------- NACHFÜHRUNG-TAB (Angaben und Massnahmen überprüfen) ---------------------- */
+function renderPlanungNachfuehrungTabContent(p) {
+  const ef = p.energieplanungFelder;
+  const rows = p.massnahmen.map(m => `
+    <tr data-nf-open="${m.id}">
+      <td>${m.id}</td>
+      <td class="md-row-name">${escapeHtml(m.name)}</td>
+      <td>${escapeHtml(m.prozessstatus)}</td>
+      <td class="cell-termin">${escapeHtml(val(m.faelligkeitsdatum))}</td>
+    </tr>`).join('');
+  return `
+    <h3 class="subheading" style="margin-top:0;">Angaben überprüfen</h3>
+    <div class="form-field"><label>Verantwortliche Person der Gemeinde</label><input type="text" id="nf-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
+    <div class="form-field"><label>Berater/in Energieplanung</label><input type="text" id="nf-berater" value="${escapeAttr(fixDash(ef.beraterEnergieplanung))}"></div>
+    <div class="btn-row right"><button class="btn btn-primary" id="btn-nf-save">Angaben speichern</button></div>
+
+    <h3 class="subheading">Massnahmen überprüfen</h3>
+    ${p.massnahmen.length === 0 ? '<div class="empty-state">Keine Massnahmen vorhanden.</div>' : `
+    <div class="table-scroll"><table class="data-table massnahmen-table">
+      <thead><tr><th>ID</th><th>Name</th><th>Prozessstatus</th><th>Fälligkeit</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`}
+  `;
+}
+
+function bindPlanungNachfuehrungTab(p) {
+  document.getElementById('btn-nf-save').addEventListener('click', () => {
+    p.energieplanungFelder.verantwortlichkeit = document.getElementById('nf-verantwortlichkeit').value || '-';
+    p.energieplanungFelder.beraterEnergieplanung = document.getElementById('nf-berater').value || '-';
+    toast('Angaben wurden gespeichert.');
+  });
+  // Klick auf eine Massnahme öffnet sie im Massnahmen-Tab zum Prüfen/Ändern.
+  $panel.querySelectorAll('[data-nf-open]').forEach(row => {
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', () => {
+      state.planungTab = 'massnahmen';
+      state.massnahmeId = row.dataset.nfOpen;
+      state.mdMode = 'view';
+      renderPlanungDetail();
+    });
+  });
 }
 
 /* ---------------------- PLANUNGSDETAILS-TAB ---------------------- */
@@ -1003,7 +1228,7 @@ function renderPlanungDetailsTabContent(p) {
 }
 
 // Tabs, deren Inhalt zu den Planungsdetails (Ansicht/Formular) gehört
-const PANE_TABS = ['grunddaten', 'ziele', 'konto'];
+const PANE_TABS = ['grunddaten', 'epa', 'konto'];
 function activatePane(key) {
   state.planungTab = key;
   document.querySelectorAll('#planung-form [data-pane]').forEach(el => { el.hidden = el.dataset.pane !== key; });
@@ -1015,17 +1240,6 @@ function renderPlanungDetailsViewContent(p) {
   let body = '';
   if (state.planungTab === 'grunddaten') {
     body = `
-    ${section('epa', 'EPA Beratung', `
-      ${field('Name EPA-Beratung', eb.name)}
-      ${field('Prozessstatus', eb.prozessstatus, true)}
-      ${field('Beratungsperson', eb.beratungsperson)}
-      ${field('Datum Beratungsbeginn', eb.datumBeratungsbeginn)}
-      ${field('Bedarf eines Energierichtplans?', eb.bedarfEnergierichtplan)}
-      ${field('Bedarf einer Koordination mit weiteren Gemeinde(n)?', eb.bedarfKoordination)}
-      ${field('Gebiete mit Koordinationsbedarf vorhanden?', eb.gebieteKoordinationsbedarf)}
-      ${field('Förderabschlussformular', eb.foerderabschlussformular)}
-    `)}
-
     ${section('energieplanung', 'Energieplanung', `
       ${field('ID', p.id)}
       ${field('Name', p.name)}
@@ -1035,12 +1249,25 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Verantwortlichkeit Gemeinde', ef.verantwortlichkeit)}
       ${field('Berater/in Energieplanung', ef.beraterEnergieplanung)}
     `)}`;
-  } else if (state.planungTab === 'ziele') {
-    body = section('ziele', 'Ziele', `
+  } else if (state.planungTab === 'epa') {
+    body = `
+    ${section('epa', 'EPA Beratung', `
+      ${field('Name EPA-Beratung', eb.name)}
+      ${field('Prozessstatus', eb.prozessstatus, true)}
+      ${field('Beratungsperson', eb.beratungsperson)}
+      ${field('Geplanter Start EPA-Beratung', eb.geplanterStart)}
+      ${field('Datum Beratungsbeginn', eb.datumBeratungsbeginn)}
+      ${field('Bedarf eines Energierichtplans?', eb.bedarfEnergierichtplan)}
+      ${field('Bedarf einer Koordination mit weiteren Gemeinde(n)?', eb.bedarfKoordination)}
+      ${field('Gebiete mit Koordinationsbedarf vorhanden?', eb.gebieteKoordinationsbedarf)}
+      ${field('Förderabschlussformular', eb.foerderabschlussformular)}
+    `)}
+
+    ${section('ziele', 'Ziele', `
       ${field('Netto-null Ziel', ef.nettoNullZiel)}
       ${field('Energieeffizienz Ziel', ef.energieeffizienzZiel)}
       ${field('Stromproduktion Ziel', ef.stromproduktionZiel)}
-    `);
+    `)}`;
   } else {
     body = section('konto', 'Kontoinformationen Förderbeitrag', `
       ${field('Kontoinhaber/in', k.kontoinhaber)}
@@ -1099,17 +1326,25 @@ function renderPlanungDetailsFormContent(p) {
   const pane = key => `data-pane="${key}"${state.planungTab === key ? '' : ' hidden'}`;
   return `
     <div id="planung-form">
-    <div ${pane('grunddaten')}>
+    <div ${pane('epa')}>
     <h3 class="subheading" style="margin-top:0;">EPA Beratung</h3>
     <div class="form-field"><label>Name EPA-Beratung</label><input type="text" id="f-eb-name" value="${escapeAttr(fixDash(eb.name))}"></div>
     <div class="form-field"><label>Beratungsperson${condReq}</label><input type="text" id="f-eb-beratungsperson" value="${escapeAttr(fixDash(eb.beratungsperson))}"></div>
+    <div class="form-field"><label>Geplanter Start EPA-Beratung</label><input type="text" id="f-eb-geplant" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.geplanterStart))}"></div>
     <div class="form-field"><label>Datum Beratungsbeginn${condReq}</label><input type="text" id="f-eb-datum" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.datumBeratungsbeginn))}"></div>
     <div class="form-field"><label>Bedarf eines Energierichtplans?${condReq}</label>${yesNoSelect('f-eb-energierichtplan', eb.bedarfEnergierichtplan)}</div>
     <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?${condReq}</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
     <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?${condReq}</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
     <div class="form-field"><label>Förderabschlussformular</label><input type="text" id="f-eb-foerderformular" value="${escapeAttr(fixDash(eb.foerderabschlussformular))}"></div>
 
-    <h3 class="subheading">Energieplanung</h3>
+    <h3 class="subheading">Ziele</h3>
+    <div class="form-field"><label>Netto-null Ziel</label><textarea id="f-netto" rows="5">${escapeHtml(fixDash(ef.nettoNullZiel))}</textarea></div>
+    <div class="form-field"><label>Energieeffizienz Ziel</label><textarea id="f-effizienz" rows="5">${escapeHtml(fixDash(ef.energieeffizienzZiel))}</textarea></div>
+    <div class="form-field"><label>Stromproduktion Ziel</label><textarea id="f-strom" rows="5">${escapeHtml(fixDash(ef.stromproduktionZiel))}</textarea></div>
+    </div>
+
+    <div ${pane('grunddaten')}>
+    <h3 class="subheading" style="margin-top:0;">Energieplanung</h3>
     <div class="form-field"><label>Name</label><input type="text" id="f-name" value="${escapeAttr(p.name)}"></div>
     <div class="form-field"><label>Planungstyp<span class="req">*</span></label><input type="text" id="f-typ" value="${escapeAttr(p.typ)}"></div>
     <div class="form-field"><label>Jahr<span class="req">*</span></label><input type="text" id="f-jahr" value="${escapeAttr(p.jahr)}"></div>
@@ -1119,13 +1354,6 @@ function renderPlanungDetailsFormContent(p) {
     </div>
     <div class="form-field"><label>Verantwortlichkeit Gemeinde</label><input type="text" id="f-verantwortlichkeit" value="${escapeAttr(fixDash(ef.verantwortlichkeit))}"></div>
     <div class="form-field"><label>Berater/in Energieplanung</label><input type="text" id="f-berater-energieplanung" value="${escapeAttr(fixDash(ef.beraterEnergieplanung))}"></div>
-    </div>
-
-    <div ${pane('ziele')}>
-    <h3 class="subheading" style="margin-top:0;">Ziele</h3>
-    <div class="form-field"><label>Netto-null Ziel</label><input type="text" id="f-netto" value="${escapeAttr(fixDash(ef.nettoNullZiel))}"></div>
-    <div class="form-field"><label>Energieeffizienz Ziel</label><input type="text" id="f-effizienz" value="${escapeAttr(fixDash(ef.energieeffizienzZiel))}"></div>
-    <div class="form-field"><label>Stromproduktion Ziel</label><input type="text" id="f-strom" value="${escapeAttr(fixDash(ef.stromproduktionZiel))}"></div>
     </div>
 
     <div ${pane('konto')}>
@@ -1151,8 +1379,8 @@ function bindPlanungDetailsTab(p) {
     return;
   }
   bindSectionToggles();
-  document.getElementById('btn-del-planung').addEventListener('click', () => {
-    if (confirm(`Energieplanung ${p.id} wirklich löschen?`)) {
+  document.getElementById('btn-del-planung').addEventListener('click', async () => {
+    if (await confirmDialog(`Energieplanung ${p.id} wirklich löschen?`, { title: "Energieplanung löschen", confirmLabel: "Löschen", danger: true })) {
       const idx = planungen.findIndex(x => x.id === p.id);
       planungen.splice(idx, 1);
       toast(`${p.id} wurde gelöscht.`);
@@ -1208,6 +1436,7 @@ function bindPlanungDetailsForm(p) {
     eb.name = document.getElementById('f-eb-name').value || eb.name;
     eb.beratungsperson = document.getElementById('f-eb-beratungsperson').value || '-';
     eb.datumBeratungsbeginn = document.getElementById('f-eb-datum').value || '-';
+    eb.geplanterStart = document.getElementById('f-eb-geplant').value || '-';
     eb.bedarfEnergierichtplan = document.getElementById('f-eb-energierichtplan').value;
     eb.bedarfKoordination = document.getElementById('f-eb-koordination').value;
     eb.gebieteKoordinationsbedarf = document.getElementById('f-eb-gebiete').value;
@@ -1475,13 +1704,13 @@ function bindBulkBar(p) {
   valueEl.addEventListener(state.bulkEdit.field === 'umsetzungszeitraum' ? 'input' : 'change', e => {
     state.bulkEdit.value = e.target.value;
   });
-  document.getElementById('bulk-apply').addEventListener('click', () => {
+  document.getElementById('bulk-apply').addEventListener('click', async () => {
     const value = document.getElementById('bulk-value').value.trim();
     if (!value) { toast('Bitte einen Wert angeben.'); return; }
     const field = state.bulkEdit.field;
     const label = BULK_FIELD_LABELS[field];
     const count = state.massList.selected.size;
-    if (!confirm(`${label} für ${count} Massnahme${count === 1 ? '' : 'n'} auf "${value}" setzen?`)) return;
+    if (!await confirmDialog(`${label} für ${count} Massnahme${count === 1 ? '' : 'n'} auf "${value}" setzen?`, { title: "Änderung bestätigen", confirmLabel: "Übernehmen" })) return;
     p.massnahmen.forEach(m => { if (state.massList.selected.has(m.id)) m[field] = value; });
     toast(`${label} wurde für ${count} Massnahme${count === 1 ? '' : 'n'} aktualisiert.`);
     state.massList.selected.clear();
@@ -1539,7 +1768,7 @@ function section(id, title, bodyHtml) {
 function field(label, value, withInfo) {
   return `<div class="field-row">
     <div class="field-label">${label}${withInfo ? '<span class="info-icon">i</span>' : ''}</div>
-    <div class="field-value">${val(value)}</div>
+    <div class="field-value">${escapeHtml(val(value))}</div>
   </div>`;
 }
 function bindSectionToggles() {
@@ -1691,8 +1920,8 @@ function bindMassnahmeDetailPanel(p) {
   if (state.mdMode === 'view' && state.massnahmeId) {
     const m = findMassnahme(p, state.massnahmeId);
     if (!m) return;
-    document.getElementById('btn-del-massnahme').addEventListener('click', () => {
-      if (confirm(`Massnahme ${m.id} wirklich löschen?`)) {
+    document.getElementById('btn-del-massnahme').addEventListener('click', async () => {
+      if (await confirmDialog(`Massnahme ${m.id} wirklich löschen?`, { title: "Massnahme löschen", confirmLabel: "Löschen", danger: true })) {
         p.massnahmen = p.massnahmen.filter(x => x.id !== m.id);
         state.massList.selected.delete(m.id);
         toast(`${m.id} wurde gelöscht.`);
@@ -1806,9 +2035,9 @@ function bindContactBulkBar() {
   const clearBtn = document.getElementById('contact-bulk-clear');
   if (!clearBtn) return;
   clearBtn.addEventListener('click', () => { state.contactList.selected.clear(); renderContactList(); });
-  document.getElementById('contact-bulk-delete').addEventListener('click', () => {
+  document.getElementById('contact-bulk-delete').addEventListener('click', async () => {
     const count = state.contactList.selected.size;
-    if (!confirm(`${count} Kontakt${count === 1 ? '' : 'e'} wirklich löschen?`)) return;
+    if (!await confirmDialog(`${count} Kontakt${count === 1 ? '' : 'e'} wirklich löschen?`, { title: "Kontakte löschen", confirmLabel: "Löschen", danger: true })) return;
     const toDelete = state.contactList.selected;
     for (let i = contacts.length - 1; i >= 0; i--) {
       if (toDelete.has(i)) contacts.splice(i, 1);
@@ -1937,8 +2166,8 @@ function renderContactForm() {
   bindNavRow(goBack, [goBack]);
   document.getElementById('btn-cancel').addEventListener('click', goBack);
   if (isEdit) {
-    document.getElementById('btn-del-contact').addEventListener('click', () => {
-      if (confirm(`Kontakt ${c.vorname} ${c.nachname} wirklich löschen?`)) {
+    document.getElementById('btn-del-contact').addEventListener('click', async () => {
+      if (await confirmDialog(`Kontakt ${c.vorname} ${c.nachname} wirklich löschen?`, { title: "Kontakt löschen", confirmLabel: "Löschen", danger: true })) {
         contacts.splice(state.contactIndex, 1);
         state.contactList.selected.clear();
         toast('Kontakt wurde gelöscht.');
@@ -2414,5 +2643,73 @@ L.marker(LUZERN_CENTER).addTo(map)
   .bindPopup('Luzern')
   .openPopup();
 
+/* ---------------------- URL-ZUSTAND (Reload / Browser-Zurück behalten die aktuelle Ansicht) ---------------------- */
+// Der Ansichts-Zustand steckt im URL-Hash, z.B. #tab=planungen&view=detail&planung=EP-844&ptab=epa&mass=M-3
+function stateToHash() {
+  const q = new URLSearchParams();
+  q.set('tab', state.tab);
+  if (state.tab === 'planungen' && state.view === 'detail' && state.planungId) {
+    q.set('view', 'detail');
+    q.set('planung', state.planungId);
+    q.set('ptab', state.planungTab);
+    if (state.planungTab === 'massnahmen' && state.massnahmeId && state.mdMode !== 'new') q.set('mass', state.massnahmeId);
+  }
+  if (state.tab === 'kontakte' && state.view === 'contactForm') {
+    q.set('view', 'contact');
+    if (state.contactIndex != null) q.set('contact', state.contactIndex);
+  }
+  if (state.tab === 'reporting' && state.reportView) q.set('report', state.reportView);
+  if (state.layoutMode !== 'split') q.set('layout', state.layoutMode);
+  if (state.role !== 'Admin') q.set('role', state.role);
+  return '#' + q.toString();
+}
+function applyHashToState(hash) {
+  const q = new URLSearchParams(String(hash || '').replace(/^#/, ''));
+  const tab = q.get('tab');
+  state.tab = ['planungen', 'kontakte', 'reporting', 'zugriff'].includes(tab) ? tab : 'planungen';
+  state.view = 'list';
+  state.planungId = null; state.massnahmeId = null; state.mdMode = null; state.contactIndex = null; state.reportView = null;
+  state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view'; state.planungPendingStatus = null;
+  if (['Admin', 'Energieberater'].includes(q.get('role'))) state.role = q.get('role'); else state.role = 'Admin';
+  if (['map', 'split', 'data'].includes(q.get('layout'))) state.layoutMode = q.get('layout'); else state.layoutMode = 'split';
+
+  if (state.tab === 'planungen' && q.get('view') === 'detail') {
+    const p = findPlanung(q.get('planung'));
+    if (p) {
+      state.view = 'detail';
+      state.planungId = p.id;
+      const ptab = q.get('ptab');
+      state.planungTab = ['grunddaten', 'epa', 'massnahmen', 'konto', 'nachfuehrung', 'kontrolle'].includes(ptab) ? ptab : 'grunddaten';
+      const m = q.get('mass') && findMassnahme(p, q.get('mass'));
+      if (m && state.planungTab === 'massnahmen') { state.massnahmeId = m.id; state.mdMode = 'view'; }
+    }
+  } else if (state.tab === 'kontakte' && q.get('view') === 'contact') {
+    const idx = q.get('contact');
+    if (idx === null) { state.view = 'contactForm'; }
+    else if (contacts[Number(idx)]) { state.view = 'contactForm'; state.contactIndex = Number(idx); }
+  } else if (state.tab === 'reporting' && q.get('report')) {
+    state.reportView = q.get('report');
+  }
+}
+function syncUiToState() {
+  setActiveTabButton(state.tab);
+  updateAvatar();
+  document.querySelectorAll('#view-toggle [data-view-mode]').forEach(b => b.classList.toggle('active', b.dataset.viewMode === state.layoutMode));
+  $appBody.className = `app-body mode-${state.layoutMode}`;
+  $sidePanel.style.width = state.layoutMode === 'split' ? `${panelWidth}px` : '';
+  setTimeout(() => map.invalidateSize(), 0);
+}
+function pushUrlState() {
+  const h = stateToHash();
+  if (h !== location.hash) history.pushState(null, '', h);
+}
+window.addEventListener('popstate', () => { applyHashToState(location.hash); syncUiToState(); render(); });
+// Jede Änderung des Datenpanels (Navigation, Tab-Wechsel, Auswahl) und der Layout-Umschalter aktualisiert die URL.
+new MutationObserver(pushUrlState).observe($panel, { childList: true });
+document.querySelectorAll('#view-toggle [data-view-mode]').forEach(b => b.addEventListener('click', () => setTimeout(pushUrlState, 0)));
+
 /* ---------------------- INIT ---------------------- */
+applyHashToState(location.hash);
+syncUiToState();
 render();
+history.replaceState(null, '', stateToHash());
