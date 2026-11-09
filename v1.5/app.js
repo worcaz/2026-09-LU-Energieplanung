@@ -3937,20 +3937,17 @@ function updateMassnahmenKarte() {
   });
   karteMassnahmenLayer = gruppe.addTo(map);
 
-  // Gewählte Massnahme: bei Wechsel auf ihre Geometrie zoomen; bei Abwahl zurück auf die Gemeinde(n) der Planung
+  // Gewählte Massnahme: bei Wechsel auf die Gemeinde der Massnahme zoomen; bei Abwahl bleibt der Zoom
   const sel = state.massnahmeId && state.mdMode !== 'new' ? findMassnahme(p, state.massnahmeId) : null;
   const selId = sel ? sel.id : null;
   if (selId !== karteMassId) {
-    const vorher = karteMassId;
     karteMassId = selId;
     if (sel && sel.geometrie && sel.geometrie.geometry && map.getSize().x > 0) {
       // Immer auf die Gemeindegrenze der Massnahme zoomen (einheitlicher Massstab, weder zu nah noch zu weit weg)
       const gl = []; gemeindeLayer.eachLayer(l => { if (l.feature.properties.name === sel.geometrie.gemeinde) gl.push(l); });
       if (gl.length) map.fitBounds(L.featureGroup(gl).getBounds(), { padding: [24, 24], animate: true });
       else karteZoomAufPlanung(p);
-    } else if (!selId && vorher) {
-      karteZoomAufPlanung(p);
-    }
+    }   // Abwahl: Zoom bleibt unverändert
   }
   if (sel && sel.geometrie && sel.geometrie.geometry) {
     karteAuswahlControl = L.control({ position: 'topright' });
