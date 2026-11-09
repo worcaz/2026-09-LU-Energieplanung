@@ -2377,6 +2377,7 @@ const $roleMenu = document.getElementById('role-menu');
 
 function updateAvatar() {
   document.getElementById('avatar-initials').textContent = ROLLEN[state.role].kurz;
+  document.getElementById('user-name').textContent = ROLLEN[state.role].label;
   $avatarBtn.title = `Angemeldet als ${ROLLEN[state.role].label}`;
   document.querySelectorAll('#role-menu .role-menu-item').forEach(b => b.classList.toggle('active', b.dataset.role === state.role));
 }

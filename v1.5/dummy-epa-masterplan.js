@@ -59,8 +59,11 @@
   }
 
   function buildEpaMasterplanRow(gemeinde) {
-    const abgeschlossen = pick(['Ja', 'Nein', 'Nein', 'Nein']);
-    const geplantJahr = randomInt(2024, 2028);
+    seedRng('masterplan-' + gemeinde);   // reproduzierbar je Gemeinde
+    // Stand der EPA-Beratung aus der kommunalen Energieplanung der Gemeinde übernehmen (falls vorhanden)
+    const ep = planungen.find(x => x.typ === 'Kommunale Energieplanung' && x.gemeinde === gemeinde);
+    const abgeschlossen = ep ? (ep.status === 'Abschluss' ? 'Ja' : 'Nein') : pick(['Ja', 'Nein', 'Nein', 'Nein']);
+    const geplantJahr = ep ? ep.jahr : randomInt(2024, 2028);
     const beraterPaar = pick(EPA_BERATER_POOL);
 
     let kickoff, gesuchseingang, gesuchsNr, auszahlungsdatum;
@@ -68,7 +71,7 @@
       kickoff = shortYearDate(geplantJahr, randomInt(1, 12), randomInt(1, 28));
       gesuchseingang = 7200;
       gesuchsNr = randomInt(2500, 2650);
-      auszahlungsdatum = Math.random() < 0.6 ? shortYearDate(geplantJahr + 1, randomInt(1, 12), randomInt(1, 28)) : '-';
+      auszahlungsdatum = rand() < 0.6 ? shortYearDate(geplantJahr + 1, randomInt(1, 12), randomInt(1, 28)) : '-';
     } else {
       kickoff = pick([
         `Kontaktaufnahme im ${geplantJahr} geplant`,
@@ -94,13 +97,13 @@
 
     const komEp = pick(KOM_EP_STATUS);
     const komEpJahr = komEp === 'erstellt' ? randomInt(2014, 2023) : '-';
-    const komEpRevision = Math.random() < 0.3 ? randomInt(2025, 2028) : '-';
+    const komEpRevision = rand() < 0.3 ? randomInt(2025, 2028) : '-';
 
     const gasnetz = pick(['Ja', 'Nein', 'Nein', 'Nein']);
     const gasversorger = gasnetz === 'Ja' ? pick(GASVERSORGER) : '-';
 
-    const ortsplanungsrevision = Math.random() < 0.4 ? randomInt(2025, 2028) : '-';
-    const info = Math.random() < 0.2 ? pick(INFO_NOTIZEN) : '-';
+    const ortsplanungsrevision = rand() < 0.4 ? randomInt(2025, 2028) : '-';
+    const info = rand() < 0.2 ? pick(INFO_NOTIZEN) : '-';
 
     return {
       gemeinde,

@@ -15,15 +15,35 @@
     .filter(name => !bereitsVorhanden.has(name));
 
   const STATUS_WEIGHTED = ['Entwurf', 'Entwurf', 'Entwurf', 'Verabschiedung', 'Verabschiedung', 'Fördergesuch', 'Abschluss'];
-  const JAHR_WEIGHTED = [2025, 2026, 2026, 2026, 2027];
 
   let seq = 900;
   GEMEINDEN_LUZERN.forEach(gemeinde => {
     const id = `EP-${seq++}`;
+    seedRng('status-' + gemeinde);   // Status je Gemeinde reproduzierbar
     const p = makeEnergieplanung(id, gemeinde, pick(STATUS_WEIGHTED));
-    p.jahr = pick(JAHR_WEIGHTED);
-    p.massnahmen = buildMassnahmen(p);
-    fillPlanungDetails(p);
+    generiereProzessDaten(p);
+    planungen.push(p);
+  });
+
+  // Regionale Energieplanungen: Gemeinden, die im Kanton Luzern bereits heute regional zusammenarbeiten.
+  // Je Gemeinde höchstens eine regionale Planung (kein Überlapp).
+  const REGIONALE_PLANUNGEN = [
+    { region: 'Rontal', status: 'Abschluss', gemeinden: ['Buchrain', 'Dierikon', 'Ebikon', 'Root'] },
+    { region: 'Biosphäre Entlebuch', status: 'Fördergesuch', gemeinden: ['Doppleschwand', 'Entlebuch', 'Escholzmatt-Marbach', 'Flühli', 'Hasle', 'Romoos', 'Schüpfheim'] },
+    { region: 'Luzern West', status: 'Verabschiedung', gemeinden: ['Alberswil', 'Altbüron', 'Fischbach', 'Grossdietwil', 'Hergiswil', 'Luthern', 'Menznau', 'Ufhusen', 'Willisau', 'Zell'] },
+    { region: 'Sempachersee', status: 'Entwurf', gemeinden: ['Eich', 'Hildisrieden', 'Neuenkirch', 'Nottwil', 'Oberkirch', 'Schenkon', 'Sempach'] },
+    { region: 'Hitzkirchertal', status: 'Abschluss', gemeinden: ['Aesch', 'Ermensee', 'Hitzkirch', 'Hohenrain', 'Römerswil', 'Schongau'] },
+    { region: 'Rigi', status: 'Entwurf', gemeinden: ['Greppen', 'Vitznau', 'Weggis'] },
+    { region: 'Wiggertal', status: 'Verabschiedung', gemeinden: ['Dagmersellen', 'Egolzwil', 'Nebikon', 'Reiden', 'Roggliswil', 'Schötz', 'Wauwil', 'Wikon'] },
+  ];
+  REGIONALE_PLANUNGEN.forEach(r => {
+    const id = `EP-${seq++}`;
+    const p = makeEnergieplanung(id, r.gemeinden.join(', '), r.status, {
+      typ: 'Regionale Energieplanung',
+      name: `Regionale Energieplanung ${r.region}`,
+      regionName: r.region,
+    });
+    generiereProzessDaten(p);
     planungen.push(p);
   });
 
@@ -31,4 +51,12 @@
   nextPlanungSeq = Math.max(nextPlanungSeq, seq);
 
   render();
+})();
+
+// Konsistenzprüfung der Dummy-Daten: pro Gemeinde genau eine kommunale Energieplanung
+(function () {
+  const anzahl = {};
+  planungen.filter(p => p.typ === 'Kommunale Energieplanung').forEach(p => { anzahl[p.gemeinde] = (anzahl[p.gemeinde] || 0) + 1; });
+  const doppelt = Object.keys(anzahl).filter(g => anzahl[g] > 1);
+  if (doppelt.length) console.warn('Mehrere kommunale Energieplanungen in Gemeinde:', doppelt.join(', '));
 })();

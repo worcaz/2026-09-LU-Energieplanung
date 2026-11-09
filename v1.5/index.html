@@ -28,26 +28,17 @@
     </div>
   </div>
   <div class="topbar-right">
+    <div class="role-switcher" id="role-switcher">
+      <button class="icon-btn avatar-btn" id="avatar-btn" title="Profil &amp; Rolle">
+        <span class="user-name" id="user-name">Admin</span>
+        <span class="avatar-circle" id="avatar-initials">A</span>
+      </button>
+      <div class="role-menu" id="role-menu" hidden></div>
+    </div>
     <div class="version-switch" id="version-switch" role="group" aria-label="Version wählen">
       <button type="button" data-nav="../index.html">v1</button>
       <button type="button" class="active" data-nav="index.html">v1.5</button>
       <button type="button" data-nav="../v2/index.html">v2</button>
-    </div>
-    <div class="role-switcher" id="role-switcher">
-      <button class="icon-btn avatar-btn" id="avatar-btn" title="Profil &amp; Rolle">
-        <span class="avatar-circle" id="avatar-initials">EB</span>
-      </button>
-      <div class="role-menu" id="role-menu" hidden>
-        <div class="role-menu-label">Rolle wechseln</div>
-        <button class="role-menu-item" data-role="Energieberater">
-          <span class="role-menu-item-name">Energieberater</span>
-          <svg class="role-menu-check" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>
-        </button>
-        <button class="role-menu-item" data-role="Admin">
-          <span class="role-menu-item-name">Admin</span>
-          <svg class="role-menu-check" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>
-        </button>
-      </div>
     </div>
     <div class="topbar-search">
       <input type="text" placeholder="Adresse, Ort, Grundstücknummer, ...">
@@ -132,8 +123,10 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="dummy-gemeinden-luzern.js"></script>
 <script src="app.js"></script>
-<script src="dummy-planungen-luzern.js"></script>
 <script src="dummy-kontakte-luzern.js"></script>
+<script src="dummy-planungen-luzern.js"></script>
+
 <script src="dummy-epa-masterplan.js"></script>
+<script>initApp();</script>
 </body>
 </html>

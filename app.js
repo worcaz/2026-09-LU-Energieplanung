@@ -415,6 +415,7 @@ const $roleMenu = document.getElementById('role-menu');
 
 function updateAvatar() {
   document.getElementById('avatar-initials').textContent = state.role === 'Admin' ? 'A' : 'EB';
+  document.getElementById('user-name').textContent = state.role;
   $avatarBtn.title = `Angemeldet als ${state.role}`;
   document.querySelectorAll('#role-menu .role-menu-item').forEach(b => b.classList.toggle('active', b.dataset.role === state.role));
 }
