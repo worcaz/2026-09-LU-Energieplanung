@@ -1,0 +1,48 @@
+/* v0 – Ergänzungen: statisches Kartenbild statt Esri-Karte; Planungsliste (Markup nur aus Screenshot rekonstruiert) */
+html, body { margin: 0; height: 100%; }
+.v0-view { position: absolute; inset: 0; overflow: hidden; background: #fff; }
+.v0-map { position: absolute; left: 346px; top: 170px; user-select: none; pointer-events: none; }
+
+/* Planungsliste */
+.v0-select { display: inline-flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; color: #111; cursor: pointer; white-space: nowrap; }
+.v0-select-filter { width: 300px; }
+.v0-select-sort { width: 180px; color: #6b7280; }
+.v0-chev { opacity: .5; }
+.v0-plan-card { display: flex; align-items: center; gap: 16px; padding: 12px 16px 15px; min-height: 85px; }
+.v0-plan-id { display: flex; align-items: center; column-gap: 7px; row-gap: 7px; cursor: pointer; box-sizing: border-box; width: 62px; flex: none; color: rgb(30, 31, 36); border: 0 solid rgb(224, 225, 230); margin: 0; padding: 0; pointer-events: auto; font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; font-feature-settings: "cv01", "cv02", "ss01"; font-optical-sizing: auto; font-variation-settings: "wght" 400; font-size: 15.75px; font-weight: 600; height: 24.5px; line-height: 24.5001px; letter-spacing: normal; }
+.v0-plan-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.v0-plan-name { display: flex; column-gap: 7px; cursor: pointer; font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; font-feature-settings: "cv01", "cv02", "ss01"; font-optical-sizing: auto; font-variation-settings: "wght" 400; font-size: 15.75px; font-weight: 700; height: 24.5px; line-height: 24.5001px; letter-spacing: normal; }
+.v0-plan-meta { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; }
+.v0-plan-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; font-size: 14px; }
+.v0-chip { background: #f3f4f6; border-radius: 4px; padding: 3px 8px; font-size: 14px; line-height: 18px; }
+.v0-chip-year { display: flex; align-items: center; column-gap: 7px; cursor: pointer; box-sizing: border-box; color: rgb(30, 31, 36); border: 0 solid rgb(224, 225, 230); font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; font-feature-settings: "cv01", "cv02", "ss01"; font-optical-sizing: auto; font-variation-settings: "wght" 400; font-size: 12.25px; font-weight: 300; height: 17.4844px; line-height: 17.5px; letter-spacing: normal; box-sizing: content-box; }
+.v0-chip-type { display: flex; column-gap: 7px; cursor: pointer; color: #111; font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; font-feature-settings: "cv01", "cv02", "ss01"; font-optical-sizing: auto; font-variation-settings: "wght" 400; font-size: 12.25px; font-weight: 500; line-height: 17.5px; letter-spacing: normal; padding: 4px 8px; }
+
+/* Loesch-Dialog: Overlay (im Snippet nur der Dialog selbst enthalten) */
+.v0-overlay { position: fixed; inset: 0; z-index: 100; }
+.v0-overlay-bg { position: fixed; inset: 0; background: rgba(0, 0, 0, .4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.v0-overlay [role="dialog"] { z-index: 101; }
+.v0-popover-host > div { z-index: 200; }
+
+/* Versionsumschalter (nicht Teil des Originals) */
+.v0-version-menu { position: fixed; z-index: 1000; width: 160px; background: #fff; border-radius: 8px; padding: 6px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.22); font: 600 14px/1 Inter, system-ui, sans-serif; }
+.v0-version-menu[hidden] { display: none; }
+.v0-version-title { padding: 6px 10px 8px; font-size: 11px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
+.v0-version-item { display: block; padding: 9px 10px; border-radius: 6px; color: #111; text-decoration: none; }
+.v0-version-item:hover { background: #f3f4f6; }
+.v0-version-item.active { background: #1ba5e3; color: #fff; }
+
+/* Select-Dropdown (Planungstyp) */
+.v0-select-content { position: fixed; z-index: 200; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.14); font-size: 14px; }
+.v0-select-item { display: flex; align-items: center; justify-content: space-between; padding: 7px 8px; border-radius: 4px; cursor: pointer; }
+.v0-select-item:hover { background: #f3f4f6; }
+
+.v0-plan-gem { display: flex; align-items: center; column-gap: 7px; cursor: pointer; color: rgb(30, 31, 36); font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; font-feature-settings: "cv01", "cv02", "ss01"; font-optical-sizing: auto; font-variation-settings: "wght" 400; font-size: 12.25px; font-weight: 300; height: 24.4844px; line-height: 17.5px; letter-spacing: normal; }
+
+.v0-plan-status { display: flex; align-items: center; column-gap: 7px; cursor: pointer; box-sizing: border-box; color: rgb(30, 31, 36); border: 0 solid rgb(224, 225, 230); margin: 0; padding-bottom: 0; font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; font-feature-settings: "cv01", "cv02", "ss01"; font-optical-sizing: auto; font-variation-settings: "wght" 400; font-size: 12.25px; font-weight: 500; height: 17.4844px; line-height: 17.5px; letter-spacing: normal; }
+
+/* Header-Suchfeld etwas kleiner */
+.geo-app-header .geo-search input[type=text] { width: 290px; min-height: 34px; font-size: 13.5px; padding-top: .5em; padding-bottom: .5em; }
+.geo-app-header .geo-search > div span.geo-icon { top: .55em; }

@@ -124,16 +124,16 @@ input,select,textarea{font-family:inherit; font-size: 14px;}
 
 .topbar-search{
   display:flex; align-items:center; background:#fff; border-radius:4px; overflow:hidden;
-  width:340px; height:34px; margin-left:8px;
+  width:280px; height:30px; margin-left:8px;
 }
 .topbar-search input{
-  border:none; outline:none; flex:1; padding:0 12px; font-size:13px; color:var(--text);
+  border:none; outline:none; flex:1; padding:0 10px; font-size:12px; color:var(--text);
 }
 .search-btn{
-  background:var(--blue-primary); border:none; height:100%; width:40px;
+  background:var(--blue-primary); border:none; height:100%; width:34px;
   display:flex; align-items:center; justify-content:center;
 }
-.search-btn svg{width:16px; height:16px; fill:#fff;}
+.search-btn svg{width:14px; height:14px; fill:#fff;}
 
 /* ================= LAYOUT ================= */
 .app-body{
@@ -599,6 +599,7 @@ h2.form-heading{font-size:20px; margin:0 0 18px;}
   position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
   background:var(--navy); color:#fff; padding:10px 20px; border-radius:6px;
   font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+  width:max-content; max-width:calc(100vw - 32px); box-sizing:border-box; text-align:center;
   z-index:100; box-shadow:0 4px 14px rgba(0,0,0,0.25);
 }
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
@@ -1047,3 +1048,12 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 /* Icon: Massnahme hat eine geografische Markierung */
 .geo-icon{display:inline-flex; vertical-align:-3px; margin-left:6px; color:var(--blue-primary);}
 .geo-icon svg{width:15px; height:15px;}
+
+/* Karte: Button «Übersicht anzeigen» */
+.karte-uebersicht{margin-top:8px;}
+.karte-uebersicht button{background:#fff; color:var(--blue-primary); border:1px solid var(--blue-primary); border-radius:16px; padding:6px 14px; font-size:12.5px; font-weight:600; box-shadow:0 2px 8px rgba(20,30,45,.25); cursor:pointer; white-space:nowrap;}
+.karte-uebersicht button:hover{background:var(--blue-light-bg);}
+
+/* Nachführung gesperrt, solange die Kontoinformationen fehlen */
+.subtab-btn.is-locked{opacity:.5; cursor:not-allowed;}
+.subtab-btn.is-locked:hover{color:inherit;}

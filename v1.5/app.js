@@ -497,6 +497,7 @@ const state = {
   planungTab: 'grunddaten', // grunddaten | epa | nachfuehrung | massnahmen | konto | kontrolle (Sub-Tabs in der Planungsdetailansicht)
   planungDetailsMode: 'view', // view | edit — Zustand des Planungsdetails-Tabs
   planungKontrolleMode: 'view', // view | edit — Zustand des Kontrolle-Tabs (nur Admin)
+  nfKontoHinweis: false, // true: Formular zeigt, welche Kontoinfos für die Nachführung noch fehlen
   planungPendingStatus: null, // Zielstatus, wenn ein Stepper-Klick wegen fehlender Pflichtfelder ins Bearbeiten-Formular geleitet hat
   massnahmeId: null,
   mdMode: null,            // null (leer) | view | edit | new — Zustand des Massnahmen-Detailpanels rechts
@@ -1145,7 +1146,7 @@ function clearPlanungFieldErrors() {
   const banner = document.getElementById('planung-form-error-banner');
   if (banner) banner.remove();
 }
-function showPlanungFieldErrors(missing) {
+function showPlanungFieldErrors(missing, headline) {
   clearPlanungFieldErrors();
   if (missing.length === 0) return;
   missing.forEach(f => {
@@ -1167,7 +1168,7 @@ function showPlanungFieldErrors(missing) {
   banner.innerHTML = `
     <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>
     <div>
-      <strong>${missing.length} Pflichtfeld${missing.length > 1 ? 'er' : ''} fehlen.</strong>
+      <strong>${headline ? escapeHtml(headline) : missing.length + ' Pflichtfeld' + (missing.length > 1 ? 'er' : '') + ' fehlen.'}</strong>
       <div class="form-error-links">${missing.map(f => `<a href="#" data-jump-field="${f.id}">${escapeHtml(f.label)}</a>`).join('')}</div>
     </div>`;
   form.insertBefore(banner, form.firstChild);
@@ -1251,6 +1252,7 @@ function bindPruefungBanner(p) {
   const btn = document.getElementById('btn-bestaetige-pruefung');
   if (!btn) return;
   btn.addEventListener('click', () => {
+    if (nachfuehrungGesperrt(p)) { nachfuehrungUmleiten(p); return; }
     state.planungTab = 'nachfuehrung';
     renderPlanungDetail();
     const sc = document.querySelector('.panel-content'); if (sc) sc.scrollTop = 0;
@@ -1373,10 +1375,23 @@ const PROZESS_TABS = [
   { key: 'konto', label: 'Gesuch', short: 'Gesuch' },
   { key: 'nachfuehrung', label: 'Nachführung', short: 'Nachf.' },
 ];
+// Nachführung ist erst möglich, wenn die Kontoinformationen erfasst sind (Kontoinhaber/in, Adresse, IBAN).
+const NF_KONTO_HINWEIS = 'Die Nachführung ist erst möglich, wenn die Kontoinformationen erfasst sind (Kontoinhaber/in, Adresse, IBAN).';
+function nachfuehrungGesperrt(p) { return !kontoAngabenVollstaendig(p); }
+// Welche Kontoangaben fehlen noch? (Labels der Pflichtfelder)
+function fehlendeKontoFelder(p) { return validatePlanungAgainstData(p, 'Fördergesuch').filter(f => f.id.startsWith('f-k-')); }
+// Umleitung zum Gesuch-Tab im Bearbeitungsmodus mit Fehlermeldung, was für die Nachführung noch fehlt
+function nachfuehrungUmleiten(p) {
+  const fehlt = fehlendeKontoFelder(p).map(f => f.label);
+  toast('Nachführung noch nicht möglich – es fehlen: ' + fehlt.join(', ') + '.');
+  state.planungTab = 'konto'; state.planungDetailsMode = 'edit'; state.nfKontoHinweis = true;
+  renderPlanungDetail();
+}
 function renderProzessTabs(p) {
   return PROZESS_TABS.map((t, i) => {
     const active = state.planungTab === t.key;
-    return `<button class="subtab-btn ${active ? 'active' : ''}" data-subtab="${t.key}" title="Schritt ${i + 1}: ${t.label}">
+    const locked = t.key === 'nachfuehrung' && nachfuehrungGesperrt(p);
+    return `<button class="subtab-btn ${active ? 'active' : ''}${locked ? ' is-locked' : ''}" data-subtab="${t.key}"${locked ? ' aria-disabled="true"' : ''} title="${locked ? NF_KONTO_HINWEIS : 'Schritt ' + (i + 1) + ': ' + t.label}">
       <span class="subtab-nr ${active ? 'nr-current' : 'nr-upcoming'}">${i + 1}</span><span class="subtab-label"><span class="lbl-full">${t.label}</span><span class="lbl-short">${t.short}</span></span>
     </button>`;
   }).join('');
@@ -1390,7 +1405,7 @@ function prozessAktionFor(p, tabKey) {
   const eingereicht = !!(eb.gesuchseingang && eb.gesuchseingang !== '-');
   if (tabKey === 'grunddaten' && p.status === 'Entwurf' && !gestartet) return { id: 'start', label: 'EPA Beratung starten' };
   if (tabKey === 'epa' && p.status === 'Entwurf' && gestartet) return { id: 'epa-abschluss', label: 'EPA Beratung abschliessen', ziel: 'Verabschiedung', weiter: 'massnahmen' };
-  if (tabKey === 'massnahmen' && p.status === 'Verabschiedung') return { id: 'verabschiedung', label: 'Verabschiedung erfassen', ziel: 'Fördergesuch', weiter: 'konto' };
+  if (tabKey === 'massnahmen' && p.status === 'Verabschiedung') return { id: 'verabschiedung', label: 'Weiter zum Gesuch →', ziel: 'Fördergesuch', pruefe: 'Verabschiedung', toast: 'Verabschiedung abgeschlossen. Nächster Schritt: Fördergesuch erfassen.', weiter: 'konto' };
   if (tabKey === 'konto' && p.status === 'Fördergesuch' && !eingereicht) return { id: 'gesuch', label: 'Fördergesuch eingereicht', ziel: 'Fördergesuch' };
   if (tabKey === 'konto' && p.status === 'Fördergesuch' && eingereicht) return { id: 'beratung-abschluss', label: 'Beratung abschliessen', ziel: 'Abschluss', weiter: 'nachfuehrung' };
   if (tabKey === 'nachfuehrung' && nfAktiv(p)) {
@@ -1404,9 +1419,14 @@ function prozessAktionAusfuehren(p, a) {
   const today = formatDate(new Date());
   // Statuswechsel nur, wenn die Pflichtangaben des Zielstatus vorhanden sind; sonst Formular mit Hinweisen öffnen
   if (a.ziel) {
-    const missing = validatePlanungAgainstData(p, a.ziel);
+    const missing = validatePlanungAgainstData(p, a.pruefe || a.ziel);
     if (missing.length > 0) {
       toast(`Für «${a.ziel}» fehlen noch ${missing.length} Pflichtfeld${missing.length > 1 ? 'er' : ''}.`);
+      // Bearbeiten gibt es nur in Formular-Tabs: zum Tab mit dem ersten fehlenden Feld wechseln
+      if (!PANE_TABS.includes(state.planungTab)) {
+        const id = missing[0].id;
+        state.planungTab = id.startsWith('f-k-') ? 'konto' : id.startsWith('f-eb-') ? 'epa' : 'grunddaten';
+      }
       state.planungDetailsMode = 'edit';
       state.planungPendingStatus = a.ziel;
       renderPlanungDetail();
@@ -1435,7 +1455,7 @@ function prozessAktionAusfuehren(p, a) {
   } else {
     p.status = a.ziel;
     p.epaBeratung.prozessstatus = a.ziel;
-    toast(`Schritt abgeschlossen: «${a.label}».`);
+    toast(a.toast || `Schritt abgeschlossen: «${a.label}».`);
     if (a.weiter) state.planungTab = a.weiter;
   }
   renderPlanungDetail();
@@ -1487,6 +1507,7 @@ function renderPlanungDetail() {
     state.planungKontrolleMode = 'view';
   }
   if (state.planungTab !== 'massnahmen') state.nfZurueck = false;
+  if (state.planungTab === 'nachfuehrung' && nachfuehrungGesperrt(p)) { state.planungTab = 'konto'; state.planungDetailsMode = 'edit'; state.nfKontoHinweis = true; toast('Nachführung noch nicht möglich – es fehlen: ' + fehlendeKontoFelder(p).map(f => f.label).join(', ') + '.'); }
 
   $panel.innerHTML = `<div class="detail-wrap">
     ${renderNavRow('Zurück zur Liste', [{ label: 'Übersicht Energieplanungen' }, { label: p.id }])}
@@ -1518,6 +1539,7 @@ function renderPlanungDetail() {
   $panel.querySelectorAll('[data-subtab]').forEach(btn => {
     btn.addEventListener('click', () => {
       const ziel = btn.dataset.subtab;
+      if (ziel === 'nachfuehrung' && nachfuehrungGesperrt(p)) { nachfuehrungUmleiten(p); return; }
       // Im Bearbeitungsmodus zwischen den Formular-Tabs wechseln, ohne neu zu rendern (Eingaben bleiben erhalten).
       if (state.planungDetailsMode === 'edit' && PANE_TABS.includes(ziel) && PANE_TABS.includes(state.planungTab)) {
         activatePane(ziel);
@@ -2367,6 +2389,11 @@ function bindPlanungDetailsForm(p) {
   if (state.planungPendingStatus) {
     const missing = validatePlanungForm(state.planungPendingStatus);
     showPlanungFieldErrors(missing);
+  }
+  if (state.nfKontoHinweis) {
+    state.nfKontoHinweis = false;
+    const missing = validatePlanungForm('Fördergesuch').filter(f => f.id.startsWith('f-k-'));
+    if (missing.length) showPlanungFieldErrors(missing, 'Für die Nachführung fehlen noch Kontoinformationen:');
   }
 
   document.getElementById('btn-cancel').addEventListener('click', () => {
@@ -3904,6 +3931,13 @@ var karteHatteAuswahl = false;
 var karteMassnahmenLayer = null;
 var karteMassId = null;          // zuletzt auf der Karte gewählte Massnahme (für Zoom beim Wechsel)
 var karteAuswahlControl = null;  // Chip «Massnahme abwählen» auf der Karte
+var karteUebersichtControl = null;  // Button «Übersicht anzeigen» auf der Karte (solange eine Energieplanung geöffnet ist)
+// Zurück zur Übersicht: wie «Übersicht Energieplanungen» im Panel; die Karte zoomt dabei wieder auf alle Gemeinden mit Zugriff
+function zurueckZurUebersicht() {
+  state.view = 'list';
+  render();
+  const sc = document.querySelector('.panel-content'); if (sc) sc.scrollTop = 0;
+}
 // Massnahme abwählen: Detailfenster leeren, Karte ohne gewählte Massnahme
 function massnahmeAbwaehlen() {
   state.massnahmeId = null;
@@ -3916,9 +3950,19 @@ const KARTE_MASS_FARBEN = { Geplant: '#5b6b7e', Umsetzung: '#e8710a', Abschluss:
 function updateMassnahmenKarte() {
   if (karteMassnahmenLayer) { karteMassnahmenLayer.remove(); karteMassnahmenLayer = null; }
   if (karteAuswahlControl) { karteAuswahlControl.remove(); karteAuswahlControl = null; }
+  if (karteUebersichtControl) { karteUebersichtControl.remove(); karteUebersichtControl = null; }
   if (state.tab !== 'planungen' || state.view !== 'detail' || !state.planungId) { karteMassId = null; return; }
   const p = findPlanung(state.planungId);
   if (!p) { karteMassId = null; return; }
+  karteUebersichtControl = L.control({ position: 'topright' });
+  karteUebersichtControl.onAdd = () => {
+    const d = L.DomUtil.create('div', 'karte-uebersicht');
+    d.innerHTML = '<button type="button" title="Zurück zur Übersicht der Energieplanungen">← Übersicht anzeigen</button>';
+    L.DomEvent.disableClickPropagation(d);
+    d.querySelector('button').addEventListener('click', zurueckZurUebersicht);
+    return d;
+  };
+  karteUebersichtControl.addTo(map);
   const gruppe = L.layerGroup();
   p.massnahmen.forEach(m => {
     const g = m.geometrie;
@@ -4060,7 +4104,7 @@ function applyHashToState(hash) {
   state.tab = ['planungen', 'kontakte', 'reporting', 'zugriff'].includes(tab) ? tab : 'planungen';
   state.view = 'list';
   state.planungId = null; state.massnahmeId = null; state.mdMode = null; state.contactIndex = null; state.reportView = null;
-  state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view'; state.planungPendingStatus = null;
+  state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view'; state.planungPendingStatus = null; state.nfKontoHinweis = false;
   const pe = q.get('user') ? rollenPersonas().find(x => x.id === q.get('user')) : null;
   state.personaId = pe ? pe.id : 'admin'; state.role = pe ? pe.role : 'Admin'; state.benutzer = pe ? pe.key : null;
   if (['map', 'split', 'data'].includes(q.get('layout'))) state.layoutMode = q.get('layout'); else state.layoutMode = 'split';

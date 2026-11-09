@@ -140,16 +140,16 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 
 .topbar-search{
   display:flex; align-items:center; background:#fff; border-radius:4px; overflow:hidden;
-  width:340px; height:34px; margin-left:8px;
+  width:280px; height:30px; margin-left:8px;
 }
 .topbar-search input{
-  border:none; outline:none; flex:1; padding:0 12px; font-size:13px; color:var(--text);
+  border:none; outline:none; flex:1; padding:0 10px; font-size:12px; color:var(--text);
 }
 .search-btn{
-  background:var(--blue-primary); border:none; height:100%; width:40px;
+  background:var(--blue-primary); border:none; height:100%; width:34px;
   display:flex; align-items:center; justify-content:center;
 }
-.search-btn svg{width:16px; height:16px; fill:#fff;}
+.search-btn svg{width:14px; height:14px; fill:#fff;}
 
 /* Header-Variablen aus v1 festhalten, damit v2-Farben den Header nicht verändern */
 .topbar{
