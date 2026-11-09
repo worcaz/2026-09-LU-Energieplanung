@@ -75,7 +75,8 @@ const NETTO_NULL_ZIELE = [
   'Netto-null Ziel gemäss kantonaler Energiestrategie 2050.',
   'CO2-Neutralität der öffentlichen Gebäude bis 2035.',
   'Die Gemeinde verfolgt das Ziel, die Treibhausgasemissionen bis 2050 auf netto null zu senken.\nZwischenziele:\n- 2030: Reduktion der Emissionen um 40 % gegenüber 2020\n- 2040: Reduktion um 75 %, Gemeindeverwaltung und öffentliche Gebäude klimaneutral\n- 2050: Netto-null im gesamten Gemeindegebiet\nDie Fortschritte werden alle zwei Jahre im Rahmen des Energie- und Klimaberichts überprüft.',
-  'Netto-null bis 2045, d. h. fünf Jahre früher als in der kantonalen Energiestrategie vorgesehen.\nMassgebend sind die Sektoren Wärme, Mobilität und Strom. Für die Wärmeversorgung gilt ein vollständiger Ausstieg aus Öl- und Gasheizungen bis 2040; der Ausbau der Fernwärme wird in der Energierichtplanung festgelegt.'
+  'Netto-null bis 2045, d. h. fünf Jahre früher als in der kantonalen Energiestrategie vorgesehen.\nMassgebend sind die Sektoren Wärme, Mobilität und Strom. Für die Wärmeversorgung gilt ein vollständiger Ausstieg aus Öl- und Gasheizungen bis 2040; der Ausbau der Fernwärme wird in der Energierichtplanung festgelegt.',
+  'Die Gemeinde strebt Netto-null bis 2050 an.\nSchwerpunkte:\n- Ersatz fossiler Heizungen in Gemeindebauten bis 2035\n- Elektrifizierung des kommunalen Fuhrparks\n- Sensibilisierung und Beratung der Bevölkerung\nDer Stand wird jährlich im Gemeinderat berichtet.'
 ];
 const ENERGIEEFFIZIENZ_ZIELE = [
   'Senkung des Energieverbrauchs pro Kopf um 30 % bis 2035.',
@@ -85,6 +86,7 @@ const ENERGIEEFFIZIENZ_ZIELE = [
   'Steigerung der Energieeffizienz in Gewerbe und Industrie.',
   'Minergie-Standard bei allen Neubauten verbindlich vorschreiben.',
   'Der Energieverbrauch pro Kopf wird bis 2035 um 30 % gesenkt.\nMassnahmenschwerpunkte:\n- Erhöhung der Sanierungsrate auf 2 % pro Jahr\n- Energetische Sanierung aller Gemeindeliegenschaften bis 2032\n- Ersatz ineffizienter Beleuchtung (Strassen, Schulhäuser, Sportanlagen)\n- Beratungsangebot für private Eigentümerschaften (Gebäudeenergieberatung plus)',
+  'Der Wärmebedarf der Gebäude sinkt bis 2040 um 25 %.\nDazu werden Sanierungen von Gemeindebauten priorisiert, Eigentümerschaften beraten und Neubauten nach Minergie-Standard erstellt.',
   'Steigerung der Energieeffizienz in Gewerbe und Industrie durch Zielvereinbarungen mit den zehn grössten Verbrauchern.\nDie Gemeinde unterstützt Betriebe bei Abwärmenutzung und Prozessoptimierung und prüft die Einführung eines kommunalen Förderprogramms.'
 ];
 const STROMPRODUKTION_ZIELE = [
@@ -95,7 +97,8 @@ const STROMPRODUKTION_ZIELE = [
   'Eigenversorgungsgrad mit erneuerbarem Strom auf 40 % steigern.',
   'Ausbau erneuerbarer Stromproduktion um 5 GWh bis 2035.',
   'Bis 2040 deckt die lokale Photovoltaik-Produktion mindestens 50 % des Strombedarfs der Gemeinde.\nUmsetzung:\n- Alle geeigneten Dächer öffentlicher Gebäude werden bis 2030 mit PV-Anlagen ausgestattet\n- Beratung und Förderbeiträge für private Anlagen\n- Prüfung von Solaranlagen an Fassaden, Parkplätzen und Lärmschutzwänden\n- Gründung einer Energiegenossenschaft für Bürgerbeteiligungen',
-  'Verdopplung der lokalen Solarstromproduktion bis 2030, Ausbau der Kleinwasserkraft am Gemeindebach (Potenzial ca. 1.2 GWh/a) und Prüfung von Biogas aus der regionalen Landwirtschaft.\nDie Eigenversorgung soll durch lokale Speicherlösungen und ein Zusammenschluss zum Eigenverbrauch (ZEV) in neuen Quartieren erhöht werden.'
+  'Verdopplung der lokalen Solarstromproduktion bis 2030, Ausbau der Kleinwasserkraft am Gemeindebach (Potenzial ca. 1.2 GWh/a) und Prüfung von Biogas aus der regionalen Landwirtschaft.\nDie Eigenversorgung soll durch lokale Speicherlösungen und ein Zusammenschluss zum Eigenverbrauch (ZEV) in neuen Quartieren erhöht werden.',
+  'Der lokale Erneuerbaren-Anteil am Strom steigt auf 40 %.\nGeplant sind PV-Anlagen auf Schul- und Sportanlagen sowie die Prüfung einer Freiflächenanlage im Gewerbegebiet.'
 ];
 
 // Dummy-Daten für "Kontoinformationen Förderbeitrag" — Konto lautet immer auf die jeweilige Gemeinde.
@@ -411,9 +414,14 @@ function fillPlanungDetails(planung, plan) {
   if (plan.gestartet || rand() < 0.5) ef.verantwortlichkeit = verantwortlichePersonGemeinde(lead);
   if (plan.gestartet) ef.beraterEnergieplanung = formatContactLabel(pick(externeBeraterKontakte));
   const zielAnteil = nachEntwurf ? 1 : (plan.gestartet ? 0.5 : 0);   // Ziele entstehen im Lauf der Beratung
-  if (rand() < zielAnteil) ef.nettoNullZiel = pick(NETTO_NULL_ZIELE);
-  if (rand() < zielAnteil) ef.energieeffizienzZiel = pick(ENERGIEEFFIZIENZ_ZIELE);
-  if (rand() < zielAnteil) ef.stromproduktionZiel = pick(STROMPRODUKTION_ZIELE);
+  // Ziele: zwei Drittel mehrzeilig (Aufzählungen, Zwischenziele), ein Drittel einzeilig
+  const pickZiel = liste => {
+    const mehr = liste.filter(z => z.includes('\n')), ein = liste.filter(z => !z.includes('\n'));
+    return rand() < 0.66 ? pick(mehr) : pick(ein);
+  };
+  if (rand() < zielAnteil) ef.nettoNullZiel = pickZiel(NETTO_NULL_ZIELE);
+  if (rand() < zielAnteil) ef.energieeffizienzZiel = pickZiel(ENERGIEEFFIZIENZ_ZIELE);
+  if (rand() < zielAnteil) ef.stromproduktionZiel = pickZiel(STROMPRODUKTION_ZIELE);
 
   // Konto: erst bei der Vorbereitung des Fördergesuchs erfasst
   if (gesuchPhase) {
@@ -1160,8 +1168,8 @@ function naechstePruefungFor(p) {
   if (p.status !== 'Abschluss') return null;
   const start = parseSwissDate(p.epaBeratung.datumBeratungsbeginn);
   if (!start) return null;
-  const basis = parseSwissDate(p.pruefstatus.letzteUeberpruefung) || start;
-  const naechste = addYears(basis, 4);
+  // Feste Fristen: Beratungsbeginn + 4, 8, 12 … Jahre. Jede erledigte Nachführung (auch vorzeitige) deckt die nächste offene Frist ab.
+  const naechste = addYears(start, 4 * (nfErledigt(p) + 1));
   if (naechste.getFullYear() >= PRUEFPFLICHT_ENDE_JAHR) return null;
   return naechste;
 }
@@ -1181,12 +1189,13 @@ function renderPruefstatusPill(p) {
 }
 // Hinweis ausserhalb des Tabs "Nachführung": führt nur dorthin — abgeschlossen wird ausschliesslich im Tab (nach Prüfung).
 function renderPruefungBanner(p) {
-  if (pruefstatusFor(p) !== 'faellig' || state.planungTab === 'nachfuehrung') return '';
+  const ph = nfPhase(p);
+  if ((ph !== 'faellig' && ph !== 'offen') || state.planungTab === 'nachfuehrung') return '';
   return `<div class="pruefung-banner" id="pruefung-banner" role="alert">
     <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>
     <div>
-      <div class="pruefung-banner-title">Nachführung fällig</div>
-      <div class="pruefung-banner-text">Angaben, Ziele und Massnahmen müssen alle 4 Jahre überprüft werden.</div>
+      <div class="pruefung-banner-title">${ph === 'faellig' ? 'Nachführung fällig' : 'Nachführung steht an'}</div>
+      <div class="pruefung-banner-text">${ph === 'faellig' ? 'Angaben, Ziele und Massnahmen müssen alle 4 Jahre überprüft werden.' : 'Die Frist läuft in den nächsten ' + NF_VORLAUF_MONATE + ' Monaten ab. Sie können die Nachführung jetzt durchführen.'}</div>
       <div class="btn-row"><button class="btn btn-primary" id="btn-bestaetige-pruefung">Zur Nachführung</button></div>
     </div>
   </div>`;
@@ -1337,9 +1346,9 @@ function prozessAktionFor(p, tabKey) {
   if (tabKey === 'massnahmen' && p.status === 'Verabschiedung') return { id: 'verabschiedung', label: 'Verabschiedung erfassen', ziel: 'Fördergesuch', weiter: 'konto' };
   if (tabKey === 'konto' && p.status === 'Fördergesuch' && !eingereicht) return { id: 'gesuch', label: 'Fördergesuch eingereicht', ziel: 'Fördergesuch' };
   if (tabKey === 'konto' && p.status === 'Fördergesuch' && eingereicht) return { id: 'beratung-abschluss', label: 'Beratung abschliessen', ziel: 'Abschluss', weiter: 'nachfuehrung' };
-  if (tabKey === 'nachfuehrung' && p.status === 'Abschluss') {
+  if (tabKey === 'nachfuehrung' && nfAktiv(p)) {
     const offen = nfOffen(p);
-    return { id: 'nachfuehrung', label: 'Nachführung abschliessen', disabled: offen.length > 0, hint: offen.length ? 'Noch zu prüfen: ' + offen.join(', ') : '' };
+    return { id: 'nachfuehrung', label: 'Nachführung abschliessen', disabled: offen.length > 0, hint: offen.length ? 'Noch zu bestätigen: ' + offen.join(', ') : '' };
   }
   return null;
 }
@@ -1366,13 +1375,14 @@ function prozessAktionAusfuehren(p, a) {
     if (!p.epaBeratung.gesuchsNr || p.epaBeratung.gesuchsNr === '-') p.epaBeratung.gesuchsNr = Number(vorschlagGesuchsNr(p));
     toast('Fördergesuch wurde als eingereicht erfasst.');
   } else if (a.id === 'nachfuehrung') {
-    if (nfOffen(p).length) { toast('Nachführung unvollständig: ' + nfOffen(p).join(', ') + '.'); return; }
-    const nf = nfState(p);
-    p.nfHistorie = nfHistorie(p);
-    p.nfHistorie.unshift({ datum: today, von: aktuellerBenutzerName(), aenderungen: Object.keys(nf.vorher).length, massnahmen: p.massnahmen.length });
+    if (nfOffen(p).length) { toast('Noch nicht bestätigt: ' + nfOffen(p).join(', ') + '.'); return; }
+    nfErledigt(p);   // alte Daten ohne Protokoll vor dem Überschreiben sichern
+    const aend = nfAenderungen(p);
+    if (!p.nfHistorie) p.nfHistorie = [];
+    p.nfHistorie.unshift({ datum: today, von: aktuellerBenutzerName(), aenderungen: aend ? aend.felder.length : null, massnahmen: p.massnahmen.length, stand: nfSnapshot(p) });
     p.pruefstatus.letzteUeberpruefung = today;
     p.nfPruefung = null;   // nächster Zyklus beginnt ungeprüft
-    state.nfEdit = {};
+    state.nfEdit = {}; state.nfVorzeitigId = null; state.nfAlle = false;
     const next = naechstePruefungFor(p);
     toast(next ? `Nachführung abgeschlossen. Nächste Nachführung: ${formatDate(next)}.` : 'Nachführung abgeschlossen.');
   } else {
@@ -1395,7 +1405,7 @@ function renderTabFooter(p) {
   else if (next) right = `<button type="button" class="btn btn-primary btn-process" data-goto-tab="${next.key}">Weiter: ${next.label} →</button>`;
   return `<div class="tab-footer">
     ${prev ? `<button type="button" class="btn-process-back" data-goto-tab="${prev.key}">← ${prev.label}</button>` : '<span class="btn-process-back-spacer"></span>'}
-    <div class="tab-footer-label">Prozess · Schritt ${i + 1} von ${PROZESS_TABS.length}</div>
+    ${aktion && aktion.hint ? `<div class="tab-footer-hint">${escapeHtml(aktion.hint)}</div>` : `<div class="tab-footer-label">Prozess · Schritt ${i + 1} von ${PROZESS_TABS.length}</div>`}
     <div class="tab-footer-right">${right}</div>
   </div>`;
 }
@@ -1618,12 +1628,15 @@ function renderImportDialog() {
 function importAusfuehren(p) {
   const imp = state.import;
   let ueber = 0, neu = 0, alt = 0;
+  const nf = nfState(p), beruehre = id => { nf.beruehrt[id] = true; nf.massnahmen[id] = true; };
   imp.rows.forEach((r, i) => {
     const z = imp.ziel[i];
     if (z === 'skip') return;
     if (z === 'neu') {
+      const neuId = `M-${nextMassnahmeSeq++}`;
+      beruehre(neuId);
       p.massnahmen.push({
-        id: `M-${nextMassnahmeSeq++}`, esNr: r.esNr || '-', name: r.name, prozessstatus: r.status || 'Geplant', ausEpa: 'Nein',
+        id: neuId, esNr: r.esNr || '-', name: r.name, prozessstatus: r.status || 'Geplant', ausEpa: 'Nein',
         beschreibung: r.beschreibung || '-', handlungsfeld: '-', aktivitaetsbereich: '-', prioritaet: '-', umsetzungszeitraum: '-',
         startdatum: '-', faelligkeitsdatum: '-', budget: '-', verantwortlichkeit: '-', bemerkungen: r.bemerkung || '-', energietraeger: []
       });
@@ -1637,13 +1650,14 @@ function importAusfuehren(p) {
     if (r.beschreibung) m.beschreibung = r.beschreibung;
     if (r.status) m.prozessstatus = r.status;
     if (r.bemerkung) m.bemerkungen = r.bemerkung;
+    beruehre(m.id);
     ueber++;
   });
   importNichtErwaehnt(p).forEach(m => {
     const a = imp.alt[m.id] || 'bleibt';
     if (a === 'bleibt') return;
     if (a === 'entfernen') p.massnahmen = p.massnahmen.filter(x => x.id !== m.id);
-    else m.prozessstatus = a;
+    else { m.prozessstatus = a; beruehre(m.id); }
     alt++;
   });
   return { ueber, neu, alt };
@@ -1706,32 +1720,87 @@ function openImportDialog() {
   renderImportDialog();
 }
 
-/* ---- Nachführung: Prüfstand, Historie, Hilfsfunktionen ---- */
+/* ---- Nachführung (alle 4 Jahre, feste Fristen): Phasen, Prüfstand, Historie ---- */
+const NF_VORLAUF_MONATE = 12;   // so früh vor der Frist öffnet sich die Nachführung (Banner, Prüfformular)
+
 function aktuellerBenutzerName() {
   if (state.personaId === 'admin') return 'Admin';
   const pe = rollenPersonas().find(x => x.id === state.personaId);
   return pe ? pe.name : state.role;
 }
-// Prüfstand des laufenden Nachführungs-Zyklus: Angaben/Ziele bestätigt, Massnahmen einzeln geprüft, vorher = bisherige Werte geänderter Felder
+// Bereits erledigte Nachführungen. Alte Daten ohne Protokoll: aus «letzte Überprüfung» abgeleitet (einmalig, bevor sie überschrieben wird).
+function nfInitLegacy(p) {
+  if (p.nfBasisAnzahl !== undefined) return;
+  const l = parseSwissDate(p.pruefstatus && p.pruefstatus.letzteUeberpruefung), s = parseSwissDate(p.epaBeratung && p.epaBeratung.datumBeratungsbeginn);
+  p.nfBasisAnzahl = l && s ? Math.max(1, Math.floor((l - s) / (365.25 * 86400000 * 4))) : 0;
+  p.nfLegacyDatum = l ? formatDate(l) : null;
+}
+function nfErledigt(p) { nfInitLegacy(p); return p.nfBasisAnzahl + (p.nfHistorie || []).length; }
+// Bisherige Nachführungen, neueste zuerst
+function nfHistorie(p) {
+  nfInitLegacy(p);
+  const liste = (p.nfHistorie || []).slice();
+  if (p.nfBasisAnzahl > 0 && p.nfLegacyDatum) liste.push({ datum: p.nfLegacyDatum, von: null, aenderungen: null, massnahmen: null });
+  return liste;
+}
+// Phase: vorab (Beratung läuft noch) · keine (Prüfpflicht beendet) · ruhend (Frist > 12 Monate) · offen (Frist innerhalb 12 Monate) · faellig
+function nfPhase(p) {
+  if (p.status !== 'Abschluss') return 'vorab';
+  const t = naechstePruefungFor(p);
+  if (!t) return 'keine';
+  const now = new Date();
+  if (now >= t) return 'faellig';
+  return now >= new Date(t.getFullYear(), t.getMonth() - NF_VORLAUF_MONATE, t.getDate()) ? 'offen' : 'ruhend';
+}
+// Prüfformular ist aktiv: Frist nah/überschritten oder bewusst vorzeitig gestartet
+function nfAktiv(p) {
+  const ph = nfPhase(p);
+  return ph === 'faellig' || ph === 'offen' || (ph === 'ruhend' && state.nfVorzeitigId === p.id);
+}
+
+// Prüfstand des laufenden Zyklus
 function nfState(p) {
-  if (!p.nfPruefung) p.nfPruefung = { angaben: false, ziele: false, massnahmen: {}, vorher: {} };
+  if (!p.nfPruefung) p.nfPruefung = { angaben: false, ziele: false, massnahmen: {}, beruehrt: {} };
+  if (!p.nfPruefung.beruehrt) p.nfPruefung.beruehrt = {};
   return p.nfPruefung;
 }
-function nfGeprueftAnzahl(p) { const nf = nfState(p); return p.massnahmen.filter(m => nf.massnahmen[m.id]).length; }
-// Was fehlt noch bis zum Abschluss? (leer = alles geprüft)
+const nfNorm = v => (v && v !== '-') ? String(v) : '';
+function nfStand(p) { const h = (p.nfHistorie || [])[0]; return h && h.stand ? h : null; }
+function nfSnapshot(p) {
+  const ef = p.energieplanungFelder, felder = {};
+  [...NF_FELDER.angaben, ...NF_FELDER.ziele].forEach(f => { felder[f.key] = nfNorm(ef[f.key]); });
+  const massnahmen = {};
+  p.massnahmen.forEach(m => { massnahmen[m.id] = m.prozessstatus; });
+  return { felder, massnahmen };
+}
+// Änderungen seit der letzten Nachführung
+function nfAenderungen(p) {
+  const h = nfStand(p);
+  if (!h) return null;
+  const ef = p.energieplanungFelder;
+  const felder = [...NF_FELDER.angaben, ...NF_FELDER.ziele].filter(f => nfNorm(ef[f.key]) !== (h.stand.felder[f.key] || ''));
+  const neu = [], status = [];
+  p.massnahmen.forEach(m => {
+    if (!(m.id in h.stand.massnahmen)) neu.push(m.id);
+    else if (h.stand.massnahmen[m.id] !== m.prozessstatus) status.push(m.id);
+  });
+  const entfernt = Object.keys(h.stand.massnahmen).filter(id => !p.massnahmen.some(m => m.id === id));
+  return { datum: h.datum, felder, neu, status, entfernt };
+}
+// Massnahmen, die geprüft werden müssen: noch nicht abgeschlossen oder seit der letzten Nachführung neu/geändert
+function nfZuPruefen(p) {
+  const a = nfAenderungen(p), nf = nfState(p);
+  return p.massnahmen.filter(m => nf.beruehrt[m.id] || m.prozessstatus !== 'Abschluss' || (a && (a.neu.includes(m.id) || a.status.includes(m.id))));
+}
+function nfGeprueftAnzahl(p) { const nf = nfState(p); return nfZuPruefen(p).filter(m => nf.massnahmen[m.id]).length; }
+// Was fehlt noch bis zum Abschluss? (leer = alles bestätigt)
 function nfOffen(p) {
   const nf = nfState(p), offen = [];
   if (!nf.angaben) offen.push('Angaben');
   if (!nf.ziele) offen.push('Ziele');
-  const rest = p.massnahmen.length - nfGeprueftAnzahl(p);
-  if (rest > 0) offen.push(rest === p.massnahmen.length ? 'Massnahmen' : rest + (rest === 1 ? ' Massnahme' : ' Massnahmen'));
+  const zp = nfZuPruefen(p), rest = zp.length - nfGeprueftAnzahl(p);
+  if (rest > 0) offen.push(rest === zp.length ? 'Massnahmen' : rest + (rest === 1 ? ' Massnahme' : ' Massnahmen'));
   return offen;
-}
-// Bisherige Nachführungen; ältere Daten ohne Protokoll zeigen die letzte Überprüfung als einzelnen Eintrag
-function nfHistorie(p) {
-  if (p.nfHistorie && p.nfHistorie.length) return p.nfHistorie;
-  const letzte = p.pruefstatus && p.pruefstatus.letzteUeberpruefung;
-  return letzte && letzte !== '-' ? [{ datum: letzte, von: null, aenderungen: null, massnahmen: null }] : [];
 }
 const NF_FELDER = {
   angaben: [
@@ -1748,125 +1817,217 @@ function nfEdit() {
   if (!state.nfEdit || state.nfEditPid !== state.planungId) { state.nfEdit = {}; state.nfEditPid = state.planungId; }
   return state.nfEdit;
 }
+const nfPersonUnbekannt = v => !!nfNorm(v) && !contacts.some(c => formatContactLabel(c) === v);
 
-// Hinweis oben im Tab Nachführung: wann die nächste Nachführung zu erfolgen hat (Regelwerk nur als Tooltip)
-function renderNachfuehrungTermin(p) {
+// Zeitleiste: Beratungsbeginn, feste 4-Jahres-Fristen, erledigte Nachführungen (mit Details im Tooltip), heute
+function renderNachfuehrungZeitleiste(p) {
+  const start = parseSwissDate(p.epaBeratung && p.epaBeratung.datumBeratungsbeginn);
+  const next = naechstePruefungFor(p);
+  if (!start || !next || p.status !== 'Abschluss') return '';
+  const heute = new Date();
+  const ende = heute > next ? new Date(heute.getFullYear(), heute.getMonth() + 6, heute.getDate()) : next;
+  const span = ende - start;
+  const pos = d => Math.min(100, Math.max(0, (d - start) / span * 100));
+  const ph = nfPhase(p);
+  const n = nfErledigt(p);
+  let h = '<div class="nf-tl" aria-label="Zeitleiste der Nachführungen"><div class="nf-tl-track"><div class="nf-tl-line"><div class="nf-tl-fill" style="width:' + pos(heute) + '%"></div></div>';
+  // Beginn
+  h += '<span class="nf-tl-dot is-start" style="left:0" title="Beratungsbeginn ' + formatDate(start) + '"></span><span class="nf-tl-lab is-below is-startlab" style="left:0">Beginn ' + start.getFullYear() + '</span>';
+  // Feste Fristen (Beginn + 4, 8, … Jahre)
+  for (let k = 1; k <= n + 1; k++) {
+    const f = addYears(start, 4 * k), last = k === n + 1;
+    h += '<span class="nf-tl-tick' + (last ? ' is-next' + (ph === 'faellig' ? ' is-warn' : '') : '') + '" style="left:' + pos(f) + '%" title="' + (last ? 'Nächste Frist ' : 'Frist ') + formatDate(f) + '"></span>' +
+         '<span class="nf-tl-lab is-below' + (last ? ' is-next' : '') + '" style="left:' + pos(f) + '%">' + (last ? formatDate(f) : f.getFullYear()) + '</span>';
+  }
+  // Erledigte Nachführungen
+  const erledigt = nfHistorie(p).slice().reverse();
+  erledigt.forEach(e => {
+    const d = parseSwissDate(e.datum);
+    if (!d) return;
+    const tip = 'Nachführung ' + e.datum + (e.von ? ' · ' + e.von : '') +
+      (e.aenderungen !== null && e.aenderungen !== undefined ? ' · ' + (e.aenderungen ? e.aenderungen + ' Angaben/Ziele geändert' : 'keine Änderungen an Angaben/Zielen') : '') +
+      (e.massnahmen ? ' · ' + e.massnahmen + ' Massnahmen' : '');
+    h += '<span class="nf-tl-dot is-done" style="left:' + pos(d) + '%" title="' + escapeAttr(tip) + '"></span><span class="nf-tl-lab is-above" style="left:' + pos(d) + '%">' + escapeHtml(e.datum) + '</span>';
+  });
+  // Heute
+  const hp = pos(heute);
+  const nah = erledigt.some(e => { const d = parseSwissDate(e.datum); return d && Math.abs(pos(d) - hp) < 14; });
+  h += '<span class="nf-tl-today" style="left:' + hp + '%" title="Heute"></span>' + (nah ? '' : '<span class="nf-tl-lab is-above is-today" style="left:' + hp + '%">Heute</span>');
+  return h + '</div></div>';
+}
+
+// Termin-Hinweis oben im Tab (Regelwerk nur als Tooltip)
+function renderNachfuehrungTermin(p, aktion) {
   const eb = p.epaBeratung || {};
   const beginn = parseSwissDate(eb.datumBeratungsbeginn);
-  const letzte = parseSwissDate(p.pruefstatus && p.pruefstatus.letzteUeberpruefung);
+  const letzte = nfHistorie(p)[0];
   const rel = d => {
     const tage = Math.round((d - new Date()) / 86400000);
     if (tage < 0) return 'seit ' + Math.abs(Math.round(tage / 30.4)) + ' Monaten überfällig';
-    return tage < 60 ? 'in ' + tage + ' Tagen' : 'in ' + Math.round(tage / 30.4) + ' Monaten';
+    if (tage < 60) return 'in ' + tage + ' Tagen';
+    return tage < 730 ? 'in ' + Math.round(tage / 30.4) + ' Monaten' : 'in ' + (tage / 365.25).toFixed(1) + ' Jahren';
   };
-  const regel = 'Die Nachführung erfolgt alle 4 Jahre ab Beratungsbeginn bzw. letzter Überprüfung.';
+  const regel = 'Die Nachführung ist alle 4 Jahre ab Beratungsbeginn fällig (feste Fristen). Sie kann auch vorzeitig durchgeführt werden und gilt dann für die nächste offene Frist.';
+  const ph = nfPhase(p), t = naechstePruefungFor(p);
   let art = 'info', titel, text = '';
-  if (p.status === 'Abschluss') {
-    const t = naechstePruefungFor(p);
-    if (!t) { titel = 'Keine weitere Nachführung erforderlich'; text = 'Die Prüfpflicht endet mit dem Jahr ' + PRUEFPFLICHT_ENDE_JAHR + '.'; }
-    else if (pruefstatusFor(p) === 'faellig') { art = 'warn'; titel = 'Nachführung fällig seit ' + formatDate(t); text = 'Angaben, Ziele und Massnahmen prüfen, danach unten abschliessen.'; }
-    else { art = 'ok'; titel = 'Nächste Nachführung am ' + formatDate(t); text = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + (letzte ? ' · zuletzt am ' + formatDate(letzte) : ''); }
-  } else if (beginn) {
-    titel = 'Erste Nachführung voraussichtlich am ' + formatDate(addYears(beginn, 4));
-    text = 'Möglich nach Abschluss der Beratung.';
-  } else {
-    titel = 'Termin der ersten Nachführung noch offen';
-    text = 'Ergibt sich mit dem Start der EPA Beratung.';
-  }
-  return '<div class="nf-due is-' + art + '" title="' + escapeAttr(regel) + '"><div class="nf-due-title">' + escapeHtml(titel) + '</div>' + (text ? '<div class="nf-due-text">' + escapeHtml(text) + '</div>' : '') + '</div>';
+  if (ph === 'keine') { titel = 'Keine weitere Nachführung erforderlich'; text = 'Die Prüfpflicht endet mit dem Jahr ' + PRUEFPFLICHT_ENDE_JAHR + '.'; }
+  else if (ph === 'faellig') { art = 'warn'; titel = 'Nachführung fällig seit ' + formatDate(t); text = 'Angaben, Ziele und Massnahmen prüfen, danach unten abschliessen.'; }
+  else if (ph === 'offen') { art = 'info'; titel = 'Nachführung fällig am ' + formatDate(t); text = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
+  else if (ph === 'ruhend' && aktion) { art = 'info'; titel = 'Vorzeitige Nachführung'; text = 'Reguläre Frist am ' + formatDate(t) + ' (' + rel(t) + ')' + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
+  else if (ph === 'ruhend') { art = 'ok'; titel = 'Nächste Nachführung am ' + formatDate(t); text = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
+  else if (beginn) { titel = 'Erste Nachführung am ' + formatDate(addYears(beginn, 4)); text = 'Möglich nach Abschluss der Beratung.'; }
+  else { titel = 'Termin der ersten Nachführung noch offen'; text = 'Ergibt sich mit dem Start der EPA Beratung.'; }
+  return '<div class="nf-due is-' + art + '" title="' + escapeAttr(regel) + '"><div class="nf-due-main"><div class="nf-due-title">' + escapeHtml(titel) + '</div>' + (text ? '<div class="nf-due-text">' + escapeHtml(text) + '</div>' : '') + '</div>' + (aktion ? '<div class="nf-due-action">' + aktion + '</div>' : '') + renderNachfuehrungZeitleiste(p) + '</div>';
 }
 
-// Fortschrittsleiste: Angaben · Ziele · Massnahmen
-function renderNachfuehrungFortschritt(p) {
-  const nf = nfState(p), n = p.massnahmen.length, g = nfGeprueftAnzahl(p);
-  const chip = (ok, label, detail) => '<span class="nf-step' + (ok ? ' is-done' : '') + '"><span class="nf-step-icon">' + (ok ? '✓' : '') + '</span>' + label + (detail ? ' <span class="nf-step-detail">' + detail + '</span>' : '') + '</span>';
-  return '<div class="nf-progress" aria-label="Prüfstand">' +
-    chip(nf.angaben, 'Angaben') + chip(nf.ziele, 'Ziele') +
-    chip(n > 0 ? g === n : true, 'Massnahmen', n ? g + '/' + n : '') + '</div>';
+function renderNachfuehrungAnleitung() {
+  return '<details class="nf-howto"' + (state.nfAnleitungZu ? '' : ' open') + ' id="nf-howto"><summary>So funktioniert die Nachführung</summary>' +
+    '<ol><li>Massnahmen aus Ihrem Tool per CSV importieren (empfohlen) und Angaben, Ziele sowie offene Massnahmen prüfen.</li>' +
+    '<li>Jeden Bereich bestätigen. Abgeschlossene, unveränderte Massnahmen sind automatisch bestätigt.</li>' +
+    '<li>«Nachführung abschliessen». Die nächste Frist folgt in 4 Jahren.</li></ol></details>';
+}
+
+// Was hat sich seit der letzten Nachführung getan?
+function renderNachfuehrungSeitLetzter(p) {
+  const a = nfAenderungen(p);
+  if (!a) return '';
+  const teile = [];
+  if (a.felder.length) teile.push(a.felder.length + (a.felder.length === 1 ? ' Angabe/Ziel geändert' : ' Angaben/Ziele geändert'));
+  if (a.neu.length) teile.push(a.neu.length + (a.neu.length === 1 ? ' neue Massnahme' : ' neue Massnahmen'));
+  if (a.status.length) teile.push(a.status.length + (a.status.length === 1 ? ' Massnahme mit neuem Status' : ' Massnahmen mit neuem Status'));
+  if (a.entfernt.length) teile.push(a.entfernt.length + (a.entfernt.length === 1 ? ' Massnahme entfernt' : ' Massnahmen entfernt'));
+  return '<div class="nf-seit"><strong>Seit der letzten Nachführung (' + escapeHtml(a.datum) + '):</strong> ' + (teile.length ? teile.map(escapeHtml).join(' · ') : 'keine Änderungen') + '</div>';
 }
 
 // Block (Angaben/Ziele): Ansicht mit «Unverändert bestätigen» / «Ändern», im Ändern-Modus Formular mit Sofort-Speichern
 function renderNachfuehrungBlock(p, art, titel) {
   const ef = p.energieplanungFelder, nf = nfState(p), edit = !!nfEdit()[art];
-  const aktiv = p.status === 'Abschluss';
-  const geprueft = nf[art];
+  const geprueft = nf[art], stand = nfStand(p);
+  const unbekannt = f => art === 'angaben' && nfPersonUnbekannt(ef[f.key]) ? '<div class="nf-warn">⚠ Diese Person ist nicht mehr in den Kontakten. Bitte aktualisieren.</div>' : '';
   let body = '';
   if (edit) {
     body = NF_FELDER[art].map(f => {
       const inp = art === 'angaben'
         ? personSelect(f.id, ef[f.key], f.key === 'verantwortlichkeit' ? p.gemeinde : null, f.key === 'beraterEnergieplanung')
         : '<textarea id="' + f.id + '" rows="3">' + escapeHtml(fixDash(ef[f.key])) + '</textarea>';
-      return '<div class="form-field"><label>' + f.label + '</label>' + inp + '</div>';
+      return '<div class="form-field is-inline"><label>' + f.label + '</label><div class="form-field-body">' + inp + unbekannt(f) + '</div></div>';
     }).join('');
-    body += '<div class="nf-block-actions"><span class="nf-autosave">Änderungen werden automatisch gespeichert.</span><button type="button" class="btn btn-primary btn-sm" data-nf-fertig="' + art + '">Fertig' + (aktiv ? ' &amp; bestätigen' : '') + '</button></div>';
+    body += '<div class="nf-block-actions"><span class="nf-autosave">Änderungen werden automatisch gespeichert.</span><button type="button" class="btn btn-primary btn-sm" data-nf-fertig="' + art + '">Bestätigen</button></div>';
   } else {
     body = NF_FELDER[art].map(f => {
       const row = f.stacked ? fieldStacked(f.label, ef[f.key]) : field(f.label, ef[f.key]);
-      const alt = nf.vorher[f.key];
-      return row + (alt !== undefined ? '<div class="nf-vorher">Bisher: ' + (alt && alt !== '-' ? escapeHtml(alt) : '<em>leer</em>') + '</div>' : '');
+      const alt = stand ? (stand.stand.felder[f.key] || '') : null;
+      const geaendert = stand && alt !== nfNorm(ef[f.key]);
+      return row + unbekannt(f) + (geaendert ? '<div class="nf-vorher">Stand ' + escapeHtml(stand.datum) + ': ' + (alt ? escapeHtml(alt) : '<em>leer</em>') + '</div>' : '');
     }).join('');
     body += '<div class="nf-block-actions">' +
-      '<button type="button" class="btn btn-outline btn-sm" data-nf-aendern="' + art + '">Ändern</button>' +
-      (aktiv && !geprueft ? '<button type="button" class="btn btn-primary btn-sm" data-nf-ok="' + art + '">Unverändert bestätigen</button>' : '') +
+      '<button type="button" class="btn btn-secondary btn-sm btn-with-icon" data-nf-aendern="' + art + '" title="Bearbeiten" aria-label="Bearbeiten"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>' +
+      (geprueft ? '<span class="nf-bestaetigt"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg>Bestätigt</span>' : '<button type="button" class="btn btn-secondary btn-sm btn-with-icon" data-nf-ok="' + art + '" title="Unverändert bestätigen"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 20.6 7.4 19.2 6z"/></svg><span>Bestätigen</span></button>') +
       '</div>';
   }
-  const badge = !aktiv ? '' : geprueft ? '<span class="nf-badge is-done">✓ Geprüft</span>' : '<span class="nf-badge">Offen</span>';
-  return '<div class="nf-block"><div class="nf-block-head"><h3 class="subheading">' + titel + '</h3>' + badge + '</div>' + body + '</div>';
+  return '<div class="nf-block"><div class="nf-block-head"><h3 class="subheading">' + titel + '</h3></div>' + body + '</div>';
+}
+
+function renderNachfuehrungHistorie(p) {
+  const hist = nfHistorie(p);
+  if (!hist.length) return '';
+  return '<details class="nf-historie"><summary>Bisherige Nachführungen (' + hist.length + ')</summary><ul>' + hist.map(h =>
+    '<li><strong>' + escapeHtml(h.datum) + '</strong>' + (h.von ? ' · ' + escapeHtml(h.von) : '') +
+    (h.aenderungen !== null && h.aenderungen !== undefined ? ' · ' + (h.aenderungen ? h.aenderungen + (h.aenderungen === 1 ? ' Angabe/Ziel geändert' : ' Angaben/Ziele geändert') : 'keine Änderungen an Angaben/Zielen') : '') +
+    (h.massnahmen ? ' · ' + h.massnahmen + ' Massnahmen' : '') + '</li>').join('') + '</ul></details>';
+}
+
+// Details einer Massnahme direkt unter der Zeile (ohne den Tab zu verlassen); alle Felder sind änderbar und werden sofort gespeichert
+function renderNachfuehrungMassnahmeDetail(m) {
+  const id = m.id, fid = k => 'nf-m-' + id + '-' + k;
+  const lab = (k, t) => '<label class="nf-detail-label" for="' + fid(k) + '">' + t + '</label>';
+  const inp = (k, t, ph) => '<div class="nf-detail-item">' + lab(k, t) + '<input type="text" id="' + fid(k) + '" data-nf-m="' + id + '|' + k + '" value="' + escapeAttr(fixDash(m[k])) + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '></div>';
+  const prio = '<div class="nf-detail-item">' + lab('prioritaet', 'Priorität') + '<select id="' + fid('prioritaet') + '" data-nf-m="' + id + '|prioritaet"><option value="-">–</option>' +
+    PRIORITAETEN.map(x => '<option' + (x === m.prioritaet ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></div>';
+  const person = '<div class="nf-detail-item is-wide">' + lab('verantwortlichkeit', 'Verantwortlichkeit') + personSelect(fid('verantwortlichkeit'), m.verantwortlichkeit).replace('<select ', '<select data-nf-m="' + id + '|verantwortlichkeit" ') + '</div>';
+  return '<tr class="nf-detail-row"><td></td><td colspan="5"><div class="nf-detail">' +
+    '<div class="nf-detail-item">' + lab('beschreibung', 'Beschreibung') + '<textarea id="' + fid('beschreibung') + '" rows="2" data-nf-m="' + id + '|beschreibung">' + escapeHtml(fixDash(m.beschreibung)) + '</textarea></div>' +
+    '<div class="nf-detail-grid">' + inp('startdatum', 'Startdatum', 'TT.MM.JJJJ') + inp('faelligkeitsdatum', 'Fälligkeit', 'TT.MM.JJJJ') +
+    inp('umsetzungszeitraum', 'Umsetzungszeitraum', 'z. B. 2026–2028') + prio +
+    inp('budget', 'Budget') + person + '</div>' +
+    '<div class="nf-detail-item">' + lab('bemerkungen', 'Bemerkungen') + '<textarea id="' + fid('bemerkungen') + '" rows="2" data-nf-m="' + id + '|bemerkungen">' + escapeHtml(fixDash(m.bemerkungen)) + '</textarea></div>' +
+    '</div></td></tr>';
+}
+
+function renderNachfuehrungMassnahmen(p) {
+  const nf = nfState(p), a = nfAenderungen(p), zp = nfZuPruefen(p), alle = !!state.nfAlle;
+  const anzeige = alle ? p.massnahmen : zp;
+  const rows = anzeige.map(m => {
+    const pruefen = zp.includes(m);
+    const d = parseSwissDate(m.faelligkeitsdatum);
+    const ueberfaellig = pruefen && d && d < new Date();
+    const marke = a && a.neu.includes(m.id) ? ' <span class="nf-tag">neu</span>' : a && a.status.includes(m.id) ? ' <span class="nf-tag">Status geändert</span>' : '';
+    const ok = !pruefen || nf.massnahmen[m.id];
+    const offen = !!(state.nfDetails && state.nfDetails[m.id]);
+    const statusSel = '<select class="nf-status-select" data-nf-status="' + m.id + '" aria-label="Prozessstatus ' + m.id + '">' + MASSNAHME_STATUS.map(st => '<option' + (st === m.prozessstatus ? ' selected' : '') + '>' + st + '</option>').join('') + '</select>';
+    return `
+    <tr data-nf-row="${m.id}" class="nf-row${ok ? ' is-geprueft' : ''}${pruefen ? '' : ' is-auto'}">
+      <td class="nf-check-cell"><input type="checkbox" data-nf-check="${m.id}" ${ok ? 'checked' : ''} ${pruefen ? '' : 'disabled'} aria-label="Massnahme ${m.id} bestätigt"></td>
+      <td>${m.id}</td>
+      <td class="md-row-name">${escapeHtml(m.name)}${marke}</td>
+      <td>${statusSel}</td>
+      <td class="cell-termin${ueberfaellig ? ' is-ueberfaellig' : ''}">${escapeHtml(val(m.faelligkeitsdatum))}</td>
+      <td class="nf-go"><button type="button" class="btn-link" data-nf-open="${m.id}" aria-expanded="${offen ? 'true' : 'false'}" aria-label="Details" title="Details">${offen ? '▾' : '›'}</button></td>
+    </tr>${offen ? renderNachfuehrungMassnahmeDetail(m) : ''}`;
+  }).join('');
+  const abgeschl = p.massnahmen.length - zp.length;
+  const badge = '<span id="nf-mass-badge" class="nf-badge' + (nfGeprueftAnzahl(p) === zp.length ? ' is-done' : '') + '">' + nfGeprueftAnzahl(p) + ' von ' + zp.length + ' bestätigt</span>';
+  const tools = '<div class="nf-table-tools">' +
+    (abgeschl > 0 ? '<button type="button" class="btn-link" id="btn-nf-toggle-alle">' + (alle ? 'Nur zu prüfende anzeigen' : 'Alle ' + p.massnahmen.length + ' Massnahmen anzeigen (' + abgeschl + ' abgeschlossen)') + '</button>' : '<span></span>') +
+    (zp.length ? '<button type="button" class="btn-link" id="btn-nf-alle">Alle bestätigen</button>' : '') + '</div>';
+  return `<div class="nf-block">
+      <div class="nf-block-head"><h3 class="subheading">Massnahmen</h3>${p.massnahmen.length ? badge : ''}</div>
+      <div class="nf-import-row"><button type="button" class="btn btn-primary btn-sm btn-with-icon" id="btn-nf-import" title="Bestehende Massnahmen werden aktualisiert, neue ergänzt. Betroffene Massnahmen gelten danach als bestätigt."><svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg><span>CSV importieren</span></button></div>
+      ${p.massnahmen.length === 0 ? '<div class="empty-state">Keine Massnahmen vorhanden.</div>'
+        : zp.length === 0 && !alle ? tools + '<div class="empty-state">Alle Massnahmen sind abgeschlossen und unverändert — nichts zu prüfen.</div>'
+        : tools + `<div class="table-scroll"><table class="data-table massnahmen-table nf-table">
+        <thead><tr><th class="nf-check-cell">Bestätigt</th><th>ID</th><th>Name</th><th>Prozessstatus</th><th>Fälligkeit</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`}
+    </div>`;
 }
 
 function renderPlanungNachfuehrungTabContent(p) {
-  const nf = nfState(p), aktiv = p.status === 'Abschluss';
-  const rows = p.massnahmen.map(m => {
-    const ueberfaellig = m.faelligkeitsdatum && m.faelligkeitsdatum !== '-' && (() => { const d = parseSwissDate(m.faelligkeitsdatum); return d && d < new Date() && !/abgeschlossen|umgesetzt/i.test(m.prozessstatus || ''); })();
+  const ph = nfPhase(p), aktiv = nfAktiv(p);
+  if (!aktiv) {
+    // Ruhend / vorab / keine Pflicht: nur Termin, Historie und (bei ruhend) der Weg zur vorzeitigen Nachführung
     return `
-    <tr data-nf-open="${m.id}" class="nf-row${nf.massnahmen[m.id] ? ' is-geprueft' : ''}">
-      ${aktiv ? `<td class="nf-check-cell"><input type="checkbox" data-nf-check="${m.id}" ${nf.massnahmen[m.id] ? 'checked' : ''} aria-label="Massnahme ${m.id} geprüft"></td>` : ''}
-      <td>${m.id}</td>
-      <td class="md-row-name">${escapeHtml(m.name)}</td>
-      <td>${escapeHtml(m.prozessstatus)}</td>
-      <td class="cell-termin${ueberfaellig ? ' is-ueberfaellig' : ''}">${escapeHtml(val(m.faelligkeitsdatum))}</td>
-      <td class="nf-go">›</td>
-    </tr>`;
-  }).join('');
-  const hist = nfHistorie(p);
-  const histHtml = hist.length ? `<details class="nf-historie"><summary>Bisherige Nachführungen (${hist.length})</summary><ul>` + hist.map(h =>
-    '<li><strong>' + escapeHtml(h.datum) + '</strong>' + (h.von ? ' · ' + escapeHtml(h.von) : '') +
-    (h.aenderungen !== null && h.aenderungen !== undefined ? ' · ' + (h.aenderungen ? h.aenderungen + (h.aenderungen === 1 ? ' Angabe/Ziel geändert' : ' Angaben/Ziele geändert') : 'ohne Änderungen an Angaben/Zielen') : '') +
-    (h.massnahmen ? ' · ' + h.massnahmen + ' Massnahmen geprüft' : '') + '</li>').join('') + '</ul></details>' : '';
+      ${renderNachfuehrungTermin(p)}
+      ${ph === 'ruhend' ? '<div class="nf-ruhend">Aktuell ist nichts zu tun. Die Nachführung öffnet sich automatisch ' + NF_VORLAUF_MONATE + ' Monate vor der Frist.<div class="btn-row left"><button type="button" class="btn btn-outline btn-sm" id="btn-nf-vorzeitig">Vorzeitig nachführen</button></div></div>' : ''}
+    `;
+  }
   return `
-    ${renderNachfuehrungTermin(p)}
-    ${aktiv ? renderNachfuehrungFortschritt(p) : ''}
+    ${renderNachfuehrungTermin(p, ph === 'ruhend' ? '<button type="button" class="btn-link" id="btn-nf-vorzeitig-ende">Vorzeitige Nachführung abbrechen</button>' : '')}
+    ${renderNachfuehrungSeitLetzter(p)}
     ${renderNachfuehrungBlock(p, 'angaben', 'Angaben')}
     ${renderNachfuehrungBlock(p, 'ziele', 'Ziele')}
-
-    <div class="nf-block">
-      <div class="nf-block-head"><h3 class="subheading">Massnahmen</h3>${aktiv && p.massnahmen.length ? `<span class="nf-badge${nfGeprueftAnzahl(p) === p.massnahmen.length ? ' is-done' : ''}">${nfGeprueftAnzahl(p)} von ${p.massnahmen.length} geprüft</span>` : ''}</div>
-      ${p.massnahmen.length === 0 ? '<div class="empty-state">Keine Massnahmen vorhanden.</div>' : `
-      ${aktiv ? '<div class="nf-table-tools"><button type="button" class="btn-link" id="btn-nf-alle">Alle als geprüft markieren</button></div>' : ''}
-      <div class="table-scroll"><table class="data-table massnahmen-table nf-table">
-        <thead><tr>${aktiv ? '<th class="nf-check-cell">Geprüft</th>' : ''}<th>ID</th><th>Name</th><th>Prozessstatus</th><th>Fälligkeit</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`}
-      <div class="nf-import-row"><button type="button" class="btn-link" id="btn-nf-import">Massnahmen aus CSV importieren</button></div>
-    </div>
-    ${histHtml}
+    ${renderNachfuehrungMassnahmen(p)}
   `;
 }
 
 function bindPlanungNachfuehrungTab(p) {
   const nf = nfState(p), ef = p.energieplanungFelder;
   const rerender = () => { const sc = document.querySelector('.panel-content'); const top = sc ? sc.scrollTop : 0; renderPlanungDetail(); const sc2 = document.querySelector('.panel-content'); if (sc2) sc2.scrollTop = top; };
-  document.getElementById('btn-nf-import').addEventListener('click', openImportDialog);
+  const imp = document.getElementById('btn-nf-import');
+  if (imp) imp.addEventListener('click', openImportDialog);
+  const vz = document.getElementById('btn-nf-vorzeitig');
+  if (vz) vz.addEventListener('click', () => { state.nfVorzeitigId = p.id; rerender(); });
+  const vzEnde = document.getElementById('btn-nf-vorzeitig-ende');
+  if (vzEnde) vzEnde.addEventListener('click', () => { state.nfVorzeitigId = null; rerender(); });
+  const howto = document.getElementById('nf-howto');
+  if (howto) howto.addEventListener('toggle', () => { state.nfAnleitungZu = !howto.open; });
 
-  // Sofort-Speichern: jede Änderung geht direkt in die Daten, der bisherige Wert bleibt als «Bisher» sichtbar
+  // Sofort-Speichern: jede Änderung geht direkt in die Daten, der Stand der letzten Nachführung bleibt als Vergleich sichtbar
   ['angaben', 'ziele'].forEach(art => NF_FELDER[art].forEach(f => {
     const el = document.getElementById(f.id);
     if (!el) return;
     el.addEventListener('change', () => {
-      const neu = el.value || '-', alt = ef[f.key] || '-';
-      if (neu === alt) return;
-      if (!(f.key in nf.vorher)) nf.vorher[f.key] = alt;
-      else if (nf.vorher[f.key] === neu) delete nf.vorher[f.key];
+      const neu = el.value || '-';
+      if (neu === (ef[f.key] || '-')) return;
       ef[f.key] = neu;
       toast('Gespeichert.');
     });
@@ -1875,29 +2036,80 @@ function bindPlanungNachfuehrungTab(p) {
   $panel.querySelectorAll('[data-nf-fertig]').forEach(b => b.addEventListener('click', () => {
     const art = b.dataset.nfFertig;
     nfEdit()[art] = false;
-    if (p.status === 'Abschluss') nf[art] = true;
+    nf[art] = true;
     rerender();
   }));
   $panel.querySelectorAll('[data-nf-ok]').forEach(b => b.addEventListener('click', () => { nf[b.dataset.nfOk] = true; rerender(); }));
 
-  // Massnahmen: Haken je Zeile, «Alle», Klick auf Zeile öffnet die Massnahme (mit Rückweg)
+  // Massnahmen: Haken je Zeile, Filter, «Alle», Klick auf Zeile öffnet die Massnahme (mit Rückweg)
   $panel.querySelectorAll('[data-nf-check]').forEach(cb => {
     cb.addEventListener('click', e => e.stopPropagation());
     cb.addEventListener('change', () => { nf.massnahmen[cb.dataset.nfCheck] = cb.checked; rerender(); });
   });
+  // Ganze Zeile bestätigt/entbestätigt; Status direkt in der Tabelle änderbar (bestätigt die Massnahme gleich mit)
+  $panel.querySelectorAll('[data-nf-row]').forEach(row => row.addEventListener('click', e => {
+    if (e.target.closest('select, button, input, a')) return;
+    const id = row.dataset.nfRow;
+    if (!nfZuPruefen(p).some(m => m.id === id)) return;
+    nf.massnahmen[id] = !nf.massnahmen[id];
+    rerender();
+  }));
+  $panel.querySelectorAll('[data-nf-status]').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', () => {
+      const m = p.massnahmen.find(x => x.id === sel.dataset.nfStatus);
+      if (!m || m.prozessstatus === sel.value) return;
+      m.prozessstatus = sel.value;
+      nf.beruehrt[m.id] = true;
+      nf.massnahmen[m.id] = true;
+      toast('Status von ' + m.id + ' auf «' + sel.value + '» gesetzt.');
+      rerender();
+    });
+  });
   const alle = document.getElementById('btn-nf-alle');
-  if (alle) alle.addEventListener('click', () => { p.massnahmen.forEach(m => { nf.massnahmen[m.id] = true; }); rerender(); });
-  $panel.querySelectorAll('[data-nf-open]').forEach(row => {
-    row.addEventListener('click', () => {
-      state.planungTab = 'massnahmen';
-      state.massnahmeId = row.dataset.nfOpen;
-      state.mdMode = 'view';
-      state.nfZurueck = true;
-      renderPlanungDetail();
+  if (alle) alle.addEventListener('click', () => { nfZuPruefen(p).forEach(m => { nf.massnahmen[m.id] = true; }); rerender(); });
+  const toggle = document.getElementById('btn-nf-toggle-alle');
+  if (toggle) toggle.addEventListener('click', () => { state.nfAlle = !state.nfAlle; rerender(); });
+  // Details klappen direkt unter der Zeile auf; Bemerkungen werden dort sofort gespeichert
+  $panel.querySelectorAll('[data-nf-open]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!state.nfDetails) state.nfDetails = {};
+    state.nfDetails[btn.dataset.nfOpen] = !state.nfDetails[btn.dataset.nfOpen];
+    rerender();
+  }));
+  $panel.querySelectorAll('[data-nf-m]').forEach(el => {
+    el.addEventListener('click', e => e.stopPropagation());
+    el.addEventListener('change', () => {
+      const [id, key] = el.dataset.nfM.split('|');
+      const m = p.massnahmen.find(x => x.id === id);
+      if (!m) return;
+      let v = el.value.trim();
+      if ((key === 'startdatum' || key === 'faelligkeitsdatum') && v) {
+        const d = parseSwissDate(v);
+        if (!d) { toast('Ungültiges Datum – bitte als TT.MM.JJJJ eingeben.'); el.value = fixDash(m[key]); return; }
+        v = formatDate(d);
+        el.value = v;
+      }
+      m[key] = v || '-';
+      if (key === 'startdatum' || key === 'faelligkeitsdatum') {
+        const s0 = parseSwissDate(m.startdatum), e0 = parseSwissDate(m.faelligkeitsdatum);
+        if (s0 && e0) {
+          const y1 = s0.getFullYear(), y2 = Math.max(e0.getFullYear(), y1);
+          m.umsetzungszeitraum = y1 === y2 ? String(y1) : y1 + '–' + y2;
+          const z = document.getElementById('nf-m-' + id + '-umsetzungszeitraum'); if (z) z.value = m.umsetzungszeitraum;
+        }
+        const cell = $panel.querySelector('[data-nf-row="' + id + '"] .cell-termin'); if (cell) cell.textContent = val(m.faelligkeitsdatum);
+      }
+      // Änderung = Massnahme wurde geprüft. Ohne Neuaufbau (Fokus bleibt), nur Haken und Zähler nachführen.
+      nf.beruehrt[id] = true; nf.massnahmen[id] = true;
+      const row = $panel.querySelector('[data-nf-row="' + id + '"]');
+      if (row) { row.classList.add('is-geprueft'); const cb = row.querySelector('[data-nf-check]'); if (cb) cb.checked = true; }
+      const badge = document.getElementById('nf-mass-badge');
+      if (badge) { const zp = nfZuPruefen(p), g = nfGeprueftAnzahl(p); badge.textContent = g + ' von ' + zp.length + ' bestätigt'; badge.classList.toggle('is-done', g === zp.length); }
+      toast('Gespeichert.');
     });
   });
 }
-
 
 /* ---------------------- PLANUNGSDETAILS-TAB ---------------------- */
 function renderPlanungDetailsTabContent(p) {

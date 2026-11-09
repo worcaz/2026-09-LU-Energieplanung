@@ -888,3 +888,120 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 .nf-historie summary{cursor:pointer; font-weight:600;}
 .nf-historie ul{margin:8px 0 0; padding-left:20px;}
 .nf-historie li{margin-bottom:4px;}
+
+/* Nachführung: Phasen (ruhend / offen), Anleitung, Änderungen seit letzter Nachführung */
+.nf-ruhend{margin:14px 0 0; padding:12px 14px; border:1px dashed var(--gray-300); border-radius:var(--radius); font-size:13px; color:var(--gray-700);}
+.nf-ruhend .btn-row{margin:10px 0 0; justify-content:flex-start;}
+.nf-ruhend-vorzeitig{border-style:solid; background:var(--blue-light-bg); border-color:#cfe3f3; margin:8px 0 0;}
+.nf-howto{margin:12px 0 0; font-size:13px; color:var(--gray-700); border:1px solid var(--gray-200); border-radius:var(--radius); padding:8px 14px;}
+.nf-howto summary{cursor:pointer; font-weight:600;}
+.nf-howto ol{margin:8px 0 4px; padding-left:20px;}
+.nf-howto li{margin-bottom:3px;}
+.nf-seit{margin:12px 0 0; padding:9px 14px; background:var(--gray-100); border-radius:var(--radius); font-size:13px; color:var(--gray-700);}
+.nf-warn{margin-top:4px; font-size:12.5px; color:var(--amber-dark);}
+.nf-tag{margin-left:6px; padding:1px 8px; border-radius:999px; background:var(--blue-light-bg); color:var(--blue-primary-dark); font-size:11px; font-weight:600; white-space:nowrap;}
+.nf-table-tools{display:flex; justify-content:space-between; align-items:center;}
+.nf-table input[type=checkbox]:disabled{opacity:.6;}
+
+/* Nachführung: Zeile bestätigt, Status inline */
+.nf-table .nf-row{cursor:pointer;}
+.nf-table .nf-row.is-auto{cursor:default;}
+.nf-status-select{font:inherit; font-size:13px; padding:4px 24px 4px 8px; border:1px solid var(--gray-300); border-radius:6px; background:#fff; color:var(--text); cursor:pointer;}
+.nf-table .nf-row.is-geprueft .nf-status-select{color:var(--gray-500);}
+.nf-table .nf-go{width:auto; white-space:nowrap; text-align:right;}
+.nf-table .nf-go .btn-link{font-size:12.5px;}
+.nf-table input[type=checkbox]{width:18px; height:18px; cursor:pointer;}
+
+/* Nachführung: Massnahmen-Details unter der Zeile */
+.nf-table .nf-detail-row td{background:var(--gray-100); border-top:none; padding-top:0;}
+.nf-detail{padding:10px 4px 12px; font-size:13px; cursor:default;}
+.nf-detail-desc{margin-bottom:10px; color:var(--gray-700);}
+.nf-detail-grid{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 16px; margin-bottom:10px;}
+.nf-detail-item{min-width:0; overflow-wrap:anywhere;}
+.nf-detail-item.is-wide{grid-column:span 2;}
+@media (max-width:640px){.nf-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+.nf-detail-label{display:block; font-size:11.5px; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:.2px; margin-bottom:2px;}
+.nf-detail textarea{width:100%; font:inherit; font-size:13px;}
+.nf-detail input[type=text], .nf-detail select, .nf-detail textarea{width:100%; font:inherit; font-size:13px; padding:5px 8px; border:1px solid var(--gray-300); border-radius:6px; background:#fff; box-sizing:border-box;}
+.nf-detail .nf-detail-item{margin-bottom:6px;}
+.nf-umsetzung{padding:6px 0; font-size:13px;}
+
+/* Nachführung: Bereiche als eigene Karten, damit Buttons nicht optisch in den nächsten Bereich laufen */
+.nf-block{margin-top:20px; padding:14px 18px 16px; border:1px solid var(--gray-200); border-radius:var(--radius); background:#fff;}
+.nf-block-actions{margin-top:16px; padding-top:12px; border-top:1px solid var(--gray-200);}
+
+/* Nachführung: prominenter Massnahmen-Import */
+.nf-import-box{display:flex; align-items:center; justify-content:space-between; gap:16px; margin:10px 0 8px; padding:12px 14px; border:1px solid #cfe3f3; background:var(--blue-light-bg); border-radius:var(--radius);}
+.nf-import-text{display:flex; flex-direction:column; gap:2px; font-size:13px; color:var(--gray-700);}
+.nf-import-text strong{font-size:14px; color:var(--navy);}
+.nf-import-box .btn{flex:none; white-space:nowrap;}
+.nf-import-box .btn svg{width:16px; height:16px; fill:currentColor;}
+@media (max-width:640px){.nf-import-box{flex-direction:column; align-items:stretch;}}
+
+/* Nachführung: weniger Linien — Karten tragen die Gliederung, innen keine Trennlinien */
+.nf-block-head{border-bottom:none; margin-bottom:2px;}
+.nf-block-actions{border-top:none; padding-top:0; margin-top:12px;}
+.nf-howto{border:none; background:var(--gray-100); padding:10px 14px;}
+.nf-block .field-row{border-bottom:none;}
+
+/* Nachführung: ohne Kartenrahmen, Bereiche nur durch Abstand getrennt */
+.nf-block{margin-top:30px; padding:0; border:none; border-radius:0; background:none;}
+.nf-block-head{border-bottom:1px solid var(--gray-200); margin-bottom:6px;}
+
+/* Nachführung: Termin und Aktion in einer Box */
+.nf-due{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;}
+.nf-due-action{font-size:13px; color:var(--gray-700); white-space:nowrap;}
+.nf-vorzeitig-label{margin-right:4px;}
+
+/* Footer: sichtbarer Hinweis, was vor dem Abschluss fehlt */
+.tab-footer-hint{flex:1; text-align:center; font-size:12.5px; font-weight:600; color:var(--amber-dark);}
+
+/* Nachführung: Beruhigung — wenig Farbe, ein Hauptbutton, leise Tabelle */
+/* Terminhinweis: neutrale Textzeile, nur "fällig" bleibt farbig */
+.nf-due.is-info, .nf-due.is-ok{background:none; border:none; padding:0 0 4px;}
+.nf-due.is-info .nf-due-title, .nf-due.is-ok .nf-due-title{font-size:14px;}
+/* Badges als schlichter Text statt farbiger Pillen */
+.nf-badge{background:none; padding:0; font-size:12.5px; font-weight:600; color:var(--gray-500);}
+.nf-badge.is-done{background:none; color:#2e7d4f;}
+/* Import: nur ein Button */
+.nf-import-row{margin:10px 0 4px;}
+/* Footer-Hinweis neutral */
+.tab-footer-hint{color:var(--gray-700); font-weight:500;}
+/* Tabelle: Status wie Text, Rahmen erst bei Hover/Fokus; Details als Pfeil */
+.nf-status-select{border-color:transparent; background-color:transparent; padding-left:0; cursor:pointer;}
+.nf-row:hover .nf-status-select, .nf-status-select:focus{border-color:var(--gray-300); background-color:#fff; padding-left:8px;}
+.nf-table .nf-go .btn-link{font-size:18px; line-height:1; text-decoration:none; color:var(--gray-500);}
+.nf-table .nf-go .btn-link:hover{color:var(--blue-primary);}
+
+/* Nachführung: Zeitleiste */
+.nf-due-timeline, .nf-tl{flex-basis:100%; width:100%;}
+.nf-tl{padding:22px 36px 24px 6px; box-sizing:border-box;}
+.nf-tl-track{position:relative; height:12px;}
+.nf-tl-line{position:absolute; left:0; right:0; top:5px; height:2px; background:var(--gray-200); border-radius:2px;}
+.nf-tl-fill{height:100%; background:var(--blue-primary); opacity:.55; border-radius:2px;}
+.nf-tl-dot, .nf-tl-tick, .nf-tl-today{position:absolute; transform:translateX(-50%);}
+.nf-tl-dot{top:0; width:12px; height:12px; border-radius:50%; background:#fff; border:2px solid var(--gray-500); box-sizing:border-box;}
+.nf-tl-dot.is-done{background:#2e9e5b; border-color:#2e9e5b;}
+.nf-tl-dot.is-start{border-color:var(--gray-500); background:var(--gray-500);}
+.nf-tl-tick{top:1px; width:2px; height:10px; background:var(--gray-300);}
+.nf-tl-tick.is-next{top:-1px; width:12px; height:12px; border-radius:50%; background:#fff; border:2px solid var(--blue-primary); box-sizing:border-box;}
+.nf-tl-tick.is-next.is-warn{border-color:var(--amber-dark);}
+.nf-tl-today{top:-5px; width:0; height:22px; border-left:1px dashed var(--gray-500);}
+.nf-tl-lab{position:absolute; transform:translateX(-50%); font-size:11px; color:var(--gray-500); white-space:nowrap;}
+.nf-tl-lab.is-above{top:-20px;}
+.nf-tl-lab.is-below{top:18px;}
+.nf-tl-lab.is-next{color:var(--text); font-weight:700;}
+.nf-tl-lab.is-today{font-style:italic;}
+.nf-tl-lab.is-startlab{transform:none;}
+
+/* Bestätigt-Status anstelle des Buttons */
+.nf-bestaetigt{display:inline-flex; align-items:center; gap:5px; padding:0 8px; font-size:13px; font-weight:600; color:#2e7d4f;}
+.nf-bestaetigt svg{width:16px; height:16px; fill:currentColor;}
+
+/* Ziele: Bezeichnung links, Text rechts — eingerückt wie die übrigen Felder (statt über die volle Breite) */
+.field-row.stacked{flex-direction:row; align-items:flex-start; gap:0; padding:6px 0;}
+.field-row.stacked .field-label{width:220px; flex-shrink:0; font-size:inherit;}
+.field-row.stacked .field-value{flex:1; min-width:0; line-height:1.45;}
+.form-field.is-inline{display:flex; align-items:flex-start;}
+.form-field.is-inline > label{width:220px; flex:none; padding-top:7px; margin-bottom:0;}
+.form-field.is-inline .form-field-body{flex:1; min-width:0;}
