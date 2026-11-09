@@ -77,9 +77,9 @@
             <span>Neue Energieplanung</span>
           </label>
           <ul class="layer-subtree">
-            <li><label class="layer-row"><input type="checkbox" checked><span>Massnahmen (Punkte)</span></label></li>
-            <li><label class="layer-row"><input type="checkbox" checked><span>Massnahmen (Linien)</span></label></li>
-            <li><label class="layer-row"><input type="checkbox" checked><span>Massnahmen (Flächen)</span></label></li>
+            <li><label class="layer-row"><input type="checkbox" checked data-karte-mass="punkt"><span>Massnahmen (Punkte)</span></label></li>
+            <li><label class="layer-row"><input type="checkbox" checked data-karte-mass="linie"><span>Massnahmen (Linien)</span></label></li>
+            <li><label class="layer-row"><input type="checkbox" checked data-karte-mass="flaeche"><span>Massnahmen (Flächen)</span></label></li>
           </ul>
         </li>
         <li><label class="layer-row"><span class="tree-toggle">+</span><input type="checkbox"><span>EPA-Karte</span></label></li>
@@ -133,6 +133,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="dummy-gemeinden-luzern.js"></script>
 <script src="dummy-gemeindegrenzen-luzern.js"></script>
+<script src="dummy-massnahmen-geometrien.js"></script>
 <script src="app.js"></script>
 <script src="dummy-kontakte-luzern.js"></script>
 <script src="dummy-planungen-luzern.js"></script>

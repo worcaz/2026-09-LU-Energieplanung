@@ -1035,3 +1035,15 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 @container panel (max-width: 600px){
   .planungen-table .pseg{display:none;}
 }
+
+/* Massnahme abwählen: Schliessen-Knopf im Detailfenster und Chip auf der Karte */
+.md-panel-header{position:relative;}
+.md-close{position:absolute; top:-2px; right:-2px; width:28px; height:28px; border:none; border-radius:50%; background:transparent; color:var(--gray-600); font-size:15px; cursor:pointer;}
+.md-close:hover{background:var(--gray-100); color:var(--text);}
+.karte-auswahl{margin-top:8px;}
+.karte-auswahl button{background:#14324f; color:#fff; border:none; border-radius:16px; padding:6px 14px; font-size:12.5px; font-weight:600; box-shadow:0 2px 8px rgba(20,30,45,.3); cursor:pointer; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.karte-auswahl button:hover{background:#1d4a73;}
+
+/* Icon: Massnahme hat eine geografische Markierung */
+.geo-icon{display:inline-flex; vertical-align:-3px; margin-left:6px; color:var(--blue-primary);}
+.geo-icon svg{width:15px; height:15px;}

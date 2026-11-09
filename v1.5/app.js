@@ -314,7 +314,7 @@ function buildMassnahme(index, planung, plan) {
   const umsetzungszeitraum = y1 === y2 ? String(y1) : `${y1}–${y2}`;
 
   const contact = rand() < 0.8 ? pick(KONTAKT_POOL) : null;
-  return {
+  const massnahme = {
     id: `M-${nextMassnahmeSeq++}`,
     esNr: rand() < 0.85 ? `${randomInt(1, 5)}.${randomInt(1, 4)}.${index + 1}` : '-',
     name: vorlage.name,
@@ -333,6 +333,11 @@ function buildMassnahme(index, planung, plan) {
     // Energieträger sind nur bei Handlungsfeld "Wärme- und Kälteversorgung" relevant
     energietraeger: handlungsfeld === 'Wärme- und Kälteversorgung' && rand() < 0.6 ? buildEnergietraeger(randomInt(1, 2)) : []
   };
+  // Geografische Markierung (Punkt / Linie / Kurve / Fläche) nur bei ortsgebundenen Massnahmen, innerhalb der Gemeinde der Planung (siehe dummy-massnahmen-geometrien.js)
+  massnahme.geometrie = typeof erzeugeMassnahmeGeometrie === 'function'
+    ? erzeugeMassnahmeGeometrie(massnahme, String(planung.gemeinde).split(',').map(g => g.trim()))
+    : null;
+  return massnahme;
 }
 
 function buildMassnahmen(planung, plan) {
@@ -838,6 +843,7 @@ function planungenFuerGemeinden(gemeinden, typ) {
 // Öffnet eine Planung direkt im aktuellen Prozessschritt (Tab), in der Ansicht oder im Bearbeiten-Modus.
 // Bearbeiten gibt es nur in den Formular-Tabs (Grunddaten, EPA Beratung, Gesuch); Massnahmen und Nachführung sind direkt änderbar.
 function openPlanung(id, edit) {
+  karteHervorhebungEnde();
   const p = findPlanung(id);
   const tab = p ? prozessSchrittFor(p).key : 'grunddaten';
   const editierbar = !!edit && PANE_TABS.includes(tab);
@@ -1036,10 +1042,16 @@ function renderPlanungList() {
       renderPlanungList();
     });
   });
+  // Zeile überfahren: Gemeinde(n) in der Karte hervorheben
+  $panel.querySelectorAll('tr[data-open-planung]').forEach(tr => {
+    tr.addEventListener('mouseenter', () => karteHebeHervor(findPlanung(tr.dataset.openPlanung)));
+    tr.addEventListener('mouseleave', karteHervorhebungEnde);
+  });
   $panel.querySelectorAll('[data-open-planung]').forEach(row => {
     row.addEventListener('click', e => {
       // Die Aktions-Buttons in der Zeile lösen nur einmal aus (sonst würde zusätzlich die Zeile klicken)
       if (row.tagName === 'TR' && e.target.closest('.row-action')) return;
+      karteZoomAufPlanung(findPlanung(row.dataset.openPlanung));
       openPlanung(row.dataset.openPlanung, row.hasAttribute('data-edit'));
     });
   });
@@ -2005,7 +2017,7 @@ function renderNachfuehrungMassnahmen(p) {
     <tr data-nf-row="${m.id}" class="nf-row${ok ? ' is-geprueft' : ''}${pruefen ? '' : ' is-auto'}">
       <td class="nf-check-cell"><input type="checkbox" data-nf-check="${m.id}" ${ok ? 'checked' : ''} ${pruefen ? '' : 'disabled'} aria-label="Massnahme ${m.id} bestätigt"></td>
       <td>${m.id}</td>
-      <td class="md-row-name">${escapeHtml(m.name)}${marke}</td>
+      <td class="md-row-name">${escapeHtml(m.name)}${geoIcon(m)}${marke}</td>
       <td>${statusSel}</td>
       <td class="cell-termin${ueberfaellig ? ' is-ueberfaellig' : ''}">${escapeHtml(val(m.faelligkeitsdatum))}</td>
       <td class="nf-go"><button type="button" class="btn-link" data-nf-open="${m.id}" aria-expanded="${offen ? 'true' : 'false'}" aria-label="Details" title="Details">${offen ? '▾' : '›'}</button></td>
@@ -2517,7 +2529,7 @@ function renderMassnahmenListPanel(p, massList) {
             <tr data-open-massnahme="${m.id}" class="${state.massnahmeId === m.id ? 'active' : ''}">
               <td class="col-check"><input type="checkbox" class="row-check" data-massnahme-id="${m.id}" ${state.massList.selected.has(m.id) ? 'checked' : ''}></td>
               <td>
-                <div class="md-row-name">${m.name}</div>
+                <div class="md-row-name">${m.name}${geoIcon(m)}</div>
                 <div class="md-row-meta">${m.id} · ${val(m.umsetzungszeitraum)}</div>
               </td>
               <td><span class="status-pill status-${m.prozessstatus.toLowerCase()}">${m.prozessstatus}</span></td>
@@ -2765,6 +2777,27 @@ function renderMassnahmeDetailPanel(p) {
   return `<div class="md-empty">Wähle links eine Massnahme aus oder erstelle über "+" eine neue Massnahme.</div>`;
 }
 
+// Kleines Icon in Listen: Massnahme hat eine geografische Markierung (je nach Art Pin, Linie, Kurve oder Fläche)
+const GEO_ICONS = {
+  'Punkt': '<path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="currentColor"/>',
+  'Linie': '<path d="M4 19l5-8 5 4 6-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="4" cy="19" r="2" fill="currentColor"/><circle cx="20" cy="5" r="2" fill="currentColor"/>',
+  'Kurve': '<path d="M3 17c4-12 8 5 12-6 1.5-4 3.5-4 6-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="3" cy="17" r="2" fill="currentColor"/><circle cx="21" cy="8" r="2" fill="currentColor"/>',
+  'Fläche': '<path d="M4 9l8-5 8 4-2 10-9 3z" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'
+};
+function geoIcon(m) {
+  const g = m && m.geometrie;
+  if (!g || !g.geometry) return '';
+  return '<span class="geo-icon" title="Geografische Markierung: ' + escapeAttr(geometrieText(m)) + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + (GEO_ICONS[g.art] || GEO_ICONS['Punkt']) + '</svg></span>';
+}
+// Kurzbeschreibung der geografischen Markierung, z. B. «3 Punkte · Emmen»
+function geometrieText(m) {
+  const g = m.geometrie;
+  if (!g || !g.geometry) return '-';
+  const c = g.geometry.coordinates, t = g.geometry.type;
+  const n = t === 'Point' || t === 'LineString' || t === 'Polygon' ? 1 : c.length;
+  const bez = { Punkt: ['Punkt', 'Punkte'], Linie: ['Linie', 'Linien'], Kurve: ['Kurve', 'Kurven'], 'Fläche': ['Fläche', 'Flächen'] }[g.art] || [g.art, g.art];
+  return n + ' ' + (n === 1 ? bez[0] : bez[1]) + (g.gemeinde ? ' · ' + g.gemeinde : '');
+}
 function renderMassnahmeViewPanel(m) {
   const order = ['Geplant', 'Umsetzung', 'Abschluss'];
   const idx = order.indexOf(m.prozessstatus);
@@ -2776,6 +2809,7 @@ function renderMassnahmeViewPanel(m) {
 
   return `
     <div class="md-panel-header">
+      <button type="button" class="md-close" id="btn-md-close" title="Auswahl aufheben" aria-label="Massnahme abwählen">✕</button>
       <span class="md-panel-id">${m.id}</span>
       <h3>${m.name}</h3>
     </div>
@@ -2795,6 +2829,7 @@ function renderMassnahmeViewPanel(m) {
     ${field('Fälligkeitsdatum', m.faelligkeitsdatum)}
     ${field('Budget', m.budget)}
     ${field('Verantwortlichkeit', m.verantwortlichkeit)}
+    ${field('Geografische Markierung', geometrieText(m))}
     ${field('Weitere Bemerkungen', m.bemerkungen)}
 
     ${m.handlungsfeld === 'Wärme- und Kälteversorgung' ? `
@@ -2899,6 +2934,7 @@ function bindMassnahmeDetailPanel(p) {
       }
     });
     document.getElementById('btn-geodaten').addEventListener('click', () => toast('Geodaten-Editor ist in diesem Prototyp nicht verfügbar (Karte ist statisch).'));
+    document.getElementById('btn-md-close').addEventListener('click', massnahmeAbwaehlen);
     document.getElementById('btn-edit-massnahme').addEventListener('click', () => {
       state.mdMode = 'edit';
       renderPlanungDetail();
@@ -3768,6 +3804,7 @@ const map = L.map('leaflet-map', { zoomControl: false, zoomSnap: 0.25, minZoom: 
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution('Gemeindegrenzen &copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>');
 
+map.createPane('massnahmenPane').style.zIndex = 450;   // über den Gemeindeflächen (overlayPane 400), unter Tooltips
 L.control.zoom({ position: 'topright' }).addTo(map);
 L.control.scale({ imperial: false }).addTo(map);
 
@@ -3787,10 +3824,22 @@ function karteInfoFor(name) {
   const gezeigt = (karteFilter.kommunal && kom) ? kom : (karteFilter.regional && reg) ? reg : null;
   return { gezeigt, kom, reg, regionalRand: karteFilter.regional && karteFilter.kommunal && !!reg };
 }
+// In der Detailansicht einer Planung: ihre Gemeinde(n) bleiben kräftig, alle anderen werden abgesenkt
+function karteAuswahlNamen() {
+  if (state.tab !== 'planungen' || state.view !== 'detail' || !state.planungId) return null;
+  const p = findPlanung(state.planungId);
+  return p ? new Set(String(p.gemeinde).split(',').map(g => g.trim())) : null;
+}
 function karteStyleFor(feature, hover) {
   const info = karteInfoFor(feature.properties.name);
   let key = 'keine';
   if (info.gezeigt) { const st = prozessSchrittFor(info.gezeigt); key = st.warn ? 'warn' : st.key; }
+  const sel = karteAuswahlNamen();
+  if (sel && !hover) {
+    return sel.has(feature.properties.name)
+      ? { fillColor: KARTE_FARBEN[key], fillOpacity: 1, color: '#14324f', weight: 3, dashArray: null }
+      : { fillColor: KARTE_FARBEN[key], fillOpacity: 0.28, color: '#ffffff', weight: 1, dashArray: null };
+  }
   return {
     fillColor: KARTE_FARBEN[key], fillOpacity: hover ? 1 : 0.9,
     color: hover ? '#14324f' : info.regionalRand ? '#34506b' : '#ffffff',
@@ -3810,6 +3859,29 @@ function karteTooltipFor(name) {
   return h;
 }
 var karteHighlight = null;
+var karteListeLayer = null;   // Hervorhebung beim Überfahren einer Zeile in der Planungsliste
+// Hebt die Gemeinden einer Planung (bei regionalen Planungen alle Gemeinden der Region) auf der Karte leicht hervor
+function karteHebeHervor(p) {
+  karteHervorhebungEnde();
+  if (!gemeindeLayer || !p) return;
+  const namen = new Set(String(p.gemeinde).split(',').map(g => g.trim()));
+  const feats = GEMEINDEGRENZEN_LUZERN.features.filter(f => namen.has(f.properties.name));
+  if (!feats.length) return;
+  karteListeLayer = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+    interactive: false,
+    style: { fillColor: '#ffffff', fillOpacity: 0.28, color: '#14324f', weight: 3, opacity: 0.9 }
+  }).addTo(map);
+}
+// Zoomt auf die Gemeinde(n) einer Planung (bei regionalen Planungen auf die ganze Region)
+function karteZoomAufPlanung(p) {
+  if (!gemeindeLayer || !p || map.getSize().x === 0) return;
+  const namen = new Set(String(p.gemeinde).split(',').map(g => g.trim()));
+  const layers = [];
+  gemeindeLayer.eachLayer(l => { if (namen.has(l.feature.properties.name)) layers.push(l); });
+  if (!layers.length) return;
+  map.fitBounds(L.featureGroup(layers).getBounds().pad(0.35), { padding: [24, 24], maxZoom: 12, animate: true });
+}
+function karteHervorhebungEnde() { if (karteListeLayer) { karteListeLayer.remove(); karteListeLayer = null; } }
 function karteHighlightEntfernen() { if (karteHighlight) { karteHighlight.remove(); karteHighlight = null; } }
 // Zoom je Rolle: auf alle Gemeinden (bzw. Regionen), auf die die angemeldete Person Zugriff hat. Admin: ganzer Kanton.
 var karteZoomKey = null;
@@ -3828,12 +3900,83 @@ function karteZoomAufZugriff() {
   if (alle) map.fitBounds(gemeindeLayer.getBounds(), { padding: [0, 0], animate: true });
   else map.fitBounds(bounds.pad(0.35), { padding: [24, 24], maxZoom: 12, animate: true });
 }
+var karteHatteAuswahl = false;
+var karteMassnahmenLayer = null;
+var karteMassId = null;          // zuletzt auf der Karte gewählte Massnahme (für Zoom beim Wechsel)
+var karteAuswahlControl = null;  // Chip «Massnahme abwählen» auf der Karte
+// Massnahme abwählen: Detailfenster leeren, Karte ohne gewählte Massnahme
+function massnahmeAbwaehlen() {
+  state.massnahmeId = null;
+  state.mdMode = null;
+  renderPlanungDetail();
+}
+const karteMassFilter = { punkt: true, linie: true, flaeche: true };
+const KARTE_MASS_FARBEN = { Geplant: '#5b6b7e', Umsetzung: '#e8710a', Abschluss: '#1f8f58' };
+// Massnahmen der geöffneten Energieplanung (Punkte, Linien/Kurven, Flächen) auf der Karte; die gewählte Massnahme ist hervorgehoben
+function updateMassnahmenKarte() {
+  if (karteMassnahmenLayer) { karteMassnahmenLayer.remove(); karteMassnahmenLayer = null; }
+  if (karteAuswahlControl) { karteAuswahlControl.remove(); karteAuswahlControl = null; }
+  if (state.tab !== 'planungen' || state.view !== 'detail' || !state.planungId) { karteMassId = null; return; }
+  const p = findPlanung(state.planungId);
+  if (!p) { karteMassId = null; return; }
+  const gruppe = L.layerGroup();
+  p.massnahmen.forEach(m => {
+    const g = m.geometrie;
+    if (!g || !g.geometry) return;
+    const klasse = g.art === 'Punkt' ? 'punkt' : g.art === 'Fläche' ? 'flaeche' : 'linie';
+    if (!karteMassFilter[klasse]) return;
+    const farbe = KARTE_MASS_FARBEN[m.prozessstatus] || '#5b6b7e', gewaehlt = m.id === state.massnahmeId;
+    const layer = L.geoJSON(g.geometry, {
+      pane: 'massnahmenPane',
+      pointToLayer: (f, ll) => L.circleMarker(ll, { pane: 'massnahmenPane', radius: gewaehlt ? 9 : 6, color: '#ffffff', weight: 2, fillColor: farbe, fillOpacity: 1 }),
+      style: () => ({ color: gewaehlt ? '#14324f' : farbe, weight: gewaehlt ? 5 : 3, opacity: 1, fillColor: farbe, fillOpacity: gewaehlt ? 0.55 : 0.35 })
+    });
+    layer.bindTooltip('<strong>' + escapeHtml(m.name) + '</strong><div class="karte-tt-sub">' + escapeHtml(m.id + ' · ' + m.prozessstatus) + '</div>', { className: 'karte-tooltip', sticky: false });
+    layer.on('click', () => { state.planungTab = 'massnahmen'; state.massnahmeId = m.id; state.mdMode = 'view'; renderPlanungDetail(); });
+    layer.addTo(gruppe);
+  });
+  karteMassnahmenLayer = gruppe.addTo(map);
+
+  // Gewählte Massnahme: bei Wechsel auf ihre Geometrie zoomen; bei Abwahl zurück auf die Gemeinde(n) der Planung
+  const sel = state.massnahmeId && state.mdMode !== 'new' ? findMassnahme(p, state.massnahmeId) : null;
+  const selId = sel ? sel.id : null;
+  if (selId !== karteMassId) {
+    const vorher = karteMassId;
+    karteMassId = selId;
+    if (sel && sel.geometrie && sel.geometrie.geometry && map.getSize().x > 0) {
+      // Immer auf die Gemeindegrenze der Massnahme zoomen (einheitlicher Massstab, weder zu nah noch zu weit weg)
+      const gl = []; gemeindeLayer.eachLayer(l => { if (l.feature.properties.name === sel.geometrie.gemeinde) gl.push(l); });
+      if (gl.length) map.fitBounds(L.featureGroup(gl).getBounds(), { padding: [24, 24], animate: true });
+      else karteZoomAufPlanung(p);
+    } else if (!selId && vorher) {
+      karteZoomAufPlanung(p);
+    }
+  }
+  if (sel && sel.geometrie && sel.geometrie.geometry) {
+    karteAuswahlControl = L.control({ position: 'topright' });
+    karteAuswahlControl.onAdd = () => {
+      const d = L.DomUtil.create('div', 'karte-auswahl');
+      d.innerHTML = '<button type="button" title="Auswahl aufheben">✕ ' + escapeHtml(sel.name) + ' abwählen</button>';
+      L.DomEvent.disableClickPropagation(d);
+      d.querySelector('button').addEventListener('click', massnahmeAbwaehlen);
+      return d;
+    };
+    karteAuswahlControl.addTo(map);
+  }
+}
 function updateGemeindeKarte() {
   if (!gemeindeLayer) return;
+  // Zurück aus der Detailansicht (Übersicht Energieplanungen): wieder auf alle Gemeinden mit Zugriff herauszoomen
+  const hatAuswahl = !!karteAuswahlNamen();
+  if (karteHatteAuswahl && !hatAuswahl) karteZoomKey = null;
+  karteHatteAuswahl = hatAuswahl;
   karteZoomAufZugriff();
+  updateMassnahmenKarte();
+  const sel = karteAuswahlNamen();
   gemeindeLayer.eachLayer(l => {
     l.setStyle(karteStyleFor(l.feature, false));
     l.setTooltipContent(karteTooltipFor(l.feature.properties.name));
+    if (sel && sel.has(l.feature.properties.name)) l.bringToFront();
   });
 }
 function initGemeindeKarte() {
@@ -3885,6 +4028,10 @@ document.querySelector('.sidebar-close-tab').addEventListener('click', toggleKar
 document.querySelector('.sidebar-panel-header').addEventListener('click', toggleKarteninhalt);
 toggleKarteninhalt();   // Standard: zugeklappt
 // Filter «Kommunale / Regionale Energieplanungen» im Karteninhalt
+document.querySelectorAll('[data-karte-mass]').forEach(cb => cb.addEventListener('change', () => {
+  karteMassFilter[cb.dataset.karteMass] = cb.checked;
+  updateMassnahmenKarte();
+}));
 document.querySelectorAll('[data-karte-filter]').forEach(cb => cb.addEventListener('change', () => {
   karteFilter[cb.dataset.karteFilter] = cb.checked;
   updateGemeindeKarte();
