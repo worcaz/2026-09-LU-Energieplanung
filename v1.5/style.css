@@ -1005,3 +1005,33 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 .form-field.is-inline{display:flex; align-items:flex-start;}
 .form-field.is-inline > label{width:220px; flex:none; padding-top:7px; margin-bottom:0;}
 .form-field.is-inline .form-field-body{flex:1; min-width:0;}
+
+/* Gemeindekarte (Kanton Luzern) */
+.map-leaflet{background:#e4ebf1;}
+.leaflet-interactive{cursor:pointer;}
+.karte-tooltip{font-size:12.5px; line-height:1.4; padding:6px 10px; border:none; border-radius:6px; box-shadow:0 2px 10px rgba(20,30,45,.25);}
+.karte-tooltip strong{font-size:13.5px;}
+.karte-tt-sub{color:var(--gray-500); font-size:11.5px;}
+.karte-legende{background:rgba(255,255,255,.94); padding:8px 12px; border-radius:var(--radius); box-shadow:0 1px 8px rgba(20,30,45,.2); font-size:12px; line-height:1.7; color:var(--gray-700);}
+.karte-legende-titel{font-weight:700; margin-bottom:2px; color:var(--text);}
+.karte-legende-row{display:flex; align-items:center; gap:8px;}
+.karte-legende-row i{width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.12); flex:none;}
+
+/* Karteninhalt minimiert: nur Kopfzeile */
+.sidebar-panel-header{cursor:pointer; user-select:none;}
+.map-sidebar.minimized .layer-tree, .map-sidebar.minimized .sidebar-tool-row{display:none;}
+.map-sidebar.minimized .sidebar-panel-header{border-bottom:none;}
+.karte-tooltip{pointer-events:none; max-width:260px; white-space:normal;}
+
+/* Planungsliste bei schmalem Panel: Aktions-Icons bleiben sichtbar, Typ und Status werden gekürzt */
+.planungen-table .t-short{display:none;}
+.planungen-table td.col-actions, .planungen-table th.col-actions{position:sticky; right:0; background:#fff; z-index:2;}
+.planungen-table tbody tr:hover td.col-actions{background:var(--blue-light-bg);}
+@container panel (max-width: 760px){
+  .planungen-table .t-full{display:none;}
+  .planungen-table .t-short{display:inline;}
+  .planungen-table .phase-sub{display:none;}
+}
+@container panel (max-width: 600px){
+  .planungen-table .pseg{display:none;}
+}

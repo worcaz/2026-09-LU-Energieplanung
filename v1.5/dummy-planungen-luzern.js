@@ -16,11 +16,34 @@
 
   const STATUS_WEIGHTED = ['Entwurf', 'Entwurf', 'Entwurf', 'Verabschiedung', 'Verabschiedung', 'Fördergesuch', 'Abschluss'];
 
+  // Status je Gemeinde reproduzierbar auswürfeln
+  const statusJe = {};
+  GEMEINDEN_LUZERN.forEach(gemeinde => {
+    seedRng('status-' + gemeinde);
+    statusJe[gemeinde] = pick(STATUS_WEIGHTED);
+  });
+  // 20 zusätzliche Gemeinden im Status "Abschluss" (= Prozessschritt Nachführung), damit mehr Beispiele für die Nachführung vorhanden sind
+  // Mit Szenario, damit alle Phasen der Nachführung vertreten sind: fällig (Frist verstrichen), offen (Frist < 12 Monate),
+  // review (Nachführung bereits erfolgt, mit Historie) und ruhend (Frist in über 12 Monaten).
+  const FUER_NACHFUEHRUNG = [
+    ['Emmen', 'faellig'], ['Kriens', 'review'], ['Horw', 'offen'], ['Sursee', 'review'], ['Meggen', 'ruhend'],
+    ['Malters', 'faellig'], ['Ruswil', 'offen'], ['Sempach', 'review'], ['Hochdorf', 'ruhend'], ['Triengen', 'ruhend'],
+    ['Rothenburg', 'ruhend'], ['Wolhusen', 'offen'],
+    // weitere Gemeinden (zweite Tranche)
+    ['Ebikon', 'review'], ['Dagmersellen', 'faellig'], ['Reiden', 'ruhend'], ['Schötz', 'offen'], ['Willisau', 'review'],
+    ['Entlebuch', 'ruhend'], ['Beromünster', 'offen'], ['Nottwil', 'faellig'], ['Hitzkirch', 'ruhend'], ['Neuenkirch', 'offen'],
+    ['Eschenbach', 'review'], ['Schüpfheim', 'ruhend'], ['Menznau', 'faellig']
+  ];
+  const szenarioJe = {};
+  let zusaetzlich = 0;
+  FUER_NACHFUEHRUNG.forEach(([g, sz]) => {
+    if (zusaetzlich < 20 && statusJe[g] && statusJe[g] !== 'Abschluss') { statusJe[g] = 'Abschluss'; szenarioJe[g] = sz; zusaetzlich++; }
+  });
+
   let seq = 900;
   GEMEINDEN_LUZERN.forEach(gemeinde => {
     const id = `EP-${seq++}`;
-    seedRng('status-' + gemeinde);   // Status je Gemeinde reproduzierbar
-    const p = makeEnergieplanung(id, gemeinde, pick(STATUS_WEIGHTED));
+    const p = makeEnergieplanung(id, gemeinde, statusJe[gemeinde], szenarioJe[gemeinde] ? { nfSzenario: szenarioJe[gemeinde] } : undefined);
     generiereProzessDaten(p);
     planungen.push(p);
   });

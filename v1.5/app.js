@@ -260,10 +260,16 @@ function planProzess(p) {
     plan.beginn = d(-randomInt(300, 900));
     if (rand() < 0.5) plan.gesuchseingang = d(-randomInt(10, 150));   // Gesuch liegt beim Kanton
   } else {   // Abschluss
-    plan.beginn = d(-randomInt(420, 2300));
+    // Optionales Szenario (p.nfSzenario) für gezielt verteilte Nachführungs-Beispiele:
+    //  ruhend = Frist in über 12 Monaten · offen = Frist in den nächsten 12 Monaten · faellig = Frist verstrichen, nie nachgeführt ·
+    //  review = Frist verstrichen und Nachführung erfolgt (nächste Frist wieder in ferner Zukunft)
+    const sz = p.nfSzenario;
+    const alter = sz === 'ruhend' ? randomInt(420, 1000) : sz === 'offen' ? randomInt(1160, 1420) : sz === 'faellig' ? randomInt(1500, 2150) : sz === 'review' ? randomInt(1700, 2300) : randomInt(420, 2300);
+    plan.beginn = d(-alter);
     plan.gesuchseingang = addDays(plan.beginn, randomInt(120, 300));
     const vierJahre = addYears(plan.beginn, 4);
-    if (vierJahre < today && rand() < 0.5) plan.letztePruefung = addDays(vierJahre, randomInt(0, Math.max(0, Math.round((today - vierJahre) / 86400000))));
+    const pruefen = sz === 'review' ? true : (!sz && rand() < 0.5);
+    if (pruefen && vierJahre < today) plan.letztePruefung = addDays(vierJahre, randomInt(0, Math.max(0, Math.round((today - vierJahre) / 86400000))));
   }
   const basis = plan.beginn || plan.geplanterStart;
   p.jahr = basis.getFullYear();
@@ -443,6 +449,28 @@ function generiereProzessDaten(p) {
   const plan = planProzess(p);
   fillPlanungDetails(p, plan);
   p.massnahmen = buildMassnahmen(p, plan);
+  if (plan.letztePruefung) erzeugeNachfuehrungHistorie(p, plan);
+}
+// Bereits erfolgte Nachführung: Protokolleintrag mit Person und Stand von damals (Ziele, Massnahmenstatus), damit Zeitleiste
+// und «Seit der letzten Nachführung» realistische Daten haben. Bewusst ohne NF_FELDER/nfSnapshot (werden erst später definiert).
+function erzeugeNachfuehrungHistorie(p, plan) {
+  const ef = p.energieplanungFelder;
+  const von = (ef.beraterEnergieplanung && ef.beraterEnergieplanung !== '-' ? ef.beraterEnergieplanung : ef.verantwortlichkeit || 'Admin').replace(/ (.*)$/, '');
+  const keys = ['verantwortlichkeit', 'beraterEnergieplanung', 'nettoNullZiel', 'energieeffizienzZiel', 'stromproduktionZiel'];
+  const felder = {};
+  keys.forEach(k => { felder[k] = ef[k] && ef[k] !== '-' ? ef[k] : ''; });
+  // Stand damals: ein Teil der Angaben/Ziele war anders formuliert oder noch leer
+  let geaendert = 0;
+  ['nettoNullZiel', 'energieeffizienzZiel', 'stromproduktionZiel'].forEach(k => { if (rand() < 0.3) { felder[k] = rand() < 0.5 ? '' : pick(k === 'nettoNullZiel' ? NETTO_NULL_ZIELE : k === 'energieeffizienzZiel' ? ENERGIEEFFIZIENZ_ZIELE : STROMPRODUKTION_ZIELE); if (felder[k] !== (ef[k] && ef[k] !== '-' ? ef[k] : '')) geaendert++; } });
+  // Massnahmen damals: manche weiter hinten im Prozess, ein, zwei erst seither hinzugekommen
+  const massnahmen = {};
+  const vorher = { 'Abschluss': 'Umsetzung', 'Umsetzung': 'Geplant' };
+  p.massnahmen.forEach((m, i) => {
+    if (i >= 3 && rand() < 0.2) return;   // damals noch nicht erfasst
+    massnahmen[m.id] = rand() < 0.4 && vorher[m.prozessstatus] ? vorher[m.prozessstatus] : m.prozessstatus;
+  });
+  p.nfBasisAnzahl = 0; p.nfLegacyDatum = null;
+  p.nfHistorie = [{ datum: formatDate(plan.letztePruefung), von, aenderungen: geaendert, massnahmen: Object.keys(massnahmen).length, stand: { felder, massnahmen } }];
 }
 
 const planungen = [
@@ -623,6 +651,7 @@ $resizer.addEventListener('mousedown', e => {
 
 /* ---------------------- RENDER ROOT ---------------------- */
 function render() {
+  updateGemeindeKarte();
   if (state.tab === 'planungen') {
     if (state.view === 'list') renderPlanungList();
     else if (state.view === 'detail') renderPlanungDetail();
@@ -696,17 +725,23 @@ function beratungStartFor(p) {
   return parseSwissDate(eb.geplanterStart);
 }
 function terminFor(p) { return beratungStartFor(p) || naechstePruefungFor(p); }
+// Überfällige Termine als «seit N Tagen» (Datum im Tooltip)
+function seitTagenText(d) {
+  const heute = new Date(); heute.setHours(0, 0, 0, 0);
+  const tage = Math.max(1, Math.round((heute - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000));
+  return 'seit ' + tage + (tage === 1 ? ' Tag' : ' Tagen');
+}
 function terminCell(p) {
   const t = terminFor(p);
   const start = beratungStartFor(p);
   if (start) {
     const late = start < new Date(new Date().setHours(0, 0, 0, 0));
     return late
-      ? `<span class="termin-faellig" title="Geplanter Start der EPA-Beratung – überfällig seit ${formatDate(start)}">⚠ ${formatDate(start)}</span>`
+      ? `<span class="termin-faellig" title="Geplanter Start der EPA-Beratung – überfällig seit ${formatDate(start)}">⚠ ${seitTagenText(start)}</span>`
       : `<span title="Geplanter Start der EPA-Beratung">${formatDate(start)}</span>`;
   }
   if (!t) return '<span class="muted">–</span>';
-  if (pruefstatusFor(p) === 'faellig') return `<span class="termin-faellig" title="Überfällig seit ${formatDate(t)}">⚠ ${formatDate(t)}</span>`;
+  if (pruefstatusFor(p) === 'faellig') return `<span class="termin-faellig" title="Fällig seit ${formatDate(t)}">⚠ ${seitTagenText(t)}</span>`;
   return formatDate(t);
 }
 // Prozessschritt einer Energieplanung gemäss den Tabs der Detailansicht:
@@ -737,7 +772,7 @@ function prozessSchrittFor(p) {
 function phaseBadge(p) {
   const st = prozessSchrittFor(p);
   const segs = PROZESS_TABS.map((t, i) => `<i class="${i < st.nr ? 'on' : ''}"></i>`).join('');
-  return `<span class="phase-badge phase-${st.key}${st.warn ? ' is-warn' : ''}"><span class="pseg" role="img" aria-label="Schritt ${st.nr} von ${PROZESS_TABS.length}" title="Schritt ${st.nr} von ${PROZESS_TABS.length}: ${st.label}">${segs}</span>${st.label}${st.sub ? `<span class="phase-sub">· ${st.sub}</span>` : ''}</span>`;
+  return `<span class="phase-badge phase-${st.key}${st.warn ? ' is-warn' : ''}"><span class="pseg" role="img" aria-label="Schritt ${st.nr} von ${PROZESS_TABS.length}" title="Schritt ${st.nr} von ${PROZESS_TABS.length}: ${st.label}">${segs}</span><span class="phase-label">${st.label}</span>${st.sub ? `<span class="phase-sub">· ${st.sub}</span>` : ''}</span>`;
 }
 
 // Nächster Schritt je Energieplanung (abgeleitet aus Status / Prüfpflicht, analog v2)
@@ -967,7 +1002,7 @@ function renderPlanungList() {
             <tr data-open-planung="${p.id}">
               <td>${p.id}</td>
               <td title="${escapeAttr(p.gemeinde)}">${planungGemeindeCell(p)}</td>
-              <td title="${p.typ}">${typKurz(p.typ)}</td>
+              <td title="${p.typ}"><span class="t-full">${typKurz(p.typ)}</span><span class="t-short" aria-hidden="true">${typKurz(p.typ).charAt(0)}.</span></td>
               <td>${phaseBadge(p)}</td>
               <td class="col-next">${naechsterSchrittCell(p)}</td>
               <td class="cell-termin">${terminCell(p)}</td>
@@ -1430,6 +1465,7 @@ function bindTabFooter(p) {
 }
 
 function renderPlanungDetail() {
+  updateGemeindeKarte();
   const p = findPlanung(state.planungId);
   if (!p) { state.view = 'list'; render(); return; }
 
@@ -2491,7 +2527,7 @@ function renderMassnahmenListPanel(p, massList) {
       </table></div>`}
 
     <div class="btn-row right" style="margin-top:14px;">
-      <button class="btn btn-secondary" id="btn-import-massnahmen">Massnahmen importieren</button>
+      <button type="button" class="btn btn-primary btn-sm btn-with-icon" id="btn-import-massnahmen" title="Bestehende Massnahmen werden aktualisiert, neue ergänzt."><svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg><span>CSV importieren</span></button>
       <button class="btn btn-secondary" id="btn-export-massnahmen">Export Massnahmen CSV</button>
     </div>
   `;
@@ -2510,7 +2546,7 @@ function bindMassnahmenListPanel(p) {
     el.focus(); el.setSelectionRange(el.value.length, el.value.length);
   });
   document.getElementById('massnahme-filter').addEventListener('change', e => { state.massList.filter = e.target.value; renderPlanungDetail(); });
-  document.getElementById('btn-import-massnahmen').addEventListener('click', () => toast('Import ist in diesem Prototyp nicht verfügbar.'));
+  document.getElementById('btn-import-massnahmen').addEventListener('click', openImportDialog);
   document.getElementById('btn-export-massnahmen').addEventListener('click', () => exportMassnahmenCsv(p));
   bindBulkBar(p);
   $panel.querySelectorAll('[data-sort]').forEach(th => {
@@ -3727,19 +3763,132 @@ function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
 
 /* ---------------------- LEAFLET MAP ---------------------- */
 const LUZERN_CENTER = [47.0502, 8.3093];
-const map = L.map('leaflet-map', { zoomControl: false }).setView(LUZERN_CENTER, 13);
-
-L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', {
-  maxZoom: 18,
-  attribution: '&copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>'
-}).addTo(map);
+// Keine Hintergrundkarte: der Kanton Luzern wird mit seinen 79 Gemeinden dargestellt, eingefärbt nach Prozessstand der Energieplanung.
+const map = L.map('leaflet-map', { zoomControl: false, zoomSnap: 0.25, minZoom: 8 }).setView(LUZERN_CENTER, 10);
+map.attributionControl.setPrefix(false);
+map.attributionControl.addAttribution('Gemeindegrenzen &copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>');
 
 L.control.zoom({ position: 'topright' }).addTo(map);
 L.control.scale({ imperial: false }).addTo(map);
 
-L.marker(LUZERN_CENTER).addTo(map)
-  .bindPopup('Luzern')
-  .openPopup();
+/* ---- Gemeindekarte: Status je Gemeinde, Klick öffnet die Energieplanung ---- */
+var gemeindeLayer = null;   // var: render() darf schon vor der Initialisierung aufgerufen werden
+const KARTE_FARBEN = { grunddaten: '#d5dae0', epa: '#9ccbea', massnahmen: '#5aa2d6', konto: '#b9a6e8', nachfuehrung: '#6fc79a', warn: '#f0b84f', keine: '#f3f5f7' };
+const KARTE_LEGENDE = [
+  ['grunddaten', 'Grunddaten'], ['epa', 'EPA Beratung'], ['massnahmen', 'Massnahmen'], ['konto', 'Gesuch'],
+  ['nachfuehrung', 'Nachführung'], ['warn', 'Nachführung fällig'], ['keine', 'Keine Energieplanung']
+];
+const karteFilter = { kommunal: true, regional: true };
+
+// Welche Planung zeigt eine Gemeinde unter dem aktuellen Filter? Kommunal hat Vorrang; regionale Zugehörigkeit wird zusätzlich gerahmt.
+function karteInfoFor(name) {
+  const sichtbar = planungen.filter(planungDarfSehen).filter(p => String(p.gemeinde).split(',').some(g => g.trim() === name));
+  const kom = sichtbar.find(p => p.typ !== TYP_REGIONAL), reg = sichtbar.find(p => p.typ === TYP_REGIONAL);
+  const gezeigt = (karteFilter.kommunal && kom) ? kom : (karteFilter.regional && reg) ? reg : null;
+  return { gezeigt, kom, reg, regionalRand: karteFilter.regional && karteFilter.kommunal && !!reg };
+}
+function karteStyleFor(feature, hover) {
+  const info = karteInfoFor(feature.properties.name);
+  let key = 'keine';
+  if (info.gezeigt) { const st = prozessSchrittFor(info.gezeigt); key = st.warn ? 'warn' : st.key; }
+  return {
+    fillColor: KARTE_FARBEN[key], fillOpacity: hover ? 1 : 0.9,
+    color: hover ? '#14324f' : info.regionalRand ? '#34506b' : '#ffffff',
+    weight: hover ? 2.5 : info.regionalRand ? 2 : 1, dashArray: info.regionalRand && !hover ? '5 3' : null
+  };
+}
+function karteTooltipFor(name) {
+  const info = karteInfoFor(name);
+  const zeile = (p, label) => {
+    const st = prozessSchrittFor(p);
+    return '<div>' + label + ': ' + escapeHtml(p.typ === TYP_REGIONAL ? (p.regionName || p.name) : p.id) + ' · ' + escapeHtml(st.label) + (st.sub ? ' <span class="karte-tt-sub">(' + escapeHtml(st.sub) + ')</span>' : '') + '</div>';
+  };
+  let h = '<strong>' + escapeHtml(name) + '</strong>';
+  if (karteFilter.kommunal && info.kom) h += zeile(info.kom, 'Kommunal');
+  if (karteFilter.regional && info.reg) h += zeile(info.reg, 'Regional');
+  h += info.gezeigt ? '<div class="karte-tt-sub">Klicken zum Öffnen</div>' : '<div class="karte-tt-sub">Keine Energieplanung angezeigt</div>';
+  return h;
+}
+var karteHighlight = null;
+function karteHighlightEntfernen() { if (karteHighlight) { karteHighlight.remove(); karteHighlight = null; } }
+// Zoom je Rolle: auf alle Gemeinden (bzw. Regionen), auf die die angemeldete Person Zugriff hat. Admin: ganzer Kanton.
+var karteZoomKey = null;
+function karteZoomAufZugriff() {
+  if (!gemeindeLayer || map.getSize().x === 0) return;   // Karte ausgeblendet: beim nächsten Rendern nachholen
+  const namen = new Set();
+  planungen.filter(planungDarfSehen).forEach(p => String(p.gemeinde).split(',').forEach(g => namen.add(g.trim())));
+  const key = state.personaId + '|' + [...namen].sort().join(',');
+  if (key === karteZoomKey) return;
+  karteZoomKey = key;
+  const layers = [];
+  gemeindeLayer.eachLayer(l => { if (namen.has(l.feature.properties.name)) layers.push(l); });
+  const bounds = layers.length ? L.featureGroup(layers).getBounds() : gemeindeLayer.getBounds();
+    const alle = layers.length >= GEMEINDEGRENZEN_LUZERN.features.length || !layers.length;
+  // Ganzer Kanton (Übersicht): so nah wie möglich, kaum Rand. Ausschnitte einzelner Gemeinden/Regionen: etwas Umgebung.
+  if (alle) map.fitBounds(gemeindeLayer.getBounds(), { padding: [0, 0], animate: true });
+  else map.fitBounds(bounds.pad(0.35), { padding: [24, 24], maxZoom: 12, animate: true });
+}
+function updateGemeindeKarte() {
+  if (!gemeindeLayer) return;
+  karteZoomAufZugriff();
+  gemeindeLayer.eachLayer(l => {
+    l.setStyle(karteStyleFor(l.feature, false));
+    l.setTooltipContent(karteTooltipFor(l.feature.properties.name));
+  });
+}
+function initGemeindeKarte() {
+  if (typeof GEMEINDEGRENZEN_LUZERN === 'undefined') return;
+  gemeindeLayer = L.geoJSON(GEMEINDEGRENZEN_LUZERN, {
+    style: f => karteStyleFor(f, false),
+    onEachFeature: (f, layer) => {
+      const name = f.properties.name;
+      layer.bindTooltip(karteTooltipFor(name), { sticky: false, className: 'karte-tooltip', direction: 'auto', offset: [0, -4], opacity: 1 });
+      layer.on('mouseover', () => {
+        karteHighlightEntfernen();
+        karteHighlight = L.geoJSON(f, { interactive: false, style: () => karteStyleFor(f, true) }).addTo(map);
+      });
+      layer.on('mouseout', () => { karteHighlightEntfernen(); });
+      layer.on('click', () => {
+        const p = karteInfoFor(name).gezeigt;
+        karteHighlightEntfernen(); layer.closeTooltip();
+        if (!p) { toast('Für ' + name + ' wird unter dem aktuellen Filter keine Energieplanung angezeigt.'); return; }
+        state.tab = 'planungen';
+        setActiveTabButton('planungen');
+        if (state.layoutMode === 'map') { const b = document.querySelector('#view-toggle [data-view-mode="split"]'); if (b) b.click(); }
+        openPlanung(p.id);
+      });
+    }
+  }).addTo(map);
+  map.on('movestart zoomstart', () => { karteHighlightEntfernen(); gemeindeLayer.eachLayer(l => l.closeTooltip()); });
+  map.fitBounds(gemeindeLayer.getBounds(), { padding: [12, 12] });
+  map.setMaxBounds(gemeindeLayer.getBounds().pad(0.4));
+  // Legende
+  const legende = L.control({ position: 'bottomleft' });
+  legende.onAdd = () => {
+    const d = L.DomUtil.create('div', 'karte-legende');
+    d.innerHTML = '<div class="karte-legende-titel">Prozessstand</div>' + KARTE_LEGENDE.map(([k, t]) => '<div class="karte-legende-row"><i style="background:' + KARTE_FARBEN[k] + '"></i>' + t + '</div>').join('');
+    return d;
+  };
+  legende.addTo(map);
+}
+initGemeindeKarte();
+// «schliessen» minimiert den Karteninhalt auf seine Kopfzeile; erneuter Klick (Kopfzeile oder Button) öffnet ihn wieder
+function toggleKarteninhalt() {
+  const sb = document.querySelector('.map-sidebar');
+  const min = sb.classList.toggle('minimized');
+  const btn = sb.querySelector('.sidebar-close-tab');
+  if (btn) btn.textContent = min ? '⌂ öffnen' : '⌂ schliessen';
+  const ch = sb.querySelector('.sidebar-panel-header .chevron');
+  if (ch) ch.textContent = min ? '+' : '−';
+}
+document.querySelector('.sidebar-close-tab').addEventListener('click', toggleKarteninhalt);
+document.querySelector('.sidebar-panel-header').addEventListener('click', toggleKarteninhalt);
+toggleKarteninhalt();   // Standard: zugeklappt
+// Filter «Kommunale / Regionale Energieplanungen» im Karteninhalt
+document.querySelectorAll('[data-karte-filter]').forEach(cb => cb.addEventListener('change', () => {
+  karteFilter[cb.dataset.karteFilter] = cb.checked;
+  updateGemeindeKarte();
+}));
 
 /* ---------------------- URL-ZUSTAND (Reload / Browser-Zurück behalten die aktuelle Ansicht) ---------------------- */
 // Der Ansichts-Zustand steckt im URL-Hash, z.B. #tab=planungen&view=detail&planung=EP-844&ptab=epa&mass=M-3

@@ -63,6 +63,16 @@
         <li class="layer-node">
           <label class="layer-row bold">
             <span class="tree-toggle">−</span>
+            <span>Energieplanungen</span>
+          </label>
+          <ul class="layer-subtree">
+            <li><label class="layer-row"><input type="checkbox" checked data-karte-filter="kommunal"><span>Kommunale Energieplanungen</span></label></li>
+            <li><label class="layer-row"><input type="checkbox" checked data-karte-filter="regional"><span>Regionale Energieplanungen</span></label></li>
+          </ul>
+        </li>
+        <li class="layer-node">
+          <label class="layer-row bold">
+            <span class="tree-toggle">−</span>
             <input type="checkbox" checked>
             <span>Neue Energieplanung</span>
           </label>
@@ -122,6 +132,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="dummy-gemeinden-luzern.js"></script>
+<script src="dummy-gemeindegrenzen-luzern.js"></script>
 <script src="app.js"></script>
 <script src="dummy-kontakte-luzern.js"></script>
 <script src="dummy-planungen-luzern.js"></script>
