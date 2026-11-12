@@ -1645,8 +1645,11 @@ function renderTabFooter(p) {
   </div>`;
 }
 
+// Löschen ist nur möglich, solange die EPA Beratung noch nicht gestartet ist (Prozessschritt Grunddaten). Ab der EPA Beratung nicht mehr.
+function planungLoeschbar(p) { return prozessSchrittFor(p).key === 'grunddaten'; }
 function renderDeleteLink(p) {
   if (state.planungTab !== 'grunddaten' || state.planungDetailsMode === 'edit') return '';
+  if (!planungLoeschbar(p)) return `<div class="danger-zone"><span class="muted">Diese Energieplanung kann nicht mehr gelöscht werden, weil die EPA Beratung bereits gestartet wurde.</span></div>`;
   return `<div class="danger-zone"><button type="button" class="btn-link-danger" id="btn-del-planung">Energieplanung löschen</button></div>`;
 }
 
@@ -2841,6 +2844,7 @@ function bindPlanungDetailsTab(p) {
   });
   const delBtn = document.getElementById('btn-del-planung');
   if (delBtn) delBtn.addEventListener('click', async () => {
+    if (!planungLoeschbar(p)) { toast('Diese Energieplanung kann nicht mehr gelöscht werden: Die EPA Beratung wurde bereits gestartet.'); return; }
     if (await confirmDialog(`Energieplanung ${p.id} wirklich löschen?`, { title: "Energieplanung löschen", confirmLabel: "Löschen", danger: true })) {
       const idx = planungen.findIndex(x => x.id === p.id);
       planungen.splice(idx, 1);
@@ -3823,16 +3827,80 @@ function renderContactBulkBar() {
   </div>`;
 }
 
+/* ---------------------- KONTAKT LÖSCHEN: PRÜFUNG AUF VERWENDUNG ---------------------- */
+// Wo ist der Kontakt noch eingetragen? (Der Zugriff in der Zugriffsverwaltung zählt nicht: er wird beim Löschen mit entfernt.) Liefert Einträge mit Text und Ziel (für den Link im Hinweisdialog).
+function kontaktVerwendungen(c) {
+  const label = formatContactLabel(c), items = [];
+  const gleich = v => v === label;
+  planungen.forEach(p => {
+    const kopf = p.id + ' · ' + planungTitel(p);
+    if (gleich(p.energieplanungFelder.verantwortlichkeit)) items.push({ text: kopf + ': Kontakt Gemeinde (Grunddaten)', ziel: { typ: 'planung', planungId: p.id, tab: 'grunddaten' } });
+    if (gleich(p.energieplanungFelder.beraterEnergieplanung)) items.push({ text: kopf + ': Berater/in Energieplanung (Grunddaten)', ziel: { typ: 'planung', planungId: p.id, tab: 'grunddaten' } });
+    if (gleich(p.epaBeratung.beratungsperson)) items.push({ text: kopf + ': Beratungsperson (EPA Beratung)', ziel: { typ: 'planung', planungId: p.id, tab: 'epa' } });
+    p.massnahmen.forEach(m => { if (gleich(m.verantwortlichkeit)) items.push({ text: kopf + ': Massnahme ' + m.id + ' ' + m.name + ' (Verantwortlichkeit)', ziel: { typ: 'massnahme', planungId: p.id, massnahmeId: m.id } }); });
+  });
+  return items;
+}
+// Beim Löschen eines Kontakts wird auch sein Zugriff entfernt; war es die angemeldete Person, wechselt die Ansicht zu Admin
+function kontaktAufraeumen(c) {
+  const label = formatContactLabel(c);
+  zugriffsdaten.delete(label);
+  if (state.benutzer === label) { state.personaId = 'admin'; state.role = 'Admin'; state.benutzer = null; updateAvatar(); }
+}
+// Link im Hinweisdialog: springt an die Stelle, an der der Kontakt eingetragen ist
+function springeZuKontaktVerwendung(ziel) {
+  state.contactIndex = null;
+  if (ziel.typ === 'zugriff') { state.tab = 'zugriff'; state.view = 'list'; setActiveTabButton('zugriff'); render(); return; }
+  state.tab = 'planungen'; state.view = 'detail'; state.planungId = ziel.planungId;
+  state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view';
+  if (ziel.typ === 'massnahme') { state.planungTab = 'massnahmen'; state.massnahmeId = ziel.massnahmeId; state.mdMode = 'view'; }
+  else { state.planungTab = ziel.tab; state.massnahmeId = null; state.mdMode = null; }
+  setActiveTabButton('planungen');
+  if (state.layoutMode === 'map') { const b = document.querySelector('#view-toggle [data-view-mode="split"]'); if (b) b.click(); }
+  render();
+}
+// Hinweis: Kontakt(e) können nicht gelöscht werden, mit Liste der Stellen (je mit Link)
+function zeigeKontaktVerwendungen(gruppen) {
+  if (document.getElementById('kontakt-verwendung-dialog')) return;
+  const MAX = 12;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay'; overlay.id = 'kontakt-verwendung-dialog';
+  const alle = [];
+  const body = gruppen.map(g => {
+    const zeigen = g.items.slice(0, MAX);
+    const rest = g.items.length - zeigen.length;
+    return '<div class="kv-gruppe"><div class="kv-name">' + escapeHtml(g.kontakt.vorname + ' ' + g.kontakt.nachname) + (g.kontakt.organisation && g.kontakt.organisation !== '-' ? ' <span class="muted">(' + escapeHtml(g.kontakt.organisation) + ')</span>' : '') + ' <span class="kv-anzahl">' + g.items.length + (g.items.length === 1 ? ' Eintrag' : ' Einträge') + '</span></div><ul>' +
+      zeigen.map(it => { alle.push(it.ziel); return '<li><a href="#" data-kv="' + (alle.length - 1) + '">' + escapeHtml(it.text) + '</a></li>'; }).join('') +
+      (rest > 0 ? '<li class="muted">… und ' + rest + ' weitere</li>' : '') + '</ul></div>';
+  }).join('');
+  const einzel = gruppen.length === 1;
+  overlay.innerHTML = '<div class="modal-box kv-box" role="alertdialog" aria-modal="true" aria-labelledby="kv-title">' +
+    '<h3 id="kv-title">' + (einzel ? 'Kontakt kann nicht gelöscht werden' : 'Kontakte können nicht gelöscht werden') + '</h3>' +
+    '<p class="modal-text">' + (einzel ? 'Dieser Kontakt ist noch eingetragen.' : 'Mindestens ein ausgewählter Kontakt ist noch eingetragen. Es wurde nichts gelöscht.') + ' Bitte zuerst dort entfernen oder ersetzen (Link anklicken):</p>' +
+    '<div class="kv-liste">' + body + '</div>' +
+    '<div class="btn-row modal-actions"><button type="button" class="btn btn-primary" id="kv-close">Schliessen</button></div></div>';
+  document.body.appendChild(overlay);
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('#kv-close').addEventListener('click', close);
+  overlay.querySelectorAll('[data-kv]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); const z = alle[Number(a.dataset.kv)]; close(); springeZuKontaktVerwendung(z); }));
+  overlay.querySelector('#kv-close').focus();
+}
+
 function bindContactBulkBar() {
   const clearBtn = document.getElementById('contact-bulk-clear');
   if (!clearBtn) return;
   clearBtn.addEventListener('click', () => { state.contactList.selected.clear(); renderContactList(); });
   document.getElementById('contact-bulk-delete').addEventListener('click', async () => {
+    const verwendet = [...state.contactList.selected].map(i => contacts[i]).filter(Boolean).map(k => ({ kontakt: k, items: kontaktVerwendungen(k) })).filter(g => g.items.length);
+    if (verwendet.length) { zeigeKontaktVerwendungen(verwendet); return; }
     const count = state.contactList.selected.size;
     if (!await confirmDialog(`${count} Kontakt${count === 1 ? '' : 'e'} wirklich löschen?`, { title: "Kontakte löschen", confirmLabel: "Löschen", danger: true })) return;
     const toDelete = state.contactList.selected;
     for (let i = contacts.length - 1; i >= 0; i--) {
-      if (toDelete.has(i)) contacts.splice(i, 1);
+      if (toDelete.has(i)) { kontaktAufraeumen(contacts[i]); contacts.splice(i, 1); }
     }
     toast(`${count} Kontakt${count === 1 ? '' : 'e'} wurde${count === 1 ? '' : 'n'} gelöscht.`);
     state.contactList.selected.clear();
@@ -3960,7 +4028,10 @@ function renderContactForm() {
   document.getElementById('btn-cancel').addEventListener('click', goBack);
   if (isEdit) {
     document.getElementById('btn-del-contact').addEventListener('click', async () => {
+      const verwendet = kontaktVerwendungen(c);
+      if (verwendet.length) { zeigeKontaktVerwendungen([{ kontakt: c, items: verwendet }]); return; }
       if (await confirmDialog(`Kontakt ${c.vorname} ${c.nachname} wirklich löschen?`, { title: "Kontakt löschen", confirmLabel: "Löschen", danger: true })) {
+        kontaktAufraeumen(c);
         contacts.splice(state.contactIndex, 1);
         state.contactList.selected.clear();
         toast('Kontakt wurde gelöscht.');

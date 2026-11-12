@@ -1383,3 +1383,15 @@ table.data-table.massnahmen-table.nf-ov-table td{line-height:1.3;}
 /* Importer: abgeschlossene/verworfene Massnahmen am Ende der Auswahl, gedämpft */
 .imp-opt-beendet{color:#6b7683;}
 .imp-grp-beendet{color:#6b7683; font-style:italic;}
+
+/* Kontakt löschen: Hinweis mit Verwendungen */
+.kv-liste{max-height:55vh; overflow-y:auto; margin:6px 0 0;}
+.kv-gruppe{margin-bottom:14px;}
+.kv-name{font-weight:700; color:var(--navy); margin-bottom:4px;}
+.kv-anzahl{font-weight:600; font-size:12px; color:var(--red-dark); background:#fdf3f2; border-radius:10px; padding:1px 8px; margin-left:6px;}
+.kv-gruppe ul{margin:0; padding-left:18px; font-size:13px;}
+.kv-gruppe li{margin:3px 0;}
+.kv-gruppe a{color:var(--blue-primary); text-decoration:underline; cursor:pointer;}
+
+.modal-box.kv-box{width:min(580px, calc(100vw - 32px));}
+.kv-box .kv-liste{padding-right:4px;}

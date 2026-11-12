@@ -68,7 +68,7 @@ Schlägt die Pflichtfeldprüfung einer Aktion fehl, öffnet sich der Tab mit dem
 ### 2.5 Bearbeiten und Löschen
 - Bearbeiten gibt es in den Formular-Tabs (Grunddaten, EPA Beratung, Gesuch). Massnahmen und Nachführung sind direkt änderbar.
 - Beim Speichern werden die Pflichtfelder des gewählten Status geprüft.
-- **Löschen** einer EP ist nur im Tab Grunddaten möglich und erfordert eine Bestätigung. Es gibt keine Prüfung auf abhängige Daten (alle Massnahmen werden mit gelöscht).
+- **Löschen** einer EP ist nur im Tab Grunddaten möglich, erfordert eine Bestätigung und ist **nur solange erlaubt, wie die EPA Beratung noch nicht gestartet wurde** (Prozessschritt «Grunddaten»). Sobald die Beratung läuft oder die EP in einem späteren Schritt steht (EPA Beratung, Massnahmen, Gesuch, Nachführung), kann sie nicht mehr gelöscht werden. Der Löschen-Link wird dann durch einen Hinweis ersetzt. Beim erlaubten Löschen werden die vorhandenen Massnahmen mit gelöscht.
 
 ### 2.6 Gesuch und Kontrolle
 - Kontoinformationen: Kontoinhaber/in, Adresse, IBAN (Pflicht, siehe 2.3), Bankname (optional). Das Konto lautet immer auf die Gemeinde.
@@ -255,7 +255,7 @@ Dreistufig: **Datei → Zuordnung → Zusammenfassung**.
 ## 5. Kontakte
 - Pflicht: Vorname, Nachname, E-Mail. Organisation ist optional. Im Kontaktformular gibt es **keine** Prüfung des E-Mail-Formats und keine Eindeutigkeitsprüfung (anders als beim Erfassen aus einer Auswahl, siehe unten).
 - **Neue Person direkt in der Auswahl erfassen (nur Admin):** In jedem Personen-Auswahlfeld (Verantwortlichkeit der Massnahme, Beratungsperson, Kontakt Gemeinde, Berater/in Energieplanung, Verantwortlichkeit in der Nachführung) steht für Admins zuoberst «＋ Neue Person erfassen …». Der Dialog verlangt Vorname, Nachname und E-Mail (das Format wird geprüft). Eine Person mit gleichem Namen und gleicher Organisation wird abgelehnt. Je nach Feld gilt eine Einschränkung: bei **Kontakt Gemeinde** ist die Organisation eine der Gemeinden der Planung (vorgegebene Auswahl), bei **Beratungsperson** und **Berater/in Energieplanung** ist eine externe Organisation Pflicht (keine «Gemeinde …»). Im Dialog werden gleich die **Rollen** (Zugriff) gesetzt, mehrere sind möglich. Vorbelegt ist bei «Kontakt Gemeinde» die Rolle Gemeinde und bei den Berater-Feldern Energieberater/in, sonst keine Rolle. Die Rolle Gemeinde gilt für die Gemeinde der Organisation (die Organisation muss dazu eine Gemeinde des Kantons sein, «Gemeinde Adligenswil» oder nur «Adligenswil», sie wird dann als «Gemeinde …» gespeichert), die Rolle Energieberater/in für die Gemeinden der aktuellen Planung. Der Zugriff wird sofort gespeichert und nicht erst später automatisch berechnet. Die Person wird sofort in den Kontakten angelegt und im Feld gewählt. Bei den Feldern für externe Fachpersonen (Beratungsperson, Berater/in Energieplanung) ist die Rolle Gemeinde nicht wählbar. Andere Rollen sehen die Option nicht.
-- Löschen (einzeln oder mehrere) nach Bestätigung. Es gibt **keine** Prüfung, ob die Person noch Verantwortliche/r einer Massnahme oder EP ist. Solche Verweise werden in der Nachführung als «Person nicht mehr in den Kontakten» markiert.
+- **Löschen** (einzeln oder mehrere) nach Bestätigung, aber **nur, wenn der Kontakt nirgends mehr eingetragen ist**. Geprüft werden: Kontakt Gemeinde und Berater/in Energieplanung (Grunddaten), Beratungsperson (EPA Beratung) und Verantwortlichkeit jeder Massnahme. Ein bestehender **Zugriff** (Rollen in der Zugriffsverwaltung) ist **kein** Löschgrund: er wird beim Löschen des Kontakts mit entfernt. War die gelöschte Person die angemeldete, wechselt die Ansicht zu Admin. Ist der Kontakt noch eingetragen, wird **nichts gelöscht** und es erscheint ein Hinweis mit der Liste aller Stellen, jeweils mit **Link**, der direkt dorthin führt (Planung im passenden Tab bzw. Massnahme); bei vielen Treffern werden die ersten 12 gezeigt. Beim Löschen mehrerer Kontakte wird gar nichts gelöscht, solange einer der ausgewählten verwendet wird. Einträge im Änderungsprotokoll früherer Nachführungen (Name der Person) zählen nicht als Verwendung.
 - Auswahllisten für Personen sind nach Gemeinde-Kontakten und externen Fachpersonen gruppiert. Die Verantwortliche Person der Gemeinde ist auf Kontakte der betreffenden Gemeinde(n) beschränkt, Berater/innen auf externe Fachpersonen.
 
 ---
@@ -309,7 +309,7 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 ## 9. Offene Punkte / bekannte Lücken (Zusammenfassung)
 1. Massenbearbeitung und CSV-Import können den berechneten Umsetzungszeitraum umgehen (3.3).
 3. Fachlogik der Nachführungsfrist bei Verspätung bestätigen (4.2).
-4. Keine Abhängigkeitsprüfungen beim Löschen von EP, Massnahmen und Kontakten (2.5, 3.7, 5).
+4. Keine Abhängigkeitsprüfungen beim Löschen von EP und Massnahmen (2.5, 3.7). Beim Löschen von Kontakten gibt es sie (5).
 5. Keine Format-/Eindeutigkeitsprüfung bei E-Mail (Kontakte) und Gesuchs-Nr. von Hand (2.6, 5).
 6. Rollenprüfung nur im Frontend (6).
 7. Geografische Markierungen der Massnahmen sind nur lesbar, es gibt keinen Editor.
@@ -328,6 +328,9 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 | 2026-11-12 | Umbenennung: «Zeitverlauf anzeigen» heisst «Verlauf anzeigen» (Abschnitt 4.3). |
 | 2026-11-12 | Liste: Status-Spalte zeigt «n. Nachführung» im Schritt Nachführung (Abschnitt 7). |
 | 2026-11-12 | Änderungsprotokoll deckt jetzt auch Massnahmenangaben (Termine, Budget, Beschreibung u. a.) ab. Dummydaten: Planungen mit 3 bzw. 4 erledigten Nachführungen (Abschnitt 4.3). |
+| 2026-11-12 | Energieplanung nur löschbar, solange die EPA Beratung nicht gestartet ist (Abschnitt 2.5). |
+| 2026-11-12 | Kontakt löschen: Zugriff in der Zugriffsverwaltung ist kein Löschgrund mehr, er wird mit entfernt (Abschnitt 5). |
+| 2026-11-12 | Kontakte löschen nur, wenn nirgends eingetragen oder aktiv; sonst Hinweis mit Links zu den Verwendungen (Abschnitt 5). |
 | 2026-11-12 | Titel im Singular «Meine Energieplanung», wenn nur eine Energieplanung sichtbar ist (Abschnitt 7). |
 | 2026-11-12 | Titel der Planungsübersicht: «Meine Energieplanungen» für alle ausser Admin (Abschnitt 7). |
 | 2026-11-12 | Importer: «überschreiben» heisst «aktualisieren»; in der Zuordnungsliste stehen abgeschlossene und verworfene Massnahmen am Ende und sind markiert (Abschnitt 4.5). |
