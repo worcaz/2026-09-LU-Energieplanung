@@ -9,6 +9,8 @@ const MASSNAHME_STATUS = ['Geplant', 'Umsetzung', 'Abschluss'];
 const HANDLUNGSFELDER = ['Übergeordnete Massnahmen / Strategien', 'Wärme- und Kälteversorgung', 'Energieeffizienz', 'Ausbaupfad erneuerbare Energien', 'andere'];
 const AKTIVITAETSBEREICHE = ['Strategie / Planung', 'Information', 'Beratung', 'Förderung', 'Vorschrift', 'Vollzug', 'Vorbildfunktion'];
 const PRIORITAETEN = ['Hoch', 'Mittel', 'Tief'];
+// Wählbarer Wert statt einer Person bei «Berater/in Energieplanung»: bewusst keine externe Begleitung (steht zuoberst in der Auswahl).
+const KEINE_EXTERNE_BEGLEITUNG = 'Aktuell keine externe Begleitung';
 const ENERGIETRAEGER_TYPEN = [
   'Hochwertige Abwärme (Vorlauftemperatur >= 60°C)',
   'Niederwertige Abwärme (Vorlauftemperatur < 60°C)',
@@ -133,6 +135,7 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
       bedarfKoordination: '-',
       gebieteKoordinationsbedarf: '-',
       foerderabschlussformular: 'Keine Massnahmen definiert',
+      epaAbschluss: '-', beratungAbschluss: '-',   // Meilensteine: EPA Beratung abgeschlossen (→ Verabschiedung) / Beratung abgeschlossen (→ Abschluss)
       gesuchseingang: '-', auszahlungsbetrag: 7200, gesuchsNr: '-', energiestadt: '-', kommentar: '-'
     },
     konto: {
@@ -142,7 +145,7 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
     energieplanungFelder: {
       verantwortlichkeit: '-', beraterEnergieplanung: '-', nettoNullZiel: '-', energieeffizienzZiel: '-', stromproduktionZiel: '-'
     },
-    // Wiederkehrende Prüfpflicht (alle 4 Jahre ab Datum Beratungsbeginn, sofern Status Abschluss) — siehe naechstePruefungFor().
+    // Wiederkehrende Prüfpflicht (alle 4 Jahre: ab Beratungsbeginn bzw. letzter Nachführung, sofern Status Abschluss) — siehe naechstePruefungFor().
     pruefstatus: { letzteUeberpruefung: '-' },
     massnahmen: []
   }, extra || {});
@@ -212,8 +215,8 @@ function formatContactLabel(contact) {
 }
 
 // "Verantwortlichkeit Gemeinde" muss immer eine Person der jeweiligen Gemeinde sein (Format "Vorname Nachname (Gemeinde)").
-const GEMEINDE_VERANTWORTLICHE_VORNAMEN = ['Priska', 'Urs', 'Monika', 'Beat', 'Claudia', 'Werner', 'Silvia', 'Peter', 'Karin', 'Fabian'];
-const GEMEINDE_VERANTWORTLICHE_NACHNAMEN = ['Steiner', 'Bucher', 'Wicki', 'Bühler', 'Kaufmann', 'Bättig', 'Lustenberger', 'Schwegler', 'Hodel', 'Zimmermann'];
+const GEMEINDE_VERANTWORTLICHE_VORNAMEN = ['Priska', 'Urs', 'Monika', 'Beat', 'Claudia', 'Werner', 'Silvia', 'Peter', 'Karin', 'Fabian', 'Andrea', 'Markus', 'Regula', 'Thomas', 'Esther', 'Roland', 'Barbara', 'Daniel', 'Jolanda', 'Martin', 'Sandra', 'Heinz', 'Corinne', 'Stefan', 'Judith', 'Reto', 'Verena', 'Marcel', 'Heidi', 'Patrick', 'Ruth', 'Adrian', 'Yvonne', 'Christian', 'Margrit', 'Dominik', 'Brigitte', 'Samuel', 'Nicole', 'Kurt'];
+const GEMEINDE_VERANTWORTLICHE_NACHNAMEN = ['Steiner', 'Bucher', 'Wicki', 'Bühler', 'Kaufmann', 'Bättig', 'Lustenberger', 'Schwegler', 'Hodel', 'Zimmermann', 'Achermann', 'Amrein', 'Arnold', 'Baumann', 'Birrer', 'Brun', 'Burri', 'Dahinden', 'Duss', 'Estermann', 'Felder', 'Fischer', 'Galliker', 'Graf', 'Gut', 'Häfliger', 'Huber', 'Hunkeler', 'Jost', 'Koller', 'Kurmann', 'Meier', 'Müller', 'Niederberger', 'Peter', 'Portmann', 'Renggli', 'Schmid', 'Stalder', 'Troxler', 'Wüest', 'Zihlmann'];
 // Für einzelne Gemeinden ist die zuständige Person fix vorgegeben (z.B. für Demo-Zwecke).
 const GEMEINDE_VERANTWORTLICHE_FIX = { Buchrain: 'Hans Muster' };
 function hashString(str) {
@@ -230,9 +233,16 @@ function gemeindeKontaktFor(gemeinde) {
     let vorname, nachname;
     if (fix) { const t = fix.split(' '); vorname = t[0]; nachname = t.slice(1).join(' '); }
     else {
+      // Namen sollen im ganzen Kanton nicht doppelt vorkommen: ab dem Hash-Startwert weitersuchen, bis die Kombination frei ist (stabil bei jedem Reload).
+      const nV = GEMEINDE_VERANTWORTLICHE_VORNAMEN.length, nN = GEMEINDE_VERANTWORTLICHE_NACHNAMEN.length;
+      const vergeben = new Set(contacts.map(x => (x.vorname + ' ' + x.nachname).toLowerCase()));
       const h = hashString(gemeinde);
-      vorname = GEMEINDE_VERANTWORTLICHE_VORNAMEN[h % GEMEINDE_VERANTWORTLICHE_VORNAMEN.length];
-      nachname = GEMEINDE_VERANTWORTLICHE_NACHNAMEN[Math.floor(h / GEMEINDE_VERANTWORTLICHE_VORNAMEN.length) % GEMEINDE_VERANTWORTLICHE_NACHNAMEN.length];
+      for (let i = 0; i < nV * nN; i++) {
+        const k = h + i * 7;   // grosse Schrittweite, damit benachbarte Gemeinden verschiedene Namen bekommen
+        vorname = GEMEINDE_VERANTWORTLICHE_VORNAMEN[k % nV];
+        nachname = GEMEINDE_VERANTWORTLICHE_NACHNAMEN[Math.floor(k / nV) % nN];
+        if (!vergeben.has((vorname + ' ' + nachname).toLowerCase())) break;
+      }
     }
     c = { vorname, nachname, organisation: org, email: slugify(vorname) + '.' + slugify(nachname) + '@' + slugify(gemeinde) + '.ch', gemeindeKontakt: true };
     contacts.push(c);
@@ -416,6 +426,17 @@ function fillPlanungDetails(planung, plan) {
     eb.gesuchseingang = formatDate(plan.gesuchseingang);
     eb.gesuchsNr = Number(`${gesuchsJahr}${String(planung.id).replace(/[^0-9]/g, '')}`);   // Jahr + ID, wie der Vorschlag im Tab "Kontrolle"
   }
+  // Meilensteine für die Zeitleiste. Bewusst aus dem Planungs-ID abgeleitet (nicht über rand()), damit die übrigen Dummy-Daten unverändert bleiben.
+  const bruch = salt => (hashStr(planung.id + salt) % 1000) / 1000;
+  if (plan.gestartet && plan.beginn && s !== 'Entwurf') {
+    const ende = addDays(plan.gesuchseingang || plan.today, -7);
+    const spanMs = Math.max(0, ende - plan.beginn);
+    eb.epaAbschluss = formatDate(new Date(plan.beginn.getTime() + spanMs * (0.35 + 0.5 * bruch('epa'))));
+  }
+  if (s === 'Abschluss' && plan.gesuchseingang) {
+    const d = addDays(plan.gesuchseingang, 14 + Math.floor(bruch('abschluss') * 76));
+    eb.beratungAbschluss = formatDate(d < plan.today ? d : addDays(plan.today, -1));
+  }
   eb.energiestadt = pick(['Ja', 'Nein', 'Nein']);
   if (gesuchPhase || plan.gestartet) eb.kommentar = pick(EPA_KOMMENTAR_BEISPIELE);
 
@@ -424,6 +445,7 @@ function fillPlanungDetails(planung, plan) {
   planung.gemeinde.split(',').forEach(g => gemeindeKontaktFor(g.trim()));   // Gemeindekontakte für das Dropdown sicherstellen
   if (plan.gestartet || rand() < 0.5) ef.verantwortlichkeit = verantwortlichePersonGemeinde(lead);
   if (plan.gestartet) ef.beraterEnergieplanung = formatContactLabel(pick(externeBeraterKontakte));
+  if (plan.gestartet && hashStr(planung.id + 'beraterKeine') % 100 < 15) ef.beraterEnergieplanung = KEINE_EXTERNE_BEGLEITUNG;   // einzelne Planungen ohne externe Begleitung
   const zielAnteil = nachEntwurf ? 1 : (plan.gestartet ? 0.5 : 0);   // Ziele entstehen im Lauf der Beratung
   // Ziele: zwei Drittel mehrzeilig (Aufzählungen, Zwischenziele), ein Drittel einzeilig
   const pickZiel = liste => {
@@ -460,7 +482,7 @@ function generiereProzessDaten(p) {
 // und «Seit der letzten Nachführung» realistische Daten haben. Bewusst ohne NF_FELDER/nfSnapshot (werden erst später definiert).
 function erzeugeNachfuehrungHistorie(p, plan) {
   const ef = p.energieplanungFelder;
-  const von = (ef.beraterEnergieplanung && ef.beraterEnergieplanung !== '-' ? ef.beraterEnergieplanung : ef.verantwortlichkeit || 'Admin').replace(/ (.*)$/, '');
+  const von = (ef.beraterEnergieplanung && ef.beraterEnergieplanung !== '-' && ef.beraterEnergieplanung !== KEINE_EXTERNE_BEGLEITUNG ? ef.beraterEnergieplanung : ef.verantwortlichkeit || 'Admin').replace(/ (.*)$/, '');
   const keys = ['verantwortlichkeit', 'beraterEnergieplanung', 'nettoNullZiel', 'energieeffizienzZiel', 'stromproduktionZiel'];
   const felder = {};
   keys.forEach(k => { felder[k] = ef[k] && ef[k] !== '-' ? ef[k] : ''; });
@@ -673,7 +695,7 @@ function render() {
 
 /* ---------------------- LIST: AKTUELLE PLANUNGEN ---------------------- */
 function getFilteredPlanungen() {
-  let list = planungen.filter(planungDarfSehen);   // Energieberater/innen sehen nur Planungen ihrer freigeschalteten Gemeinden
+  let list = planungen.filter(planungDarfSehen);   // Nicht-Admins sehen nur Planungen ihrer freigeschalteten Gemeinden
   const q = state.list.search.trim().toLowerCase();
   if (q) {
     list = list.filter(p =>
@@ -722,6 +744,11 @@ function typKurz(typ) {
   if (/region/i.test(t)) return 'regional';
   if (/kommun/i.test(t)) return 'kommunal';
   return t;
+}
+// Kürzere Form für schmale Ansichten: «komm.» / «reg.»
+function typKurzer(typ) {
+  const t = typKurz(typ);
+  return t === 'kommunal' ? 'komm.' : t === 'regional' ? 'reg.' : String(t).slice(0, 4) + '.';
 }
 // Entwurf ohne Beratungsbeginn: geplanter Start der EPA-Beratung; Abschluss: nächste Nachführung/Prüfung.
 function beratungStartFor(p) {
@@ -778,7 +805,7 @@ function prozessSchrittFor(p) {
 function phaseBadge(p) {
   const st = prozessSchrittFor(p);
   const segs = PROZESS_TABS.map((t, i) => `<i class="${i < st.nr ? 'on' : ''}"></i>`).join('');
-  return `<span class="phase-badge phase-${st.key}${st.warn ? ' is-warn' : ''}"><span class="pseg" role="img" aria-label="Schritt ${st.nr} von ${PROZESS_TABS.length}" title="Schritt ${st.nr} von ${PROZESS_TABS.length}: ${st.label}">${segs}</span><span class="phase-label">${st.label}</span>${st.sub ? `<span class="phase-sub">· ${st.sub}</span>` : ''}</span>`;
+  return `<span class="phase-badge phase-${st.key}${st.warn ? ' is-warn' : ''}"><span class="pseg" role="img" aria-label="Schritt ${st.nr} von ${PROZESS_TABS.length}" title="Schritt ${st.nr} von ${PROZESS_TABS.length}: ${st.label}">${segs}</span><span class="phase-label">${st.label}</span></span>`;
 }
 
 // Nächster Schritt je Energieplanung (abgeleitet aus Status / Prüfpflicht, analog v2)
@@ -1009,7 +1036,7 @@ function renderPlanungList() {
             <tr data-open-planung="${p.id}">
               <td>${p.id}</td>
               <td title="${escapeAttr(p.gemeinde)}">${planungGemeindeCell(p)}</td>
-              <td title="${p.typ}"><span class="t-full">${typKurz(p.typ)}</span><span class="t-short" aria-hidden="true">${typKurz(p.typ).charAt(0)}.</span></td>
+              <td title="${p.typ}"><span class="t-full">${typKurz(p.typ)}</span><span class="t-short" aria-hidden="true">${typKurzer(p.typ)}</span></td>
               <td>${phaseBadge(p)}</td>
               <td class="col-next">${naechsterSchrittCell(p)}</td>
               <td class="cell-termin">${terminCell(p)}</td>
@@ -1208,16 +1235,34 @@ function updatePlanungCondReqVisibility() {
   document.querySelectorAll('#planung-form .cond-req').forEach(el => { el.style.display = show ? 'inline' : 'none'; });
 }
 
-/* ---------------------- PRÜFPFLICHT (4-Jahres-Turnus ab Beratungsbeginn, nur Status Abschluss) ---------------------- */
+/* ---------------------- PRÜFPFLICHT (4-Jahres-Turnus: ab letzter Nachführung, bei Verspätung ab ursprünglicher Frist; nur Status Abschluss) ---------------------- */
 const PRUEFPFLICHT_ENDE_JAHR = 2050; // Pflicht gilt nur bis zum letzten Termin VOR diesem Jahr
 
+// Fristlogik: erste Frist = Beratungsbeginn + 4 Jahre. Nach jeder Nachführung gilt:
+//  - rechtzeitig/vorzeitig erledigt → nächste Frist = Datum der Nachführung + 4 Jahre
+//  - zu spät erledigt → die Frist-Reihe verschiebt sich nicht: nächste Frist = bisherige (ursprüngliche) Frist + 4 Jahre
+function nfNaechsteFrist(p, start) { const l = nfFristen(p, start); return l[l.length - 1]; }
+// Alle Fristen in zeitlicher Reihenfolge: bereits abgehakte Fristen und als letztes die nächste offene.
+function nfFristen(p, start) { return nfFristPaare(p, start).map(x => x.frist); }
+// Je Frist: Fälligkeit und – falls schon nachgeführt – das Datum der Nachführung (null = Datum unbekannt, z. B. alte Daten). Letzter Eintrag = nächste offene Frist.
+function nfFristPaare(p, start) {
+  nfInitLegacy(p);
+  let frist = addYears(start, 4);
+  const paare = [];
+  const daten = [];
+  for (let i = 0; i < p.nfBasisAnzahl - 1; i++) daten.push(null);          // alte Daten ohne Protokoll: regulärer Turnus angenommen
+  if (p.nfBasisAnzahl > 0) daten.push(parseSwissDate(p.nfLegacyDatum));
+  (p.nfHistorie || []).slice().reverse().forEach(h => daten.push(parseSwissDate(h.datum)));   // chronologisch
+  daten.forEach(d => { paare.push({ frist, erledigt: d }); frist = d && d <= frist ? addYears(d, 4) : addYears(frist, 4); });
+  paare.push({ frist, erledigt: null });
+  return paare;
+}
 // Nächster Pflichttermin (Date) oder null, wenn keine (weitere) Prüfpflicht besteht.
 function naechstePruefungFor(p) {
   if (p.status !== 'Abschluss') return null;
   const start = parseSwissDate(p.epaBeratung.datumBeratungsbeginn);
   if (!start) return null;
-  // Feste Fristen: Beratungsbeginn + 4, 8, 12 … Jahre. Jede erledigte Nachführung (auch vorzeitige) deckt die nächste offene Frist ab.
-  const naechste = addYears(start, 4 * (nfErledigt(p) + 1));
+  const naechste = nfNaechsteFrist(p, start);
   if (naechste.getFullYear() >= PRUEFPFLICHT_ENDE_JAHR) return null;
   return naechste;
 }
@@ -1243,7 +1288,7 @@ function renderPruefungBanner(p) {
     <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg>
     <div>
       <div class="pruefung-banner-title">${ph === 'faellig' ? 'Nachführung fällig' : 'Nachführung steht an'}</div>
-      <div class="pruefung-banner-text">${ph === 'faellig' ? 'Angaben, Ziele und Massnahmen müssen alle 4 Jahre überprüft werden.' : 'Die Frist läuft in den nächsten ' + NF_VORLAUF_MONATE + ' Monaten ab. Sie können die Nachführung jetzt durchführen.'}</div>
+      <div class="pruefung-banner-text">${ph === 'faellig' ? 'Verantwortliche Personen, Ziele und Massnahmen müssen alle 4 Jahre überprüft werden.' : 'Die Frist läuft in den nächsten ' + NF_VORLAUF_MONATE + ' Monaten ab. Sie können die Nachführung jetzt durchführen.'}</div>
       <div class="btn-row"><button class="btn btn-primary" id="btn-bestaetige-pruefung">Zur Nachführung</button></div>
     </div>
   </div>`;
@@ -1391,9 +1436,12 @@ function renderProzessTabs(p) {
   return PROZESS_TABS.map((t, i) => {
     const active = state.planungTab === t.key;
     const locked = t.key === 'nachfuehrung' && nachfuehrungGesperrt(p);
+    // Kontrolle (nur Admin) liegt als Zwischenschritt «4.1» zwischen Gesuch (4) und Nachführung (5)
+    const kontrolle = (t.key === 'konto' && state.role === 'Admin')
+      ? `<button class="subtab-btn subtab-intern ${state.planungTab === 'kontrolle' ? 'active' : ''}" data-subtab="kontrolle" title="Nur für Admin sichtbar"><span class="subtab-nr nr-sub ${state.planungTab === 'kontrolle' ? 'nr-current' : 'nr-upcoming'}">4.1</span><span class="subtab-label">Kontrolle</span></button>` : '';
     return `<button class="subtab-btn ${active ? 'active' : ''}${locked ? ' is-locked' : ''}" data-subtab="${t.key}"${locked ? ' aria-disabled="true"' : ''} title="${locked ? NF_KONTO_HINWEIS : 'Schritt ' + (i + 1) + ': ' + t.label}">
       <span class="subtab-nr ${active ? 'nr-current' : 'nr-upcoming'}">${i + 1}</span><span class="subtab-label"><span class="lbl-full">${t.label}</span><span class="lbl-short">${t.short}</span></span>
-    </button>`;
+    </button>` + kontrolle;
   }).join('');
 }
 
@@ -1453,6 +1501,8 @@ function prozessAktionAusfuehren(p, a) {
     const next = naechstePruefungFor(p);
     toast(next ? `Nachführung abgeschlossen. Nächste Nachführung: ${formatDate(next)}.` : 'Nachführung abgeschlossen.');
   } else {
+    if (a.id === 'epa-abschluss') p.epaBeratung.epaAbschluss = today;
+    if (a.id === 'beratung-abschluss') p.epaBeratung.beratungAbschluss = today;
     p.status = a.ziel;
     p.epaBeratung.prozessstatus = a.ziel;
     toast(a.toast || `Schritt abgeschlossen: «${a.label}».`);
@@ -1517,7 +1567,6 @@ function renderPlanungDetail() {
 
     <div class="subtab-row">
       ${renderProzessTabs(p)}
-      ${state.role === 'Admin' ? `<button class="subtab-btn subtab-intern ${state.planungTab === 'kontrolle' ? 'active' : ''}" data-subtab="kontrolle">Kontrolle</button>` : ''}
     </div>
 
     <div class="subtab-content">
@@ -1558,7 +1607,7 @@ function renderPlanungDetail() {
 
 /* ---------------------- NACHFÜHRUNG-TAB (Angaben und Massnahmen überprüfen) ---------------------- */
 /* ---------------------- CSV-IMPORT DER MASSNAHMEN (Nachführung, aus v2 übernommen) ---------------------- */
-const IMPORT_ALT_AKTIONEN = [['bleibt', 'Unverändert lassen'], ['Abschluss', 'Als abgeschlossen markieren'], ['entfernen', 'Entfernen']];
+const IMPORT_ALT_AKTIONEN = [['bleibt', 'Unverändert lassen'], ['Abschluss', 'Als abgeschlossen markieren'], ['entfernen', 'Verworfen']];
 const IMPORT_SPALTEN = ['ES-Nr.', 'Massnahme', 'Beschreibung', 'Status', 'Bemerkung'];
 const IMPORT_STATUS_ALIAS = { 'geplant': 'Geplant', 'umsetzung': 'Umsetzung', 'in umsetzung': 'Umsetzung', 'abschluss': 'Abschluss', 'abgeschlossen': 'Abschluss', 'erledigt': 'Abschluss' };
 
@@ -1680,7 +1729,7 @@ function renderImportDialog() {
         ${zeile(nNeu, 'neue Massnahmen werden angelegt')}
         ${zeile(nSkip, 'Zeilen aus der Datei werden nicht importiert')}
         ${zeile(altN('Abschluss'), 'nicht enthaltene Massnahmen werden als abgeschlossen markiert')}
-        ${zeile(altN('entfernen'), 'nicht enthaltene Massnahmen werden entfernt')}
+        ${zeile(altN('entfernen'), 'nicht enthaltene Massnahmen werden verworfen')}
         ${zeile(altN('bleibt'), 'nicht enthaltene Massnahmen bleiben unverändert')}
       </ul>
       <p class="muted">Beim Überschreiben werden Name, Beschreibung, Status und Bemerkung aus der Datei übernommen. Leere Felder in der Datei lassen den bisherigen Wert unverändert.</p>`;
@@ -1790,7 +1839,7 @@ function openImportDialog() {
   renderImportDialog();
 }
 
-/* ---- Nachführung (alle 4 Jahre, feste Fristen): Phasen, Prüfstand, Historie ---- */
+/* ---- Nachführung (alle 4 Jahre): Phasen, Prüfstand, Historie ---- */
 const NF_VORLAUF_MONATE = 12;   // so früh vor der Frist öffnet sich die Nachführung (Banner, Prüfformular)
 
 function aktuellerBenutzerName() {
@@ -1866,7 +1915,7 @@ function nfGeprueftAnzahl(p) { const nf = nfState(p); return nfZuPruefen(p).filt
 // Was fehlt noch bis zum Abschluss? (leer = alles bestätigt)
 function nfOffen(p) {
   const nf = nfState(p), offen = [];
-  if (!nf.angaben) offen.push('Angaben');
+  if (!nf.angaben) offen.push('Verantwortliche Personen');
   if (!nf.ziele) offen.push('Ziele');
   const zp = nfZuPruefen(p), rest = zp.length - nfGeprueftAnzahl(p);
   if (rest > 0) offen.push(rest === zp.length ? 'Massnahmen' : rest + (rest === 1 ? ' Massnahme' : ' Massnahmen'));
@@ -1874,7 +1923,7 @@ function nfOffen(p) {
 }
 const NF_FELDER = {
   angaben: [
-    { key: 'verantwortlichkeit', label: 'Verantwortliche Person der Gemeinde', id: 'nf-verantwortlichkeit' },
+    { key: 'verantwortlichkeit', label: 'Kontakt Gemeinde', id: 'nf-verantwortlichkeit' },
     { key: 'beraterEnergieplanung', label: 'Berater/in Energieplanung', id: 'nf-berater' }
   ],
   ziele: [
@@ -1887,9 +1936,9 @@ function nfEdit() {
   if (!state.nfEdit || state.nfEditPid !== state.planungId) { state.nfEdit = {}; state.nfEditPid = state.planungId; }
   return state.nfEdit;
 }
-const nfPersonUnbekannt = v => !!nfNorm(v) && !contacts.some(c => formatContactLabel(c) === v);
+const nfPersonUnbekannt = v => !!nfNorm(v) && v !== KEINE_EXTERNE_BEGLEITUNG && !contacts.some(c => formatContactLabel(c) === v);
 
-// Zeitleiste: Beratungsbeginn, feste 4-Jahres-Fristen, erledigte Nachführungen (mit Details im Tooltip), heute
+// Zeitleiste: Beratungsbeginn, 4-Jahres-Fristen, erledigte Nachführungen (mit Details im Tooltip), heute
 function renderNachfuehrungZeitleiste(p) {
   const start = parseSwissDate(p.epaBeratung && p.epaBeratung.datumBeratungsbeginn);
   const next = naechstePruefungFor(p);
@@ -1900,32 +1949,63 @@ function renderNachfuehrungZeitleiste(p) {
   const pos = d => Math.min(100, Math.max(0, (d - start) / span * 100));
   const ph = nfPhase(p);
   const n = nfErledigt(p);
-  let h = '<div class="nf-tl" aria-label="Zeitleiste der Nachführungen"><div class="nf-tl-track"><div class="nf-tl-line"><div class="nf-tl-fill" style="width:' + pos(heute) + '%"></div></div>';
+  let h = '<div class="nf-tl" aria-label="Zeitleiste der Nachführungen"><div class="nf-tl-track"><div class="nf-tl-line"><div class="nf-tl-fill" style="width:' + pos(heute) + '%"></div>' + (ph === 'faellig' ? '<div class="nf-tl-overdue" style="left:' + pos(next) + '%; width:' + Math.max(0, pos(heute) - pos(next)) + '%" title="Überfällig seit ' + formatDate(next) + '"></div>' : '') + '</div>';
   // Beginn
-  h += '<span class="nf-tl-dot is-start" style="left:0" title="Beratungsbeginn ' + formatDate(start) + '"></span><span class="nf-tl-lab is-below is-startlab" style="left:0">Beginn ' + start.getFullYear() + '</span>';
-  // Feste Fristen (Beginn + 4, 8, … Jahre)
-  for (let k = 1; k <= n + 1; k++) {
-    const f = addYears(start, 4 * k), last = k === n + 1;
-    h += '<span class="nf-tl-tick' + (last ? ' is-next' + (ph === 'faellig' ? ' is-warn' : '') : '') + '" style="left:' + pos(f) + '%" title="' + (last ? 'Nächste Frist ' : 'Frist ') + formatDate(f) + '"></span>' +
-         '<span class="nf-tl-lab is-below' + (last ? ' is-next' : '') + '" style="left:' + pos(f) + '%">' + (last ? formatDate(f) : f.getFullYear()) + '</span>';
+  h += '<span class="nf-tl-dot is-start is-num" style="left:0" data-tip="Beratungsbeginn ' + formatDate(start) + '">1</span>';
+  // Fristen (Beginn + 4 Jahre; danach je nach Nachführung, siehe nfFristen)
+  const fristen = nfFristen(p, start);
+  for (let k = 0; k < fristen.length; k++) {
+    const f = fristen[k], last = k === fristen.length - 1;
+    h += '<span class="nf-tl-tick' + (last ? ' is-next' + (ph === 'faellig' ? ' is-warn' : '') : '') + '" style="left:' + pos(f) + '%" data-tip="' + (last ? 'Nächste Frist ' : 'Frist ') + formatDate(f) + '"></span>' +
+         '<span class="nf-tl-lab is-below' + (last ? ' is-next' : '') + '" style="left:' + pos(f) + '%">' + (last ? 'Frist ' + formatDate(f) : f.getFullYear()) + '</span>';
   }
+  // Meilensteine der Beratung (nummeriert, Legende unter der Zeitleiste)
+  const eb = p.epaBeratung;
+  const meilensteine = [
+    { nr: 1, text: 'Beratungsbeginn', datum: formatDate(start) },
+    { nr: 2, text: 'EPA Beratung abgeschlossen', datum: eb.epaAbschluss },
+    { nr: 3, text: 'Fördergesuch eingereicht', datum: eb.gesuchseingang },
+    { nr: 4, text: 'Beratung abgeschlossen', datum: eb.beratungAbschluss }
+  ].filter(m => parseSwissDate(m.datum));
+  // Liegen Punkte zu nah beieinander (z. B. Gesuch und Abschluss im selben Monat), werden sie für die Lesbarkeit minimal auseinandergeschoben. Das genaue Datum steht im Tooltip und in der Legende.
+  const MIN_ABSTAND = 5;   // in % der Zeitleistenbreite
+  let letzte = 0;
+  meilensteine.filter(m => m.nr > 1).forEach(m => {
+    const x = Math.min(100, Math.max(pos(parseSwissDate(m.datum)), letzte + MIN_ABSTAND));
+    letzte = x;
+    h += '<span class="nf-tl-dot is-step is-num" style="left:' + x + '%" data-tip="' + escapeAttr(m.text + ' ' + m.datum) + '">' + m.nr + '</span>';
+  });
+  // Frühere Fristen mit Fälligkeit und tatsächlicher Nachführung (zu spät / vorzeitig sichtbar)
+  const fruehere = nfFristPaare(p, start).slice(0, -1).map((x, i) => {
+    const d = x.erledigt, rel = !d ? '' : d > x.frist ? ' (zu spät)' : d < x.frist ? ' (vorzeitig)' : '';
+    return '<span class="nf-tl-leg"><span class="nf-tl-legring is-done"></span>' + (i + 1) + '. Nachführung fällig <strong>' + escapeHtml(formatDate(x.frist)) + '</strong>' + (d ? ', erledigt <strong>' + escapeHtml(formatDate(d)) + '</strong>' + rel : '') + '</span>';
+  }).join('');
+  const legende = '<div class="nf-tl-legend">' + meilensteine.map(m => '<span class="nf-tl-leg"><span class="nf-tl-legnr' + (m.nr === 1 ? ' is-start' : '') + '">' + m.nr + '</span>' + escapeHtml(m.text) + ' <strong>' + escapeHtml(m.datum) + '</strong></span>').join('') +
+    fruehere + '<span class="nf-tl-leg"><span class="nf-tl-legring' + (ph === 'faellig' ? ' is-warn' : '') + '"></span>' + (n === 0 ? 'Erste Nachführung fällig' : 'Nächste Nachführung fällig') + ' <strong>' + escapeHtml(formatDate(next)) + '</strong></span></div>';
   // Erledigte Nachführungen
   const erledigt = nfHistorie(p).slice().reverse();
   erledigt.forEach(e => {
     const d = parseSwissDate(e.datum);
     if (!d) return;
     const tip = 'Nachführung ' + e.datum + (e.von ? ' · ' + e.von : '') +
-      (e.aenderungen !== null && e.aenderungen !== undefined ? ' · ' + (e.aenderungen ? e.aenderungen + ' Angaben/Ziele geändert' : 'keine Änderungen an Angaben/Zielen') : '') +
+      (e.aenderungen !== null && e.aenderungen !== undefined ? ' · ' + (e.aenderungen ? e.aenderungen + ' Personen/Ziele geändert' : 'keine Änderungen an Personen/Zielen') : '') +
       (e.massnahmen ? ' · ' + e.massnahmen + ' Massnahmen' : '');
-    h += '<span class="nf-tl-dot is-done" style="left:' + pos(d) + '%" title="' + escapeAttr(tip) + '"></span><span class="nf-tl-lab is-above" style="left:' + pos(d) + '%">' + escapeHtml(e.datum) + '</span>';
+    h += '<span class="nf-tl-dot is-done" style="left:' + pos(d) + '%" data-tip="' + escapeAttr(tip) + '"></span><span class="nf-tl-lab is-above" style="left:' + pos(d) + '%">' + escapeHtml(e.datum) + '</span>';
   });
   // Heute
   const hp = pos(heute);
   const nah = erledigt.some(e => { const d = parseSwissDate(e.datum); return d && Math.abs(pos(d) - hp) < 14; });
   h += '<span class="nf-tl-today" style="left:' + hp + '%" title="Heute"></span>' + (nah ? '' : '<span class="nf-tl-lab is-above is-today" style="left:' + hp + '%">Heute</span>');
-  return h + '</div></div>';
+  return h + '</div>' + '<details class="nf-tl-details"><summary title="Daten anzeigen" aria-label="Daten anzeigen"></summary>' + legende + '</details></div>';
 }
 
+// Link zum Prozessschritt, in dem die Planung gerade steht (damit klar ist, wo es weitergeht)
+function nfLinkZumAktuellenSchritt(p) {
+  const st = prozessSchrittFor(p);
+  if (st.key === 'nachfuehrung') return '';
+  const nr = PROZESS_TABS.findIndex(t => t.key === st.key) + 1;
+  return '<button type="button" class="nf-goto" data-goto-tab="' + st.key + '">Zum aktuellen Schritt: ' + nr + ' ' + escapeHtml(st.label) + (st.sub ? ' <span class="nf-goto-sub">(' + escapeHtml(st.sub) + ')</span>' : '') + ' →</button>';
+}
 // Termin-Hinweis oben im Tab (Regelwerk nur als Tooltip)
 function renderNachfuehrungTermin(p, aktion) {
   const eb = p.epaBeratung || {};
@@ -1937,24 +2017,24 @@ function renderNachfuehrungTermin(p, aktion) {
     if (tage < 60) return 'in ' + tage + ' Tagen';
     return tage < 730 ? 'in ' + Math.round(tage / 30.4) + ' Monaten' : 'in ' + (tage / 365.25).toFixed(1) + ' Jahren';
   };
-  const regel = 'Die Nachführung ist alle 4 Jahre ab Beratungsbeginn fällig (feste Fristen). Sie kann auch vorzeitig durchgeführt werden und gilt dann für die nächste offene Frist.';
+  const regel = 'Die Nachführung ist alle 4 Jahre fällig: die erste Frist 4 Jahre nach Beratungsbeginn, jede weitere 4 Jahre nach der letzten Nachführung. Wurde eine Nachführung zu spät gemacht, gilt als Ausgangspunkt die ursprüngliche Frist. Eine vorzeitige Nachführung ist jederzeit möglich.';
   const ph = nfPhase(p), t = naechstePruefungFor(p);
-  let art = 'info', titel, text = '';
+  let art = 'info', titel, text = '', link = '';
   if (ph === 'keine') { titel = 'Keine weitere Nachführung erforderlich'; text = 'Die Prüfpflicht endet mit dem Jahr ' + PRUEFPFLICHT_ENDE_JAHR + '.'; }
-  else if (ph === 'faellig') { art = 'warn'; titel = 'Nachführung fällig seit ' + formatDate(t); text = 'Angaben, Ziele und Massnahmen prüfen, danach unten abschliessen.'; }
+  else if (ph === 'faellig') { art = 'warn'; titel = 'Nachführung fällig seit ' + formatDate(t); text = 'Verantwortliche Personen, Ziele und Massnahmen prüfen, danach unten abschliessen.'; }
   else if (ph === 'offen') { art = 'info'; titel = 'Nachführung fällig am ' + formatDate(t); text = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
   else if (ph === 'ruhend' && aktion) { art = 'info'; titel = 'Vorzeitige Nachführung'; text = 'Reguläre Frist am ' + formatDate(t) + ' (' + rel(t) + ')' + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
-  else if (ph === 'ruhend') { art = 'ok'; titel = 'Nächste Nachführung am ' + formatDate(t); text = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
-  else if (beginn) { titel = 'Erste Nachführung am ' + formatDate(addYears(beginn, 4)); text = 'Möglich nach Abschluss der Beratung.'; }
-  else { titel = 'Termin der ersten Nachführung noch offen'; text = 'Ergibt sich mit dem Start der EPA Beratung.'; }
-  return '<div class="nf-due is-' + art + '" title="' + escapeAttr(regel) + '"><div class="nf-due-main"><div class="nf-due-title">' + escapeHtml(titel) + '</div>' + (text ? '<div class="nf-due-text">' + escapeHtml(text) + '</div>' : '') + '</div>' + (aktion ? '<div class="nf-due-action">' + aktion + '</div>' : '') + renderNachfuehrungZeitleiste(p) + '</div>';
+  else if (ph === 'ruhend') { art = 'ok'; titel = (nfErledigt(p) === 0 ? 'Erste' : 'Nächste') + ' Nachführung am ' + formatDate(t); text = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + (letzte ? ' · zuletzt am ' + letzte.datum : ''); }
+  else if (beginn) { titel = 'Erste Nachführung am ' + formatDate(addYears(beginn, 4)); text = 'Möglich nach Abschluss der Beratung.'; link = nfLinkZumAktuellenSchritt(p); }
+  else { titel = 'Termin der ersten Nachführung noch offen'; text = 'Ergibt sich mit dem Start der EPA Beratung.'; link = nfLinkZumAktuellenSchritt(p); }
+  return '<div class="nf-due is-' + art + '" title="' + escapeAttr(regel) + '"><div class="nf-due-main"><div class="nf-due-title">' + escapeHtml(titel) + '</div>' + (link ? '<div class="nf-due-text nf-due-line"><span>' + escapeHtml(text) + '</span>' + link + '</div>' : (text ? '<div class="nf-due-text">' + escapeHtml(text) + '</div>' : '')) + '</div>' + (aktion ? '<div class="nf-due-action">' + aktion + '</div>' : '') + renderNachfuehrungZeitleiste(p) + '</div>';
 }
 
 function renderNachfuehrungAnleitung() {
   return '<details class="nf-howto"' + (state.nfAnleitungZu ? '' : ' open') + ' id="nf-howto"><summary>So funktioniert die Nachführung</summary>' +
-    '<ol><li>Massnahmen aus Ihrem Tool per CSV importieren (empfohlen) und Angaben, Ziele sowie offene Massnahmen prüfen.</li>' +
+    '<ol><li>Massnahmen aus Ihrem Tool per CSV importieren (empfohlen) und Verantwortliche Personen, Ziele sowie offene Massnahmen prüfen.</li>' +
     '<li>Jeden Bereich bestätigen. Abgeschlossene, unveränderte Massnahmen sind automatisch bestätigt.</li>' +
-    '<li>«Nachführung abschliessen». Die nächste Frist folgt in 4 Jahren.</li></ol></details>';
+    '<li>«Nachführung abschliessen». Die nächste Frist folgt in 4 Jahren (bei verspäteter Nachführung 4 Jahre nach der ursprünglichen Frist).</li></ol></details>';
 }
 
 // Was hat sich seit der letzten Nachführung getan?
@@ -1962,7 +2042,7 @@ function renderNachfuehrungSeitLetzter(p) {
   const a = nfAenderungen(p);
   if (!a) return '';
   const teile = [];
-  if (a.felder.length) teile.push(a.felder.length + (a.felder.length === 1 ? ' Angabe/Ziel geändert' : ' Angaben/Ziele geändert'));
+  if (a.felder.length) teile.push(a.felder.length + (a.felder.length === 1 ? ' Person/Ziel geändert' : ' Personen/Ziele geändert'));
   if (a.neu.length) teile.push(a.neu.length + (a.neu.length === 1 ? ' neue Massnahme' : ' neue Massnahmen'));
   if (a.status.length) teile.push(a.status.length + (a.status.length === 1 ? ' Massnahme mit neuem Status' : ' Massnahmen mit neuem Status'));
   if (a.entfernt.length) teile.push(a.entfernt.length + (a.entfernt.length === 1 ? ' Massnahme entfernt' : ' Massnahmen entfernt'));
@@ -1978,7 +2058,7 @@ function renderNachfuehrungBlock(p, art, titel) {
   if (edit) {
     body = NF_FELDER[art].map(f => {
       const inp = art === 'angaben'
-        ? personSelect(f.id, ef[f.key], f.key === 'verantwortlichkeit' ? p.gemeinde : null, f.key === 'beraterEnergieplanung')
+        ? personSelect(f.id, ef[f.key], f.key === 'verantwortlichkeit' ? p.gemeinde : null, f.key === 'beraterEnergieplanung', f.key === 'beraterEnergieplanung' ? KEINE_EXTERNE_BEGLEITUNG : null)
         : '<textarea id="' + f.id + '" rows="3">' + escapeHtml(fixDash(ef[f.key])) + '</textarea>';
       return '<div class="form-field is-inline"><label>' + f.label + '</label><div class="form-field-body">' + inp + unbekannt(f) + '</div></div>';
     }).join('');
@@ -2003,7 +2083,7 @@ function renderNachfuehrungHistorie(p) {
   if (!hist.length) return '';
   return '<details class="nf-historie"><summary>Bisherige Nachführungen (' + hist.length + ')</summary><ul>' + hist.map(h =>
     '<li><strong>' + escapeHtml(h.datum) + '</strong>' + (h.von ? ' · ' + escapeHtml(h.von) : '') +
-    (h.aenderungen !== null && h.aenderungen !== undefined ? ' · ' + (h.aenderungen ? h.aenderungen + (h.aenderungen === 1 ? ' Angabe/Ziel geändert' : ' Angaben/Ziele geändert') : 'keine Änderungen an Angaben/Zielen') : '') +
+    (h.aenderungen !== null && h.aenderungen !== undefined ? ' · ' + (h.aenderungen ? h.aenderungen + (h.aenderungen === 1 ? ' Person/Ziel geändert' : ' Personen/Ziele geändert') : 'keine Änderungen an Personen/Zielen') : '') +
     (h.massnahmen ? ' · ' + h.massnahmen + ' Massnahmen' : '') + '</li>').join('') + '</ul></details>';
 }
 
@@ -2073,7 +2153,7 @@ function renderPlanungNachfuehrungTabContent(p) {
   return `
     ${renderNachfuehrungTermin(p, ph === 'ruhend' ? '<button type="button" class="btn-link" id="btn-nf-vorzeitig-ende">Vorzeitige Nachführung abbrechen</button>' : '')}
     ${renderNachfuehrungSeitLetzter(p)}
-    ${renderNachfuehrungBlock(p, 'angaben', 'Angaben')}
+    ${renderNachfuehrungBlock(p, 'angaben', 'Verantwortliche Personen')}
     ${renderNachfuehrungBlock(p, 'ziele', 'Ziele')}
     ${renderNachfuehrungMassnahmen(p)}
   `;
@@ -2211,6 +2291,7 @@ function renderPlanungDetailsViewContent(p) {
       ${field('Beratungsperson', eb.beratungsperson)}
       ${field('Geplanter Start EPA-Beratung', eb.geplanterStart)}
       ${field('Datum Beratungsbeginn', eb.datumBeratungsbeginn)}
+      ${field('EPA Beratung abgeschlossen am', eb.epaAbschluss)}
       ${field('Bedarf eines Energierichtplans?', eb.bedarfEnergierichtplan)}
       ${field('Bedarf einer Koordination mit weiteren Gemeinde(n)?', eb.bedarfKoordination)}
       ${field('Gebiete mit Koordinationsbedarf vorhanden?', eb.gebieteKoordinationsbedarf)}
@@ -2297,7 +2378,7 @@ function renderPlanungDetailsFormContent(p) {
     <div class="form-field"><label>${gemeindeLabel(p)}<span class="req">*</span></label><input type="text" id="f-gemeinde" value="${escapeAttr(p.gemeinde)}"></div>
     <input type="hidden" id="f-status" value="${escapeAttr(state.planungPendingStatus || p.status)}">
     <div class="form-field"><label>Verantwortlichkeit Gemeinde</label>${personSelect('f-verantwortlichkeit', ef.verantwortlichkeit, p.gemeinde)}</div>
-    <div class="form-field"><label>Berater/in Energieplanung</label>${personSelect('f-berater-energieplanung', ef.beraterEnergieplanung, null, true)}</div>
+    <div class="form-field"><label>Berater/in Energieplanung</label>${personSelect('f-berater-energieplanung', ef.beraterEnergieplanung, null, true, KEINE_EXTERNE_BEGLEITUNG)}</div>
     </div>
 
     <div ${pane('konto')}>
@@ -2324,7 +2405,7 @@ function kontoAngabenVollstaendig(p) {
 function renderGesuchStand(p) {
   const eb = p.epaBeratung || {};
   const eingang = eb.gesuchseingang && eb.gesuchseingang !== '-';
-  if (p.status === 'Abschluss') return '<div class="step-note is-ok">✓ Beratung abgeschlossen' + (eingang ? ' · Fördergesuch eingereicht am ' + escapeHtml(eb.gesuchseingang) : '') + '</div>';
+  if (p.status === 'Abschluss') return '<div class="step-note is-ok">✓ Beratung abgeschlossen' + (eb.beratungAbschluss && eb.beratungAbschluss !== '-' ? ' am ' + escapeHtml(eb.beratungAbschluss) : '') + (eingang ? ' · Fördergesuch eingereicht am ' + escapeHtml(eb.gesuchseingang) : '') + '</div>';
   if (eingang) return '<div class="step-note is-ok">✓ Fördergesuch eingereicht am ' + escapeHtml(eb.gesuchseingang) + ' · liegt beim Kanton</div>';
   return '';
 }
@@ -2623,6 +2704,8 @@ function bindMassnahmenListPanel(p) {
     selectAllCb.indeterminate = anySelected && !allSelected;
   }
   $panel.querySelectorAll('[data-open-massnahme]').forEach(row => {
+    row.addEventListener('mouseenter', () => karteMassnahmeHover(row.dataset.openMassnahme, true));
+    row.addEventListener('mouseleave', () => karteMassnahmeHover(null));
     row.addEventListener('click', () => {
       state.massnahmeId = row.dataset.openMassnahme;
       state.mdMode = 'view';
@@ -2775,17 +2858,126 @@ function gemeindeLabel(p) { return /region/i.test(p && p.typ) ? 'Gemeinden' : 'G
 function planungTitel(p) { return `${p.typ} ${/region/i.test(p.typ) && p.regionName ? p.regionName : p.gemeinde}`; }
 
 // Dropdown mit allen Personen aus den Kontakten. Wert = Anzeigename "Vorname Nachname (Organisation)", wie in den Daten gespeichert.
+const NEUE_PERSON = '__neue_person__';
 const istGemeindeKontakt = c => !!c.gemeindeKontakt || /^Gemeinde /.test(c.organisation || '');
 // nurExtern: nur externe Fachpersonen (keine Gemeindekontakte) anbieten, ohne Gruppierung.
-function personSelect(id, aktuell, nurGemeinden, nurExtern) {
+// Auswahl «Neue Person erfassen»: Auswahl zurücksetzen und Dialog öffnen (Capture-Phase, damit andere Change-Handler den Sonderwert nicht sehen).
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (!el.matches || !el.matches('select.person-select')) return;
+  if (el.value === NEUE_PERSON) {
+    e.stopImmediatePropagation();
+    el.value = el.dataset.prev || '';
+    openNeuePersonDialog(el);
+  } else el.dataset.prev = el.value;
+}, true);
+
+function openNeuePersonDialog(sel) {
+  if (state.role !== 'Admin' || document.getElementById('neue-person-dialog')) return;
+  const gemeinden = sel.dataset.gemeinden ? sel.dataset.gemeinden.split('|') : null;   // Kontakt muss zu diesen Gemeinden gehören
+  const extern = !!sel.dataset.extern;                                                  // nur externe Fachpersonen (keine Gemeindekontakte)
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'neue-person-dialog';
+  const orgField = gemeinden
+    ? '<select id="np2-org" class="select-input">' + gemeinden.map(g => '<option value="Gemeinde ' + escapeAttr(g) + '">Gemeinde ' + escapeHtml(g) + '</option>').join('') + '</select>'
+    : '<input type="text" id="np2-org" placeholder="' + (extern ? 'Firma / Organisation (keine Gemeinde)' : 'Organisation') + '">';
+  overlay.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="np2-title">
+      <h3 id="np2-title">Neue Person erfassen</h3>
+      <div class="form-field"><label>Vorname<span class="req">*</span></label><input type="text" id="np2-vorname"></div>
+      <div class="form-field"><label>Nachname<span class="req">*</span></label><input type="text" id="np2-nachname"></div>
+      <div class="form-field"><label>Organisation${extern ? '<span class="req">*</span>' : ''}</label>${orgField}</div>
+      <div class="form-field"><label>E-Mail<span class="req">*</span></label><input type="text" id="np2-email" placeholder="name@beispiel.ch"></div>
+      <div class="form-field"><label>Rollen <span class="np-hint">(Zugriff auf die Anwendung, mehrere möglich)</span></label>
+        <div class="zg-rollen" id="np2-rollen">${ZUGRIFF_ROLLEN.map(r => `<label class="zg-role"><input type="checkbox" value="${r}"${(gemeinden && r === 'Gemeinde') || (extern && r === 'Energieberater') ? ' checked' : ''}${extern && r === 'Gemeinde' ? ' disabled' : ''}><span class="zg-role-name">${ROLLE_LABEL[r]}</span></label>`).join('')}</div>
+        <div class="np-hint" id="np2-rollen-hint" style="margin-top:6px;">${extern ? 'Hier sind nur externe Fachpersonen möglich, daher ohne Rolle «Gemeinde».' : ''}</div></div>
+      <div class="btn-row modal-actions">
+        <button type="button" class="btn btn-secondary" id="np2-cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="np2-save">Person anlegen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const $ = id => overlay.querySelector('#' + id);
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  $('np2-cancel').addEventListener('click', close);
+  const rollenHinweis = extern ? 'Hier sind nur externe Fachpersonen möglich, daher ohne Rolle «Gemeinde».' : '';
+  $('np2-rollen').addEventListener('change', () => { $('np2-rollen-hint').textContent = rollenHinweis; $('np2-rollen-hint').classList.remove('is-error'); });
+  $('np2-org').addEventListener('input', () => { if ($('np2-rollen-hint').classList.contains('is-error')) { $('np2-rollen-hint').textContent = rollenHinweis; $('np2-rollen-hint').classList.remove('is-error'); } });
+  const fehler = (id, msg) => {
+    const f = $(id).closest('.form-field');
+    f.classList.add('has-error');
+    const m = document.createElement('div'); m.className = 'field-error-msg'; m.textContent = msg; f.appendChild(m);
+  };
+  ['np2-vorname', 'np2-nachname', 'np2-org', 'np2-email'].forEach(id => $(id).addEventListener('input', () => {
+    const f = $(id).closest('.form-field'); f.classList.remove('has-error'); const m = f.querySelector('.field-error-msg'); if (m) m.remove();
+  }));
+  $('np2-save').addEventListener('click', () => {
+    overlay.querySelectorAll('.field-error-msg').forEach(m => m.remove());
+    overlay.querySelectorAll('.has-error').forEach(f => f.classList.remove('has-error'));
+    const vorname = $('np2-vorname').value.trim(), nachname = $('np2-nachname').value.trim(), email = $('np2-email').value.trim();
+    const org = $('np2-org').value.trim();
+    let ok = true;
+    if (!vorname) { fehler('np2-vorname', 'Dieses Feld ist erforderlich.'); ok = false; }
+    if (!nachname) { fehler('np2-nachname', 'Dieses Feld ist erforderlich.'); ok = false; }
+    if (!email) { fehler('np2-email', 'Dieses Feld ist erforderlich.'); ok = false; }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { fehler('np2-email', 'Bitte eine gültige E-Mail-Adresse eingeben.'); ok = false; }
+    if (extern && !org) { fehler('np2-org', 'Dieses Feld ist erforderlich.'); ok = false; }
+    else if (extern && /^Gemeinde /i.test(org)) { fehler('np2-org', 'Hier sind nur externe Fachpersonen möglich (keine Gemeinde).'); ok = false; }
+    let organisation = org || '-';
+    if (ok && contacts.some(c => (c.vorname + ' ' + c.nachname).toLowerCase() === (vorname + ' ' + nachname).toLowerCase() && String(c.organisation).toLowerCase() === organisation.toLowerCase())) {
+      fehler('np2-nachname', 'Diese Person existiert bereits in den Kontakten.'); ok = false;
+    }
+    // Zugriff: Gemeinde-Rolle gilt für die Gemeinde der Organisation, Energieberater/in-Rolle für die Gemeinden der aktuellen Planung
+    const rollen = ZUGRIFF_ROLLEN.filter(r => overlay.querySelector('#np2-rollen input[value="' + r + '"]').checked);
+    const zGemeinden = new Set();
+    $('np2-rollen-hint').textContent = rollenHinweis;
+    $('np2-rollen-hint').classList.remove('is-error');
+    if (rollen.includes('Gemeinde')) {
+      // Die Organisation muss eine Gemeinde des Kantons sein («Gemeinde Adligenswil» oder nur «Adligenswil»)
+      const gName = (GEMEINDEN_LUZERN_PLZ.find(g => g.name.toLowerCase() === organisation.replace(/^Gemeinde /i, '').trim().toLowerCase()) || {}).name;
+      if (gName) { zGemeinden.add(gName); organisation = 'Gemeinde ' + gName; }
+      else if (ok) { $('np2-rollen-hint').textContent = 'Für die Rolle «Gemeinde» muss die Organisation eine Gemeinde sein (z. B. «Gemeinde Adligenswil»). Aktuell: «' + (organisation === '-' ? 'leer' : organisation) + '».'; $('np2-rollen-hint').classList.add('is-error'); ok = false; }
+    }
+    if (rollen.includes('Energieberater')) {
+      const pl = findPlanung(state.planungId);
+      if (pl) String(pl.gemeinde).split(',').forEach(g => zGemeinden.add(g.trim()));
+    }
+    if (!ok) return;
+    const c = { vorname, nachname, organisation, email };
+    contacts.push(c);
+    // Zugriff sofort festlegen, damit die Person in der Zugriffsverwaltung korrekt erscheint (sonst würde er erst später und evtl. falsch berechnet)
+    zugriffsdaten.set(formatContactLabel(c), { rollen, gemeinden: [...zGemeinden].sort((a, b) => a.localeCompare(b, 'de')) });
+    const label = formatContactLabel(c);
+    const o = document.createElement('option'); o.value = label; o.textContent = label;
+    sel.appendChild(o);
+    sel.value = label; sel.dataset.prev = label;
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    close();
+    toast(vorname + ' ' + nachname + ' wurde als Kontakt angelegt.');
+  });
+  $('np2-vorname').focus();
+}
+
+function personSelect(id, aktuell, nurGemeinden, nurExtern, keineOption) {
   const cur = aktuell && aktuell !== '-' ? aktuell : '';
   const gemeinden = nurGemeinden ? String(nurGemeinden).split(',').map(x => x.trim()).filter(Boolean) : null;
   const passt = c => (!gemeinden || gemeinden.some(g => c.organisation === 'Gemeinde ' + g || c.organisation === g)) && (!nurExtern || !istGemeindeKontakt(c));
   const sortiert = contacts.filter(passt).sort((x, y) => (x.nachname + ' ' + x.vorname).localeCompare(y.nachname + ' ' + y.vorname, 'de'));
   const opt = c => { const l = formatContactLabel(c); return '<option value="' + escapeAttr(l) + '"' + (l === cur ? ' selected' : '') + '>' + escapeHtml(l) + '</option>'; };
   const bekannt = new Set((nurExtern ? sortiert : contacts).map(formatContactLabel));
-  const extra = cur && !bekannt.has(cur) ? '<option value="' + escapeAttr(cur) + '" selected>' + escapeHtml(cur) + '</option>' : '';
-  return '<select id="' + id + '" class="person-select"><option value="">– Person auswählen –</option>' + extra +
+  const extra = cur && !bekannt.has(cur) && cur !== keineOption ? '<option value="' + escapeAttr(cur) + '" selected>' + escapeHtml(cur) + '</option>' : '';
+  // Optionaler Sonderwert (z. B. «Aktuell keine externe Begleitung») steht zuoberst und ist hervorgehoben.
+  const keine = keineOption ? '<option value="' + escapeAttr(keineOption) + '" class="person-keine"' + (cur === keineOption ? ' selected' : '') + '>' + escapeHtml(keineOption) + '</option><option disabled>──────────</option>' : '';
+  const platzhalter = keineOption ? '<option value="" disabled hidden' + (cur ? '' : ' selected') + '>– Person auswählen –</option>' : '<option value="">– Person auswählen –</option>';
+  // Admins können direkt in der Auswahl eine neue Person erfassen (siehe openNeuePersonDialog).
+  const neu = state.role === 'Admin' ? '<option value="' + NEUE_PERSON + '" class="person-neu">＋ Neue Person erfassen …</option><option disabled>──────────</option>' : '';
+  const attrs = (gemeinden ? ' data-gemeinden="' + escapeAttr(gemeinden.join('|')) + '"' : '') + (nurExtern ? ' data-extern="1"' : '') + ' data-prev="' + escapeAttr(cur) + '"';
+  return '<select id="' + id + '" class="person-select"' + attrs + '>' + keine + platzhalter + neu + extra +
     (gemeinden || nurExtern ? sortiert.map(opt).join('') : '<optgroup label="Gemeinden">' + sortiert.filter(istGemeindeKontakt).map(opt).join('') + '</optgroup>' +
     '<optgroup label="Externe Fachpersonen">' + sortiert.filter(c => !istGemeindeKontakt(c)).map(opt).join('') + '</optgroup>') + '</select>';
 }
@@ -2842,22 +3034,21 @@ function renderMassnahmeViewPanel(m) {
     </div>
     ${renderStepper(steps, 'massnahme-stepper')}
 
-    ${field('ID', m.id)}
-    ${field('ES-Nr.', m.esNr)}
-    ${field('Name', m.name)}
-    ${field('Prozessstatus', m.prozessstatus, true)}
-    ${field('Massnahme aus EPA-Beratung?', m.ausEpa)}
-    ${field('Beschreibung', m.beschreibung)}
-    ${field('Handlungsfeld', m.handlungsfeld)}
-    ${field('Aktivitätsbereich', m.aktivitaetsbereich)}
-    ${field('Priorität', m.prioritaet)}
-    ${field('Umsetzungszeitraum', m.umsetzungszeitraum)}
-    ${field('Startdatum', m.startdatum)}
-    ${field('Fälligkeitsdatum', m.faelligkeitsdatum)}
-    ${field('Budget', m.budget)}
-    ${field('Verantwortlichkeit', m.verantwortlichkeit)}
-    ${field('Geografische Markierung', geometrieText(m))}
-    ${field('Weitere Bemerkungen', m.bemerkungen)}
+    <div class="field-grid">
+      ${field('ES-Nr.', m.esNr)}
+      ${field('Massnahme aus EPA?', m.ausEpa)}
+      ${field('Handlungsfeld', m.handlungsfeld)}
+      ${field('Aktivitätsbereich', m.aktivitaetsbereich)}
+      ${field('Priorität', m.prioritaet)}
+      ${field('Umsetzungszeitraum', m.umsetzungszeitraum)}
+      ${field('Startdatum', m.startdatum)}
+      ${field('Fälligkeitsdatum', m.faelligkeitsdatum)}
+      ${field('Budget', m.budget)}
+      ${field('Verantwortlichkeit', m.verantwortlichkeit)}
+      <div class="field-wide">${field('Beschreibung', m.beschreibung)}</div>
+      <div class="field-wide">${field('Geografische Markierung', geometrieText(m))}</div>
+      <div class="field-wide">${field('Weitere Bemerkungen', m.bemerkungen)}</div>
+    </div>
 
     ${m.handlungsfeld === 'Wärme- und Kälteversorgung' ? `
     <h3 class="subheading">Energieträger</h3>
@@ -2876,15 +3067,12 @@ function renderMassnahmeViewPanel(m) {
     </table>
     ` : ''}
 
-    <div class="btn-row">
-      <button class="btn-outline-danger" id="btn-del-massnahme">
+    <div class="md-actions">
+      <button type="button" class="btn-outline-danger md-del" id="btn-del-massnahme" title="Massnahme löschen" aria-label="Massnahme löschen">
         <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-        <span>Massnahme löschen</span>
       </button>
-      <div class="btn-group">
-        <button class="btn btn-outline" id="btn-geodaten">Geodaten editieren</button>
-        <button class="btn btn-secondary btn-with-icon" id="btn-edit-massnahme"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg><span>Massnahme bearbeiten</span></button>
-      </div>
+      <button class="btn btn-outline btn-with-icon" id="btn-geodaten"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg><span>Geodaten</span></button>
+      <button class="btn btn-secondary btn-with-icon" id="btn-edit-massnahme"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg><span>Bearbeiten</span></button>
     </div>
   `;
 }
@@ -2904,10 +3092,7 @@ function renderMassnahmeFormPanel(p, isEdit) {
     <div class="form-field"><label>Beschreibung<span class="req">*</span></label>
       <textarea id="mf-beschreibung" placeholder="Detailbeschrieb zur Massnahme">${escapeHtml(m ? m.beschreibung : '')}</textarea></div>
     <div class="form-field"><label>Massnahme aus EPA<span class="req">*</span></label>
-      <select id="mf-ausepa">
-        <option value="Ja" ${!m || m.ausEpa === 'Ja' ? 'selected' : ''}>Ja</option>
-        <option value="Nein" ${m && m.ausEpa === 'Nein' ? 'selected' : ''}>Nein</option>
-      </select></div>
+      ${yesNoSelect('mf-ausepa', m ? m.ausEpa : '-')}</div>
     <div class="form-field"><label>Handlungsfeld<span class="req">*</span></label>
       <select id="mf-handlungsfeld">
         <option value="" ${!m ? 'selected' : ''} disabled>Handlungsfeld auswählen...</option>
@@ -2926,16 +3111,15 @@ function renderMassnahmeFormPanel(p, isEdit) {
         ${PRIORITAETEN.map(pr => `<option ${m && m.prioritaet === pr ? 'selected' : ''}>${pr}</option>`).join('')}
       </select></div>
     <div class="form-field"><label>Startdatum<span class="req">*</span></label>
-      <div class="date-field-wrap"><input type="text" id="mf-start" placeholder="dd.MM.yyyy" value="${escapeAttr(m ? m.startdatum : '')}"><span class="cal-icon">📅</span></div></div>
+      <div class="date-field-wrap"><input type="text" id="mf-start" placeholder="dd.MM.yyyy" autocomplete="off" value="${escapeAttr(m && m.startdatum !== '-' ? m.startdatum : '')}"><button type="button" class="cal-btn" data-cal-for="mf-start" aria-label="Datum wählen">📅</button><input type="date" class="native-date" tabindex="-1" aria-hidden="true" data-native-for="mf-start"></div></div>
     <div class="form-field"><label>Fälligkeitsdatum<span class="req">*</span></label>
-      <div class="date-field-wrap"><input type="text" id="mf-due" placeholder="dd.MM.yyyy" value="${escapeAttr(m ? m.faelligkeitsdatum : '')}"><span class="cal-icon">📅</span></div></div>
+      <div class="date-field-wrap"><input type="text" id="mf-due" placeholder="dd.MM.yyyy" autocomplete="off" value="${escapeAttr(m && m.faelligkeitsdatum !== '-' ? m.faelligkeitsdatum : '')}"><button type="button" class="cal-btn" data-cal-for="mf-due" aria-label="Datum wählen">📅</button><input type="date" class="native-date" tabindex="-1" aria-hidden="true" data-native-for="mf-due"></div></div>
+    <div class="form-field"><label>Umsetzungszeitraum</label>
+      <input type="text" id="mf-zeitraum" readonly tabindex="-1" placeholder="Wird aus Start- und Fälligkeitsdatum berechnet" value="${escapeAttr(m ? fixDash(m.umsetzungszeitraum) : '')}"></div>
     <div class="form-field"><label>Budget in CHF<span class="req">*</span></label>
-      <input type="text" id="mf-budget" placeholder="Budget in CHF" value="${escapeAttr(m && m.budget !== '-' ? m.budget : '')}"></div>
+      <input type="text" id="mf-budget" inputmode="numeric" placeholder="Budget in CHF (ganze Zahl)" autocomplete="off" value="${escapeAttr(m && m.budget !== '-' ? String(parseChfAmount(m.budget) ?? '') : '')}"></div>
     <div class="form-field"><label>Verantwortlichkeit</label>
-      <div class="contact-select-row">
-        ${personSelect('mf-verantwortlichkeit', m ? m.verantwortlichkeit : '')}
-        <button type="button" class="btn-square" id="mf-add-contact" title="Neuen Kontakt erfassen">+</button>
-      </div></div>
+      ${personSelect('mf-verantwortlichkeit', m ? m.verantwortlichkeit : '')}</div>
     <div class="form-field"><label>Weitere Bemerkungen</label>
       <textarea id="mf-bemerkungen" placeholder="Stand der Massnahme...">${escapeHtml(m && m.bemerkungen !== '-' ? m.bemerkungen : '')}</textarea></div>
 
@@ -2944,6 +3128,116 @@ function renderMassnahmeFormPanel(p, isEdit) {
       <button class="btn btn-primary" id="btn-save">Speichern</button>
     </div>
   `;
+}
+
+/* ---------------------- MASSNAHME-FORMULAR: VALIDIERUNG & DATEPICKER ---------------------- */
+const MF_FIELDS = ['mf-name', 'mf-beschreibung', 'mf-ausepa', 'mf-handlungsfeld', 'mf-aktivitaetsbereich', 'mf-start', 'mf-due', 'mf-budget'];
+const MF_DATE_MSG = 'Ungültiges Datum. Format: dd.MM.yyyy (z. B. 31.03.2027).';
+const MF_BUDGET_MSG = 'Nur ganze Zahlen erlaubt (keine Dezimalstellen, Buchstaben oder Sonderzeichen).';
+function parseCHDate(str) {
+  const mt = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(String(str).trim());
+  if (!mt) return null;
+  const d = new Date(+mt[3], +mt[2] - 1, +mt[1]);
+  return d.getFullYear() === +mt[3] && d.getMonth() === +mt[2] - 1 && d.getDate() === +mt[1] ? d : null;
+}
+function dateToIso(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+// Umsetzungszeitraum wird immer aus Start- und Fälligkeitsdatum berechnet: "2026" oder "2025–2028".
+function umsetzungszeitraumFor(sd, dd) {
+  if (!sd || !dd) return '-';
+  const y1 = sd.getFullYear(), y2 = dd.getFullYear();
+  return y1 === y2 ? String(y1) : `${y1}–${y2}`;
+}
+function validateMassnahmeForm() {
+  const val = id => document.getElementById(id).value.trim();
+  const errs = [];
+  const req = (id, msg) => { if (!val(id)) { errs.push({ id, msg: msg || 'Dieses Feld ist erforderlich.' }); return false; } return true; };
+  req('mf-name'); req('mf-beschreibung');
+  if (!val('mf-ausepa') || val('mf-ausepa') === '-') errs.push({ id: 'mf-ausepa', msg: 'Bitte Ja oder Nein wählen.' });
+  req('mf-handlungsfeld', 'Bitte ein Handlungsfeld auswählen.');
+  req('mf-aktivitaetsbereich', 'Bitte einen Aktivitätsbereich auswählen.');
+  let sd = null, dd = null;
+  if (req('mf-start')) { sd = parseCHDate(val('mf-start')); if (!sd) errs.push({ id: 'mf-start', msg: MF_DATE_MSG }); }
+  if (req('mf-due')) { dd = parseCHDate(val('mf-due')); if (!dd) errs.push({ id: 'mf-due', msg: MF_DATE_MSG }); }
+  if (sd && dd && dd <= sd) errs.push({ id: 'mf-due', msg: 'Das Fälligkeitsdatum muss nach dem Startdatum liegen.' });
+  if (req('mf-budget') && !/^\d+$/.test(val('mf-budget'))) errs.push({ id: 'mf-budget', msg: MF_BUDGET_MSG });
+  return errs;
+}
+function clearMassnahmeFieldError(id) {
+  const input = document.getElementById(id);
+  const field = input && input.closest('.form-field');
+  if (!field) return;
+  field.classList.remove('has-error');
+  input.removeAttribute('aria-invalid');
+  const msg = field.querySelector('.field-error-msg');
+  if (msg) msg.remove();
+}
+function showMassnahmeFormErrors(errs, noFocus) {
+  MF_FIELDS.forEach(clearMassnahmeFieldError);
+  errs.forEach(e => {
+    const input = document.getElementById(e.id);
+    const field = input.closest('.form-field');
+    field.classList.add('has-error');
+    input.setAttribute('aria-invalid', 'true');
+    const msg = document.createElement('div');
+    msg.className = 'field-error-msg';
+    msg.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg><span></span>';
+    msg.querySelector('span').textContent = e.msg;
+    field.appendChild(msg);
+  });
+  if (!errs.length || noFocus) return;
+  const first = document.getElementById(errs[0].id);
+  const target = first.type === 'hidden' ? first.closest('.form-field') : first;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (first.type !== 'hidden') first.focus();
+  toast(errs.length === 1 ? 'Bitte die markierte Eingabe korrigieren.' : `Bitte ${errs.length} markierte Eingaben korrigieren.`);
+}
+function bindMassnahmeFormValidation() {
+  ['mf-name', 'mf-beschreibung', 'mf-ausepa', 'mf-handlungsfeld', 'mf-aktivitaetsbereich'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => clearMassnahmeFieldError(id));
+    el.addEventListener('change', () => clearMassnahmeFieldError(id));
+  });
+  // Budget: nur Ziffern; unzulässige Zeichen werden entfernt und mit Hinweis quittiert
+  const budget = document.getElementById('mf-budget');
+  budget.addEventListener('input', () => {
+    const cleaned = budget.value.replace(/\D/g, '');
+    if (cleaned !== budget.value) {
+      budget.value = cleaned;
+      MF_FIELDS.forEach(clearMassnahmeFieldError);
+      showMassnahmeFormErrors([{ id: 'mf-budget', msg: MF_BUDGET_MSG }], true);
+    } else clearMassnahmeFieldError('mf-budget');
+  });
+  // Datum: Handeingabe oder Kalender (nativer Datepicker über verstecktes date-Feld); Fälligkeit frühestens Tag nach Start
+  const startEl = document.getElementById('mf-start'), dueEl = document.getElementById('mf-due');
+  const dueNative = document.querySelector('[data-native-for="mf-due"]');
+  const zeitraumEl = document.getElementById('mf-zeitraum');
+  const syncZeitraum = () => { zeitraumEl.value = fixDash(umsetzungszeitraumFor(parseCHDate(startEl.value), parseCHDate(dueEl.value))); };
+  const syncMin = () => {
+    syncZeitraum();
+    const sd = parseCHDate(startEl.value);
+    if (sd) { sd.setDate(sd.getDate() + 1); dueNative.min = dateToIso(sd); } else dueNative.removeAttribute('min');
+  };
+  [startEl, dueEl].forEach(el => {
+    el.addEventListener('input', () => { clearMassnahmeFieldError(el.id); if (el === startEl) clearMassnahmeFieldError('mf-due'); syncMin(); });
+    el.addEventListener('blur', () => { const d = parseCHDate(el.value); if (d) el.value = formatDate(d); });
+  });
+  document.querySelectorAll('[data-cal-for]').forEach(btn => {
+    const text = document.getElementById(btn.dataset.calFor);
+    const nat = document.querySelector(`[data-native-for="${btn.dataset.calFor}"]`);
+    btn.addEventListener('click', () => {
+      syncMin();
+      const d = parseCHDate(text.value);
+      nat.value = d ? dateToIso(d) : '';
+      try { nat.showPicker(); } catch (_) { nat.focus(); }
+    });
+    nat.addEventListener('change', () => {
+      if (!nat.value) return;
+      const [y, mo, d] = nat.value.split('-');
+      text.value = `${d}.${mo}.${y}`;
+      text.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+  syncMin();
 }
 
 function bindMassnahmeDetailPanel(p) {
@@ -2983,19 +3277,18 @@ function bindMassnahmeDetailPanel(p) {
     state.mdMode = isEdit ? 'view' : null;
     renderPlanungDetail();
   });
-  document.getElementById('mf-add-contact').addEventListener('click', () => toast('Kontakterfassung ist in diesem Prototyp nicht verfügbar.'));
+  bindMassnahmeFormValidation();
   document.getElementById('btn-save').addEventListener('click', () => {
+    const errors = validateMassnahmeForm();
+    showMassnahmeFormErrors(errors);
+    if (errors.length) return;
     const name = document.getElementById('mf-name').value.trim();
     const beschreibung = document.getElementById('mf-beschreibung').value.trim();
     const handlungsfeld = document.getElementById('mf-handlungsfeld').value;
     const aktivitaetsbereich = document.getElementById('mf-aktivitaetsbereich').value;
-    const start = document.getElementById('mf-start').value.trim();
-    const due = document.getElementById('mf-due').value.trim();
-    const budget = document.getElementById('mf-budget').value.trim();
-    if (!name || !beschreibung || !handlungsfeld || !aktivitaetsbereich || !start || !due || !budget) {
-      toast('Bitte alle Pflichtfelder (*) ausfüllen.');
-      return;
-    }
+    const start = formatDate(parseCHDate(document.getElementById('mf-start').value));
+    const due = formatDate(parseCHDate(document.getElementById('mf-due').value));
+    const budget = formatChf(Number(document.getElementById('mf-budget').value.trim()));
     const data = {
       esNr: document.getElementById('mf-esnr').value.trim() || '-',
       name, beschreibung,
@@ -3004,7 +3297,7 @@ function bindMassnahmeDetailPanel(p) {
       prioritaet: document.getElementById('mf-prioritaet').value || '-',
       startdatum: start, faelligkeitsdatum: due, budget,
       bemerkungen: document.getElementById('mf-bemerkungen').value.trim() || '-',
-      umsetzungszeitraum: String(p.jahr),
+      umsetzungszeitraum: umsetzungszeitraumFor(parseCHDate(start), parseCHDate(due)),
       verantwortlichkeit: document.getElementById('mf-verantwortlichkeit').value || '-',
       prozessstatus: m ? m.prozessstatus : 'Geplant',
       energietraeger: m ? m.energietraeger : []
@@ -3642,9 +3935,13 @@ function renderReportKontakte() {
 /* ---------------------- ZUGRIFFSVERWALTUNG ---------------------- */
 // Zugriffsrechte je Person aus der Kontaktliste: Rolle + Gemeinden, auf die die Person Zugriff hat.
 //  Admin = Kanton (alle Gemeinden) · Energieberater = Gemeinden, in denen die Person berät · Gemeinde = eigene Gemeinde · Kein Zugriff
-const ZUGRIFF_ROLLEN = ['Admin', 'Energieberater', 'Gemeinde', 'Kein Zugriff'];
-const zugriffsdaten = new Map();   // Anzeigename der Person -> { rolle, gemeinden: [] }
-const zugriffUi = { search: '', filter: 'aktiv' };
+// Eine Person kann mehrere Rollen gleichzeitig haben (z. B. Admin + Gemeinde, Gemeinde + Energieberater/in). Keine Rolle = kein Zugriff.
+const ZUGRIFF_ROLLEN = ['Admin', 'Energieberater', 'Gemeinde'];
+const ROLLE_LABEL = { 'Admin': 'Admin', 'Energieberater': 'Energieberater/in', 'Gemeinde': 'Gemeinde', 'Kein Zugriff': 'Kein Zugriff' };
+const hatRolle = (z, r) => !!z && z.rollen.includes(r);
+const rollenText = z => z.rollen.length ? ZUGRIFF_ROLLEN.filter(r => z.rollen.includes(r)).map(r => ROLLE_LABEL[r]).join(' + ') : ROLLE_LABEL['Kein Zugriff'];
+const zugriffsdaten = new Map();   // Anzeigename der Person -> { rollen: [], gemeinden: [] }  (Gemeinden gelten für Gemeinde und Energieberater/in)
+const zugriffUi = { search: '', filter: 'aktiv', sortField: 'person', sortDir: 'asc' };   // Standard: Person A–Z
 
 // Demo-Personen mit Zugriff auf Gemeinden, deren kommunale Energieplanungen in unterschiedlichen Prozessschritten stehen
 // (Grunddaten, EPA Beratung, Massnahmen, Gesuch, Nachführung): je Schritt `proSchritt` Gemeinden.
@@ -3659,14 +3956,14 @@ function gemeindenMitVerschiedenemFortschritt(eigene, proSchritt) {
   return PROZESS_TABS.flatMap(t => (gruppen[t.key] || []).slice(0, proSchritt)).sort((x, y) => x.localeCompare(y, 'de'));
 }
 function standardZugriff(c, key) {
-  if (c.email === 'julia.keller@demo.com') return { rolle: 'Energieberater', gemeinden: gemeindenMitVerschiedenemFortschritt('', 2) };      // 10 Gemeinden, je 2 pro Schritt
-  if ((c.email || '').endsWith('@lu.ch') && !istGemeindeKontakt(c)) return { rolle: 'Admin', gemeinden: [] };
-  if (istGemeindeKontakt(c)) return { rolle: 'Gemeinde', gemeinden: [String(c.organisation).replace(/^Gemeinde /, '')] };
+  if (c.email === 'julia.keller@demo.com') return { rollen: ['Energieberater'], gemeinden: gemeindenMitVerschiedenemFortschritt('', 2) };      // 10 Gemeinden, je 2 pro Schritt
+  if ((c.email || '').endsWith('@lu.ch') && !istGemeindeKontakt(c)) return { rollen: ['Admin'], gemeinden: [] };
+  if (istGemeindeKontakt(c)) return { rollen: ['Gemeinde'], gemeinden: [String(c.organisation).replace(/^Gemeinde /, '')] };
   const g = new Set();
   planungen.forEach(p => {
     if (p.epaBeratung.beratungsperson === key || p.energieplanungFelder.beraterEnergieplanung === key) p.gemeinde.split(',').forEach(x => g.add(x.trim()));
   });
-  return { rolle: g.size ? 'Energieberater' : 'Kein Zugriff', gemeinden: [...g].sort((a, b) => a.localeCompare(b, 'de')) };
+  return { rollen: g.size ? ['Energieberater'] : [], gemeinden: [...g].sort((a, b) => a.localeCompare(b, 'de')) };
 }
 function ensureZugriff() {
   contacts.forEach(c => { const key = formatContactLabel(c); if (!zugriffsdaten.has(key)) zugriffsdaten.set(key, standardZugriff(c, key)); });
@@ -3677,8 +3974,8 @@ function rollenPersonas() {
   const initialen = c => (c.vorname[0] + c.nachname[0]).toUpperCase();
   const eintrag = (key, z, rolleText) => {
     const c = contacts.find(x => formatContactLabel(x) === key);
-    const sub = z.rolle === 'Gemeinde' && z.gemeinden.length === 1 ? 'Gemeinde ' + z.gemeinden[0] : z.gemeinden.length + ' Gemeinden · ' + c.organisation;
-    return { id: slugify(key), key, role: z.rolle, rolleText, name: c.vorname + ' ' + c.nachname, sub: rolleText + ' · ' + sub, initials: initialen(c) };
+    const sub = z.rollen.length === 1 && hatRolle(z, 'Gemeinde') && z.gemeinden.length === 1 ? 'Gemeinde ' + z.gemeinden[0] : z.gemeinden.length + ' Gemeinden · ' + c.organisation;
+    return { id: slugify(key), key, role: hatRolle(z, 'Admin') ? 'Admin' : z.rollen[0], rolleText: rollenText(z), rollen: z.rollen, name: c.vorname + ' ' + c.nachname, sub: rollenText(z) + ' · ' + sub, initials: initialen(c) };
   };
   const personas = [{ id: 'admin', key: null, role: 'Admin', rolleText: 'Admin', name: 'Admin', sub: 'Kanton Luzern · alle Gemeinden', initials: 'A' }];
   const eintragPerEmail = (email, rolleText) => {
@@ -3687,7 +3984,7 @@ function rollenPersonas() {
     return key && zugriffsdaten.get(key) ? eintrag(key, zugriffsdaten.get(key), rolleText) : null;
   };
   const julia = eintragPerEmail('julia.keller@demo.com', 'Energieberater/in');
-  const beat = [...zugriffsdaten.entries()].filter(([key, z]) => z.rolle === 'Energieberater' && (!julia || key !== julia.key))
+  const beat = [...zugriffsdaten.entries()].filter(([key, z]) => hatRolle(z, 'Energieberater') && (!julia || key !== julia.key))
     .sort((x, y) => y[1].gemeinden.length - x[1].gemeinden.length || x[0].localeCompare(y[0], 'de'))[0];
   if (beat) personas.push(eintrag(beat[0], beat[1], 'Energieberater/in'));
   if (julia) personas.push(julia);
@@ -3699,17 +3996,22 @@ function rollenPersonas() {
 function planungDarfSehen(p) {
   if (state.role === 'Admin') return true;
   const z = state.benutzer ? zugriffsdaten.get(state.benutzer) : null;
-  if (!z || z.rolle === 'Kein Zugriff') return false;
-  if (z.rolle === 'Admin') return true;
+  if (!z || !z.rollen.length) return false;
+  if (hatRolle(z, 'Admin')) return true;
   const erlaubt = new Set(z.gemeinden);
   return p.gemeinde.split(',').some(g => erlaubt.has(g.trim()));
 }
 function zugriffGemeindenText(z) {
-  if (z.rolle === 'Admin') return 'Alle Gemeinden';
-  if (z.rolle === 'Kein Zugriff' || !z.gemeinden.length) return '–';
+  if (hatRolle(z, 'Admin')) return 'Alle Gemeinden';
+  if (!z.rollen.length || !z.gemeinden.length) return '–';
   return z.gemeinden.length <= 3 ? z.gemeinden.join(', ') : z.gemeinden.slice(0, 3).join(', ') + ' +' + (z.gemeinden.length - 3);
 }
 
+function zugriffSortHeader(field, label) {
+  const active = zugriffUi.sortField === field;
+  const arrow = active ? (zugriffUi.sortDir === 'asc' ? '▲' : '▼') : '↕';
+  return `<th data-zsort="${field}">${label} <span class="sort-arrow">${arrow}</span></th>`;
+}
 function renderZugriff() {
   if (state.role !== 'Admin') {
     const z = state.benutzer ? zugriffsdaten.get(state.benutzer) : null;
@@ -3721,14 +4023,23 @@ function renderZugriff() {
   ensureZugriff();
   const q = zugriffUi.search.trim().toLowerCase();
   const rows = contacts.map(c => ({ c, key: formatContactLabel(c), z: zugriffsdaten.get(formatContactLabel(c)) }))
-    .filter(r => zugriffUi.filter === 'alle' ? true : zugriffUi.filter === 'aktiv' ? r.z.rolle !== 'Kein Zugriff' : r.z.rolle === zugriffUi.filter)
+    .filter(r => zugriffUi.filter === 'alle' ? true : zugriffUi.filter === 'aktiv' ? r.z.rollen.length > 0 : zugriffUi.filter === 'Kein Zugriff' ? r.z.rollen.length === 0 : hatRolle(r.z, zugriffUi.filter))
     .filter(r => !q || (r.c.vorname + ' ' + r.c.nachname + ' ' + r.c.organisation + ' ' + r.z.gemeinden.join(' ')).toLowerCase().includes(q))
-    .sort((a, b) => (a.c.nachname + a.c.vorname).localeCompare(b.c.nachname + b.c.vorname, 'de'));
-  const zaehl = r => [...zugriffsdaten.values()].filter(z => z.rolle === r).length;
+    .sort((a, b) => {
+      const dir = zugriffUi.sortDir === 'desc' ? -1 : 1;
+      const wert = r => zugriffUi.sortField === 'organisation' ? (r.c.organisation || '')
+        : zugriffUi.sortField === 'rolle' ? (r.z.rollen.length ? rollenText(r.z) : '')
+        : zugriffUi.sortField === 'gemeinden' ? (r.z.rollen.length ? (hatRolle(r.z, 'Admin') ? 'Alle Gemeinden' : r.z.gemeinden.join(', ')) : '')
+        : r.c.vorname + ' ' + r.c.nachname;
+      const wa = wert(a), wb = wert(b);
+      if (!wa !== !wb) return wa ? -1 : 1;   // leere Werte stehen immer am Schluss
+      return wa.localeCompare(wb, 'de', { numeric: true, sensitivity: 'base' }) * dir || (a.c.vorname + ' ' + a.c.nachname).localeCompare(b.c.vorname + ' ' + b.c.nachname, 'de');
+    });
+  const zaehl = r => [...zugriffsdaten.values()].filter(z => hatRolle(z, r)).length;
   const optF = (v, l) => `<option value="${v}"${zugriffUi.filter === v ? ' selected' : ''}>${l}</option>`;
   $panel.innerHTML = `
     <h2 class="panel-title">Zugriffsverwaltung</h2>
-    <p class="zugriff-intro">Wer auf welche Energieplanungen zugreifen darf. Energieberater/innen sehen nur die Planungen ihrer freigeschalteten Gemeinden. Zurzeit: ${zaehl('Admin')} Admins · ${zaehl('Energieberater')} Energieberater/innen · ${zaehl('Gemeinde')} Gemeindekontakte.</p>
+    <p class="zugriff-intro">Wer auf welche Energieplanungen zugreifen darf. Energieberater/innen sehen nur die Planungen ihrer freigeschalteten Gemeinden. Eine Person kann mehrere Rollen haben. Zurzeit: ${zaehl('Admin')} Admins · ${zaehl('Energieberater')} Energieberater/innen · ${zaehl('Gemeinde')} Gemeindekontakte.</p>
     <div class="toolbar-row">
       <div class="search-input-wrap${zugriffUi.search ? ' has-value' : ''}">
         <input type="text" id="zugriff-search" placeholder="Person, Organisation, Gemeinde..." value="${escapeAttr(zugriffUi.search)}">
@@ -3736,18 +4047,18 @@ function renderZugriff() {
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
       </div>
       <select class="select-input" id="zugriff-filter">
-        ${optF('aktiv', 'Mit Zugriff')}${optF('Admin', 'Admin')}${optF('Energieberater', 'Energieberater')}${optF('Gemeinde', 'Gemeinde')}${optF('Kein Zugriff', 'Kein Zugriff')}${optF('alle', 'Alle Personen')}
+        ${optF('aktiv', 'Mit Zugriff')}${optF('Admin', 'Admin')}${optF('Energieberater', 'Energieberater/in')}${optF('Gemeinde', 'Gemeinde')}${optF('Kein Zugriff', 'Kein Zugriff')}${optF('alle', 'Alle Personen')}
       </select>
     </div>
     ${rows.length === 0 ? '<div class="empty-state">Keine Personen gefunden.</div>' : `
     <div class="table-scroll"><table class="data-table zugriff-table">
-      <thead><tr><th>Person</th><th>Organisation</th><th>Rolle</th><th>Gemeinden</th><th class="col-actions"><span class="sr-only">Aktionen</span></th></tr></thead>
+      <thead><tr>${zugriffSortHeader('person', 'Person')}${zugriffSortHeader('organisation', 'Organisation')}${zugriffSortHeader('rolle', 'Rolle')}${zugriffSortHeader('gemeinden', 'Gemeinden')}<th class="col-actions"><span class="sr-only">Aktionen</span></th></tr></thead>
       <tbody>${rows.map(r => `
         <tr data-zugriff-key="${escapeAttr(r.key)}">
           <td class="zugriff-name">${escapeHtml(r.c.vorname + ' ' + r.c.nachname)}</td>
           <td>${escapeHtml(r.c.organisation || '–')}</td>
-          <td><span class="rolle-pill rolle-${slugify(r.z.rolle)}">${escapeHtml(r.z.rolle)}</span></td>
-          <td title="${escapeAttr(r.z.rolle === 'Admin' ? 'Alle Gemeinden' : r.z.gemeinden.join(', '))}">${escapeHtml(zugriffGemeindenText(r.z))}</td>
+          <td>${(r.z.rollen.length ? ZUGRIFF_ROLLEN.filter(x => r.z.rollen.includes(x)) : ['Kein Zugriff']).map(x => `<span class="rolle-pill rolle-${slugify(x)}">${escapeHtml(ROLLE_LABEL[x])}</span>`).join(' ')}</td>
+          <td title="${escapeAttr(hatRolle(r.z, 'Admin') ? 'Alle Gemeinden' : r.z.gemeinden.join(', '))}">${escapeHtml(zugriffGemeindenText(r.z))}</td>
           <td class="col-actions"><button type="button" class="row-action" data-zugriff-edit="${escapeAttr(r.key)}" title="Zugriff bearbeiten" aria-label="Zugriff bearbeiten"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button></td>
         </tr>`).join('')}</tbody>
     </table></div>`}
@@ -3759,6 +4070,12 @@ function renderZugriff() {
     el.focus(); el.setSelectionRange(el.value.length, el.value.length);
   });
   document.getElementById('zugriff-filter').addEventListener('change', e => { zugriffUi.filter = e.target.value; renderZugriff(); });
+  $panel.querySelectorAll('[data-zsort]').forEach(th => th.addEventListener('click', () => {
+    const f = th.dataset.zsort;
+    if (zugriffUi.sortField === f) zugriffUi.sortDir = zugriffUi.sortDir === 'asc' ? 'desc' : 'asc';
+    else { zugriffUi.sortField = f; zugriffUi.sortDir = 'asc'; }
+    renderZugriff();
+  }));
   $panel.querySelectorAll('[data-zugriff-key]').forEach(tr => tr.addEventListener('click', () => openZugriffDialog(tr.dataset.zugriffKey)));
 }
 
@@ -3771,13 +4088,20 @@ function openZugriffDialog(key) {
   overlay.className = 'modal-overlay';
   overlay.id = 'zugriff-dialog';
   overlay.innerHTML = `
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="zg-title">
-      <h3 id="zg-title">Zugriff bearbeiten</h3>
-      <p class="zg-person"><strong>${escapeHtml(c.vorname + ' ' + c.nachname)}</strong><br><span class="muted">${escapeHtml(c.organisation || '')} · ${escapeHtml(c.email || '')}</span></p>
-      <div class="form-field"><label for="zg-rolle">Rolle</label>
-        <select id="zg-rolle" class="select-input">${ZUGRIFF_ROLLEN.map(r => `<option${r === z.rolle ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
+    <div class="modal-box zg-box" role="dialog" aria-modal="true" aria-labelledby="zg-title">
+      <div class="zg-head">
+        <span class="zg-avatar" aria-hidden="true">${escapeHtml((c.vorname[0] || '') + (c.nachname[0] || '')).toUpperCase()}</span>
+        <div class="zg-head-text">
+          <div class="zg-eyebrow">Zugriff bearbeiten</div>
+          <h3 id="zg-title">${escapeHtml(c.vorname + ' ' + c.nachname)}</h3>
+          <div class="zg-sub">${escapeHtml(c.organisation || '')} · ${escapeHtml(c.email || '')}</div>
+        </div>
+      </div>
+      <div class="form-field"><label>Rollen <span class="np-hint">(mehrere möglich)</span></label>
+        <div class="zg-rollen" id="zg-rollen">${ZUGRIFF_ROLLEN.map(r => `<label class="zg-role"><input type="checkbox" value="${r}"${z.rollen.includes(r) ? ' checked' : ''}><span class="zg-role-name">${ROLLE_LABEL[r]}</span></label>`).join('')}</div></div>
       <div class="form-field" id="zg-gemeinden-wrap">
         <label>Gemeinden mit Zugriff <span class="np-hint" id="zg-count"></span></label>
+        <div class="zg-chips" id="zg-chips"></div>
         <input type="text" id="zg-filter" placeholder="Gemeinde suchen…" class="np-filter">
         <div class="np-list" id="zg-list">${alle.map(n => `<label class="np-item" data-name="${escapeAttr(n.toLowerCase())}"><input type="checkbox" value="${escapeAttr(n)}"${z.gemeinden.includes(n) ? ' checked' : ''}> ${n}</label>`).join('')}</div>
       </div>
@@ -3788,31 +4112,46 @@ function openZugriffDialog(key) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  const $rolle = overlay.querySelector('#zg-rolle'), $wrap = overlay.querySelector('#zg-gemeinden-wrap'), $hint = overlay.querySelector('#zg-hinweis'), $count = overlay.querySelector('#zg-count');
+  const $rollen = overlay.querySelector('#zg-rollen'), $wrap = overlay.querySelector('#zg-gemeinden-wrap'), $hint = overlay.querySelector('#zg-hinweis'), $count = overlay.querySelector('#zg-count');
+  const rollenGewaehlt = () => [...$rollen.querySelectorAll('input:checked')].map(i => i.value);
   const gewaehlt = () => [...overlay.querySelectorAll('#zg-list input:checked')].map(i => i.value);
   const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
   const update = () => {
-    const r = $rolle.value;
-    $wrap.hidden = r === 'Admin' || r === 'Kein Zugriff';
-    $hint.textContent = r === 'Admin' ? 'Admins haben Zugriff auf alle Gemeinden.' : r === 'Kein Zugriff' ? 'Die Person kann sich nicht mehr anmelden bzw. sieht keine Energieplanungen.' : '';
-    const n = gewaehlt().length;
-    $count.textContent = n ? '(' + n + ' gewählt)' : '';
+    const r = rollenGewaehlt();
+    const braucht = r.includes('Energieberater') || r.includes('Gemeinde');
+    $wrap.hidden = !braucht;
+    $hint.textContent = !r.length ? 'Ohne Rolle kann sich die Person nicht anmelden bzw. sieht keine Energieplanungen.'
+      : r.includes('Admin') ? 'Admins haben Zugriff auf alle Gemeinden.' + (braucht ? ' Die gewählten Gemeinden gelten für die übrigen Rollen.' : '') : '';
+    const sel = gewaehlt();
+    $count.textContent = sel.length ? '(' + sel.length + ' gewählt)' : '';
+    // Gewählte Gemeinden als Chips: sofort sichtbar und mit × abwählbar
+    $chips.innerHTML = sel.length
+      ? sel.map(n => '<span class="zg-chip">' + escapeHtml(n) + '<button type="button" data-zg-remove="' + escapeAttr(n) + '" title="Zugriff auf ' + escapeAttr(n) + ' entfernen" aria-label="' + escapeAttr(n) + ' entfernen">×</button></span>').join('') +
+        (sel.length > 1 ? '<button type="button" class="zg-clear" id="zg-clear">Alle abwählen</button>' : '')
+      : '<span class="zg-chips-empty">Noch keine Gemeinde gewählt.</span>';
   };
+  const $chips = overlay.querySelector('#zg-chips');
+  $chips.addEventListener('click', e => {
+    const rm = e.target.closest('[data-zg-remove]');
+    if (rm) { const cb = [...overlay.querySelectorAll('#zg-list input')].find(i => i.value === rm.dataset.zgRemove); if (cb) cb.checked = false; update(); return; }
+    if (e.target.closest('#zg-clear')) { overlay.querySelectorAll('#zg-list input:checked').forEach(i => { i.checked = false; }); update(); }
+  });
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   overlay.querySelector('#zg-cancel').addEventListener('click', close);
-  $rolle.addEventListener('change', update);
+  $rollen.addEventListener('change', update);
   overlay.querySelector('#zg-list').addEventListener('change', update);
   overlay.querySelector('#zg-filter').addEventListener('input', e => {
     const q = e.target.value.trim().toLowerCase();
     overlay.querySelectorAll('#zg-list .np-item').forEach(el => { el.hidden = !!q && !el.dataset.name.includes(q); });
   });
   overlay.querySelector('#zg-save').addEventListener('click', () => {
-    const r = $rolle.value;
-    const g = r === 'Admin' || r === 'Kein Zugriff' ? [] : gewaehlt();
-    if ((r === 'Energieberater' || r === 'Gemeinde') && g.length === 0) { $hint.textContent = 'Bitte mindestens eine Gemeinde wählen.'; return; }
-    zugriffsdaten.set(key, { rolle: r, gemeinden: g });
+    const r = rollenGewaehlt();
+    const braucht = r.includes('Energieberater') || r.includes('Gemeinde');
+    const g = braucht ? gewaehlt() : [];
+    if (braucht && g.length === 0) { $hint.textContent = 'Bitte mindestens eine Gemeinde wählen.'; return; }
+    zugriffsdaten.set(key, { rollen: ZUGRIFF_ROLLEN.filter(x => r.includes(x)), gemeinden: g });
     close();
     toast('Zugriff für ' + c.vorname + ' ' + c.nachname + ' wurde gespeichert.');
     renderZugriff();
@@ -3896,8 +4235,16 @@ function karteHebeHervor(p) {
   if (!feats.length) return;
   karteListeLayer = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
     interactive: false,
-    style: { fillColor: '#ffffff', fillOpacity: 0.28, color: '#14324f', weight: 3, opacity: 0.9 }
+    style: { fill: false, color: '#14324f', weight: 4, opacity: 1 }   // nur die Grenze, die Flächenfarbe (Prozessstand) bleibt unverändert
   }).addTo(map);
+  karteListeLayer.bringToFront();
+}
+// Karte -> Tabelle: Zeile der Planung in der Übersicht hervorheben
+function planungZeileHover(id, an) {
+  document.querySelectorAll('tr[data-open-planung="' + id + '"]').forEach(row => {
+    row.classList.toggle('is-map-hover', an);
+    if (an) row.scrollIntoView({ block: 'nearest' });
+  });
 }
 // Zoomt auf die Gemeinde(n) einer Planung (bei regionalen Planungen auf die ganze Region)
 function karteZoomAufPlanung(p) {
@@ -3906,9 +4253,37 @@ function karteZoomAufPlanung(p) {
   const layers = [];
   gemeindeLayer.eachLayer(l => { if (namen.has(l.feature.properties.name)) layers.push(l); });
   if (!layers.length) return;
-  map.fitBounds(L.featureGroup(layers).getBounds().pad(0.35), { padding: [24, 24], maxZoom: 12, animate: true });
+  // Gleicher Ausschnitt wie beim Zoom auf eine Massnahme (Gemeindegrenze, Rand 24 px), damit beim Anklicken einer Massnahme nicht ein zweites Mal gezoomt wird
+  map.fitBounds(L.featureGroup(layers).getBounds(), { padding: [24, 24], animate: true });
 }
 function karteHervorhebungEnde() { if (karteListeLayer) { karteListeLayer.remove(); karteListeLayer = null; } }
+// Liste -> Karte: Massnahme per Hover betonen (ohne Auswahl und ohne Zoom). Liegt sie ausserhalb des Ausschnitts, wird die Karte nur verschoben.
+function karteMassnahmeHover(id, schieben) {
+  clearTimeout(karteHoverTimer);
+  Object.keys(karteMassLayer).forEach(k => {
+    const gewaehlt = k === state.massnahmeId;
+    karteMassLayer[k].eachLayer(l => {
+      const b = l._basis; if (!b) return;
+      if (k === id && !gewaehlt) l.setStyle({ weight: Math.max(5, (b.weight || 3) + 3), color: '#14324f', fillOpacity: 0.65, radius: (b.radius || 6) + 4 });
+      else l.setStyle({ weight: b.weight, color: b.color, fillOpacity: b.fillOpacity, radius: b.radius });
+      if (k === id && l.bringToFront) l.bringToFront();
+    });
+  });
+  if (id && schieben && karteMassLayer[id] && map.getSize().x > 0) {
+    karteHoverTimer = setTimeout(() => {
+      const ly = karteMassLayer[id]; if (!ly) return;
+      const bd = ly.getBounds && ly.getBounds();
+      if (bd && bd.isValid() && !map.getBounds().contains(bd)) map.panTo(bd.getCenter(), { animate: true });
+    }, 250);   // kurze Verzögerung, damit die Karte beim Überfahren der Liste nicht herumspringt
+  }
+}
+// Karte -> Liste: Zeile hervorheben
+function karteListeZeileHover(id, an) {
+  const row = document.querySelector('[data-open-massnahme="' + id + '"]');
+  if (!row) return;
+  row.classList.toggle('is-map-hover', an);
+  if (an) row.scrollIntoView({ block: 'nearest' });
+}
 function karteHighlightEntfernen() { if (karteHighlight) { karteHighlight.remove(); karteHighlight = null; } }
 // Zoom je Rolle: auf alle Gemeinden (bzw. Regionen), auf die die angemeldete Person Zugriff hat. Admin: ganzer Kanton.
 var karteZoomKey = null;
@@ -3925,10 +4300,12 @@ function karteZoomAufZugriff() {
     const alle = layers.length >= GEMEINDEGRENZEN_LUZERN.features.length || !layers.length;
   // Ganzer Kanton (Übersicht): so nah wie möglich, kaum Rand. Ausschnitte einzelner Gemeinden/Regionen: etwas Umgebung.
   if (alle) map.fitBounds(gemeindeLayer.getBounds(), { padding: [0, 0], animate: true });
-  else map.fitBounds(bounds.pad(0.35), { padding: [24, 24], maxZoom: 12, animate: true });
+  else map.fitBounds(bounds, { padding: [24, 24], animate: true });   // gleicher Massstab wie beim Zoom auf Planung/Massnahme
 }
 var karteHatteAuswahl = false;
 var karteMassnahmenLayer = null;
+var karteMassLayer = {};           // Massnahmen-ID -> Layer (für Hover-Hervorhebung)
+var karteHoverTimer = null;
 var karteMassId = null;          // zuletzt auf der Karte gewählte Massnahme (für Zoom beim Wechsel)
 var karteAuswahlControl = null;  // Chip «Massnahme abwählen» auf der Karte
 var karteUebersichtControl = null;  // Button «Übersicht anzeigen» auf der Karte (solange eine Energieplanung geöffnet ist)
@@ -3964,6 +4341,7 @@ function updateMassnahmenKarte() {
   };
   karteUebersichtControl.addTo(map);
   const gruppe = L.layerGroup();
+  karteMassLayer = {};
   p.massnahmen.forEach(m => {
     const g = m.geometrie;
     if (!g || !g.geometry) return;
@@ -3977,6 +4355,12 @@ function updateMassnahmenKarte() {
     });
     layer.bindTooltip('<strong>' + escapeHtml(m.name) + '</strong><div class="karte-tt-sub">' + escapeHtml(m.id + ' · ' + m.prozessstatus) + '</div>', { className: 'karte-tooltip', sticky: false });
     layer.on('click', () => { state.planungTab = 'massnahmen'; state.massnahmeId = m.id; state.mdMode = 'view'; renderPlanungDetail(); });
+    // Basisstil merken, damit die Hover-Hervorhebung sauber zurückgesetzt werden kann
+    layer.eachLayer(l => { l._basis = { weight: l.options.weight, color: l.options.color, fillOpacity: l.options.fillOpacity, radius: l.options.radius }; });
+    karteMassLayer[m.id] = layer;
+    // Hover auf der Karte hebt die Zeile in der Liste hervor
+    layer.on('mouseover', () => karteListeZeileHover(m.id, true));
+    layer.on('mouseout', () => karteListeZeileHover(m.id, false));
     layer.addTo(gruppe);
   });
   karteMassnahmenLayer = gruppe.addTo(map);
@@ -4028,10 +4412,11 @@ function initGemeindeKarte() {
       const name = f.properties.name;
       layer.bindTooltip(karteTooltipFor(name), { sticky: false, className: 'karte-tooltip', direction: 'auto', offset: [0, -4], opacity: 1 });
       layer.on('mouseover', () => {
+        const pz = karteInfoFor(name).gezeigt; if (pz) planungZeileHover(pz.id, true);
         karteHighlightEntfernen();
         karteHighlight = L.geoJSON(f, { interactive: false, style: () => karteStyleFor(f, true) }).addTo(map);
       });
-      layer.on('mouseout', () => { karteHighlightEntfernen(); });
+      layer.on('mouseout', () => { const pz = karteInfoFor(name).gezeigt; if (pz) planungZeileHover(pz.id, false); karteHighlightEntfernen(); });
       layer.on('click', () => {
         const p = karteInfoFor(name).gezeigt;
         karteHighlightEntfernen(); layer.closeTooltip();
