@@ -1187,3 +1187,199 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
   background:#fff; color:var(--blue-primary); border-color:var(--blue-primary); outline:none;
 }
 .nf-tl .nf-tl-details summary:focus-visible{box-shadow:0 0 0 3px rgba(30,110,190,.2);}
+
+/* Nachführung: schreibgeschützte Übersicht */
+.nf-uebersicht{margin-top:18px;}
+.nf-ov-row{cursor:pointer;}
+.nf-ov-row:hover{background:var(--blue-light-bg);}
+
+/* Nachführung-Übersicht kompakt: einklappbare Abschnitte, Massnahmenliste mit begrenzter Höhe */
+.nf-ov-sec{border:1px solid var(--gray-200); border-radius:var(--radius); background:#fff; margin-bottom:10px;}
+.nf-ov-sec > summary{display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; list-style:none; user-select:none;}
+.nf-ov-sec > summary::-webkit-details-marker{display:none;}
+.nf-ov-sec > summary::before{content:''; width:7px; height:7px; border-right:2px solid var(--gray-500); border-bottom:2px solid var(--gray-500); transform:rotate(-45deg); transition:transform .15s; flex:none; margin-right:2px;}
+.nf-ov-sec[open] > summary::before{transform:rotate(45deg);}
+.nf-ov-titel{font-size:14.5px; font-weight:700; color:var(--navy);}
+.nf-ov-hint{font-size:12.5px; color:var(--gray-500);}
+.nf-ov-sec > summary:hover .nf-ov-titel{color:var(--blue-primary);}
+.nf-ov-body{padding:0 14px 12px;}
+.nf-ov-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 24px;}
+@media (max-width:620px){.nf-ov-grid{grid-template-columns:1fr;}}
+.nf-ov-scroll{max-height:260px; overflow-y:auto;}
+.nf-ov-table thead th{position:sticky; top:0; background:#fff; z-index:1;}
+.nf-uebersicht .nf-historie{margin-top:4px;}
+
+.btn.nf-abbrechen{border-color:var(--gray-400); color:var(--gray-700); font-weight:600;}
+.btn.nf-abbrechen:hover{border-color:var(--red); color:var(--red-dark); background:#fff;}
+
+/* Nachführung (ruhend): Statuszeile, Zeitverlauf zugeklappt, Kacheln */
+.nf-status{display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:var(--radius); border:1px solid #bfe3cd; background:#eef9f2;}
+.nf-status.is-info{border-color:#cfe3f3; background:var(--blue-light-bg);}
+.nf-status-icon{flex:none; width:30px; height:30px; border-radius:50%; background:#2e9e5b; color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;}
+.nf-status.is-info .nf-status-icon{background:var(--blue-primary); font-size:15px; font-style:italic;}
+.nf-status-text{flex:1; min-width:0;}
+.nf-status-title{font-size:15px; font-weight:700; color:var(--navy);}
+.nf-status-sub{font-size:12.5px; color:var(--gray-600); margin-top:2px;}
+.nf-status .btn{flex:none;}
+@media (max-width:640px){.nf-status{flex-wrap:wrap;} .nf-status .btn{margin-left:44px;}}
+.nf-verlauf{margin:10px 0 0;}
+.nf-verlauf > summary{display:inline-flex; align-items:center; gap:7px; cursor:pointer; list-style:none; user-select:none; font-size:13px; font-weight:600; color:var(--blue-primary); padding:4px 0;}
+.nf-verlauf > summary::-webkit-details-marker{display:none;}
+.nf-verlauf > summary::before{content:''; width:6px; height:6px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); transition:transform .15s;}
+.nf-verlauf[open] > summary::before{transform:rotate(45deg);}
+.nf-verlauf .nf-tl{padding-top:30px;}
+.nf-tiles{display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:16px;}
+@media (max-width:640px){.nf-tiles{grid-template-columns:1fr;}}
+.nf-tile{display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; padding:12px 14px; border:1px solid var(--gray-200); border-radius:var(--radius); background:#fff; cursor:pointer; font:inherit; transition:border-color .12s, background .12s, box-shadow .12s;}
+.nf-tile:hover{border-color:var(--blue-primary);}
+.nf-tile.is-open{border-color:var(--blue-primary); background:var(--blue-light-bg); box-shadow:0 0 0 1px var(--blue-primary) inset;}
+.nf-tile-titel{font-size:12px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--gray-500);}
+.nf-tile-gross{font-size:26px; font-weight:700; color:var(--navy); line-height:1.15;}
+.nf-tile-gross small{font-size:14px; font-weight:500; color:var(--gray-600);}
+.nf-tile-sub{font-size:12.5px; color:var(--gray-700); line-height:1.4;}
+.nf-warn-text{color:var(--red-dark); font-weight:600;}
+.nf-tile-detail{margin-top:12px; padding:6px 16px 10px; border:1px solid var(--gray-200); border-radius:var(--radius); background:#fff;}
+.nf-lesen{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px 18px; padding:8px 4px 6px; font-size:13px;}
+.nf-lesen-item{display:flex; flex-direction:column; gap:1px; min-width:0; overflow-wrap:anywhere;}
+.nf-lesen-item.is-wide{grid-column:1 / -1;}
+.nf-lesen-label{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--gray-500);}
+@media (max-width:640px){.nf-lesen{grid-template-columns:1fr 1fr;}}
+
+/* Nachführung-Übersicht: Kopfzeile mit Titel links und Umschalter rechts, kompaktere Zeilen */
+.nf-ov-kopf{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:6px 0 4px;}
+.nf-ov-kopf-titel{font-size:13px; font-weight:700; color:var(--navy);}
+.nf-ov-kopf .btn-link{font-size:12.5px;}
+.nf-ov-table td, .nf-ov-table th{padding-top:6px; padding-bottom:6px;}
+.nf-ov-table td{font-size:13px;}
+
+table.data-table.massnahmen-table.nf-ov-table td, table.data-table.massnahmen-table.nf-ov-table th{padding-top:5px; padding-bottom:5px;}
+table.data-table.massnahmen-table.nf-ov-table td{line-height:1.3;}
+
+.nf-tl-details.is-offen{margin-top:30px;}
+
+/* Aktive Nachführung: Status warn, Kacheln mit Bestätigungsstand */
+.nf-status.is-warn{border-color:#f0d29a; background:#fff7e6;}
+.nf-status.is-warn .nf-status-icon{background:var(--amber-dark); font-size:17px;}
+.nf-status.is-info{border-color:#cfe3f3; background:var(--blue-light-bg);}
+.nf-tile-kopf{display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;}
+.nf-tile-pill{font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:#fdecc8; color:var(--amber-dark); white-space:nowrap;}
+.nf-tile-pill.is-done{background:#dff3e6; color:#1f7a4d;}
+.nf-tile.is-done:not(.is-open){border-color:#bfe3cd;}
+.nf-aktiv-detail{padding:4px 16px 12px;}
+.nf-aktiv-detail .nf-block{margin:0; border:none; padding:0;}
+.nf-aktiv-detail .nf-block-head h3{display:none;}
+.nf-aktiv-detail .nf-block-head{margin:0;}
+.nf-aktiv .nf-seit{margin-top:12px;}
+
+/* Kopfzeile der Bereiche entfällt (Titel steht schon in der Kachel), samt Trennlinie */
+.nf-aktiv-detail .nf-block-head{display:none;}
+
+.nf-verlauf .nf-seit{margin:8px 0 0;}
+
+/* Früherer Stand: nur auf Wunsch sichtbar (interessant für die Kontrolle, sonst nicht wichtig) */
+.nf-vorher-d{margin:-4px 0 8px;}
+.nf-vorher-d > summary{display:inline-block; cursor:pointer; list-style:none; font-size:12px; color:var(--gray-500);}
+.nf-vorher-d > summary::-webkit-details-marker{display:none;}
+.nf-vorher-d > summary:hover{color:var(--blue-primary); text-decoration:underline;}
+.nf-vorher-d .nf-vorher{margin:4px 0 0;}
+
+.nf-verlauf .nf-historie{margin-top:16px;}
+.nf-historie-titel{font-weight:700; font-size:13px; color:var(--navy);}
+.nf-historie ul{list-style:none; padding-left:0; margin-top:6px;}
+.nf-historie li{padding:5px 0; border-top:1px solid var(--gray-100);}
+
+/* Bisherige Nachführungen mit Änderungsprotokoll */
+.nf-hist-liste{list-style:none; padding:0; margin:6px 0 0;}
+.nf-hist-eintrag{border-top:1px solid var(--gray-100);}
+.nf-hist-eintrag > details > summary{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 12px; padding:7px 0; cursor:pointer; list-style:none;}
+.nf-hist-eintrag > details > summary::-webkit-details-marker{display:none;}
+.nf-hist-eintrag > details > summary::before{content:'›'; width:10px; color:var(--gray-500); font-weight:700; transition:transform .15s;}
+.nf-hist-eintrag > details[open] > summary::before{transform:rotate(90deg);}
+.nf-hist-datum{font-weight:700; color:var(--navy);}
+.nf-hist-meta{font-size:12.5px; color:var(--gray-600);}
+.nf-hist-eintrag > details > summary:hover .nf-hist-datum{color:var(--blue-primary);}
+.nf-hist-eintrag.is-laufend .nf-hist-meta{color:var(--amber-dark);}
+.nf-hist-body{padding:2px 0 12px 22px; font-size:13px;}
+.nf-chg-gruppe{margin-bottom:10px;}
+.nf-chg-titel{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--gray-500); margin-bottom:3px;}
+.nf-chg-gruppe ul{list-style:none; padding:0; margin:0;}
+.nf-chg-gruppe li{padding:3px 0;}
+.nf-chg-zeile{display:flex; gap:8px; margin-top:2px;}
+.nf-chg-lab{flex:none; width:46px; font-size:11.5px; color:var(--gray-500);}
+.nf-chg-wert{white-space:pre-line; overflow-wrap:anywhere;}
+.nf-chg-leer{color:var(--gray-500); font-size:12.5px;}
+.nf-chg-id{font-weight:600; color:var(--gray-600);}
+.nf-chg-meta{color:var(--gray-600);}
+
+.nf-chg-lab-breit{width:110px;}
+.nf-chg-pfeil{color:var(--gray-500); padding:0 2px;}
+.nf-chg-gruppe li > .nf-chg-zeile{align-items:baseline; flex-wrap:wrap;}
+
+/* Nachführung: Prüfansicht der Massnahmen (alle Felder, ausdrückliche Bestätigung) */
+.nf-pk-kopf{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:6px 0 10px;}
+.nf-pk-tools{display:inline-flex; align-items:center; gap:14px; flex-wrap:wrap;}
+.nf-ptable td, .nf-ptable th{padding-top:6px; padding-bottom:6px;}
+.nf-prow{cursor:pointer;}
+.nf-prow:hover{background:var(--blue-light-bg);}
+.nf-prow.is-aktiv{background:var(--blue-light-bg); box-shadow:inset 3px 0 0 var(--blue-primary);}
+.nf-mark-cell{width:34px; text-align:center;}
+.nf-mark{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; border:2px solid var(--gray-300); box-sizing:border-box; font-size:11px; font-weight:700; line-height:1; color:#fff;}
+.nf-mark.is-ok{background:#2e9e5b; border-color:#2e9e5b;}
+.nf-mark.is-warn{background:var(--amber-dark); border-color:var(--amber-dark);}
+.nf-mark.is-auto{border-color:transparent; color:var(--gray-400); font-size:14px;}
+.nfp-karte{margin-top:16px; padding:16px; border:1px solid var(--blue-primary); border-radius:var(--radius); background:#fff;}
+.nfp-kopf{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+.nfp-titel{display:flex; flex-direction:column; gap:1px; min-width:0;}
+.nfp-id{font-size:12px; font-weight:700; color:var(--gray-600);}
+.nfp-name{font-size:17px; font-weight:700; color:var(--navy); overflow-wrap:anywhere;}
+.nfp-status{flex:none; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#fdecc8; color:var(--amber-dark);}
+.nfp-status.is-ok{background:#dff3e6; color:#1f7a4d;}
+.nfp-zaehler{margin:4px 0 10px; font-size:12.5px; color:var(--gray-600);}
+.nfp-warn{margin:0 0 12px; padding:10px 12px; border-radius:6px; background:#fdf3f2; border:1px solid #f3c7c3; color:var(--red-dark); font-size:13px; font-weight:600;}
+.nfp-warn[hidden]{display:none;}
+.nfp-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 18px;}
+.nfp-field{margin-bottom:12px; min-width:0;}
+.nfp-field.is-wide{grid-column:1 / -1;}
+.nfp-field label{display:block; font-size:12.5px; font-weight:600; color:var(--gray-700); margin-bottom:4px;}
+.nfp-field .req{color:var(--red); margin-left:2px;}
+.nfp-field input[type=text], .nfp-field select, .nfp-field textarea{width:100%; border:1px solid var(--gray-300); border-radius:4px; padding:7px 10px; outline:none; color:var(--text); background:#fff; font:inherit; font-size:13.5px; box-sizing:border-box;}
+.nfp-field select{height:auto; min-height:36px;}
+.nfp-field textarea{resize:vertical; min-height:56px;}
+.nfp-field input:focus, .nfp-field select:focus, .nfp-field textarea:focus{border-color:var(--blue-primary);}
+.nfp-field input[readonly]{background:var(--gray-100); color:var(--gray-700);}
+.nfp-field.has-error input, .nfp-field.has-error select, .nfp-field.has-error textarea{border-color:var(--red); background:#fdf3f2;}
+.nfp-field .date-field-wrap input{padding-right:34px;}
+@media (max-width:620px){.nfp-grid{grid-template-columns:1fr;}}
+.nfp-fuss{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:6px; padding-top:12px; border-top:1px solid var(--gray-100);}
+.nfp-nav{display:flex; gap:8px;}
+.nfp-aktion{display:flex; align-items:center; gap:10px;}
+.nfp-hinweis{font-size:12.5px; color:var(--gray-600);}
+
+/* Eigener deutscher Datepicker */
+.dp-pop{position:fixed; z-index:3000; width:264px; padding:10px; background:#fff; border:1px solid var(--gray-300); border-radius:8px; box-shadow:0 8px 28px rgba(20,30,45,.22); font-size:13px; user-select:none;}
+.dp-kopf{display:flex; align-items:center; gap:2px; margin-bottom:8px;}
+.dp-titel{flex:1; text-align:center; font-weight:700; color:var(--navy);}
+.dp-nav{width:28px; height:28px; border:none; background:transparent; border-radius:6px; cursor:pointer; font-size:17px; line-height:1; color:var(--gray-700);}
+.dp-nav:hover{background:var(--gray-100); color:var(--blue-primary);}
+.dp-wt{display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-size:11px; font-weight:700; color:var(--gray-500); margin-bottom:2px;}
+.dp-tage{display:grid; grid-template-columns:repeat(7, 1fr); gap:2px;}
+.dp-tag{height:32px; border:none; background:transparent; border-radius:6px; cursor:pointer; font:inherit; font-size:13px; color:var(--text);}
+.dp-tag:hover:not(:disabled){background:var(--blue-light-bg);}
+.dp-tag.is-heute{box-shadow:inset 0 0 0 1px var(--blue-primary);}
+.dp-tag.is-gewaehlt{background:var(--blue-primary); color:#fff; font-weight:700;}
+.dp-tag:disabled{color:var(--gray-300); cursor:not-allowed;}
+.dp-fuss{display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--gray-100);}
+.dp-link{border:none; background:transparent; color:var(--blue-primary); font:inherit; font-size:13px; font-weight:600; cursor:pointer; padding:4px 6px; border-radius:4px;}
+.dp-link:hover:not(:disabled){background:var(--blue-light-bg);}
+.dp-link:disabled{color:var(--gray-300); cursor:not-allowed;}
+
+/* Massnahmenstatus «Verworfen» */
+.status-pill.status-verworfen{background:var(--gray-100); color:var(--gray-500); text-decoration:line-through;}
+.md-verworfen{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0 14px; padding:10px 12px; border-radius:var(--radius); background:var(--gray-100); border:1px dashed var(--gray-300); color:var(--gray-700); font-size:13px;}
+.md-verwerfen-row{margin:-4px 0 8px; text-align:right;}
+.md-verwerfen{font-size:12.5px; color:var(--gray-600);}
+.md-verwerfen:hover{color:var(--red-dark);}
+
+/* Importer: abgeschlossene/verworfene Massnahmen am Ende der Auswahl, gedämpft */
+.imp-opt-beendet{color:#6b7683;}
+.imp-grp-beendet{color:#6b7683; font-style:italic;}

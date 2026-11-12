@@ -21,7 +21,7 @@ Verweise auf den Code (`app.js`) nennen die Funktion, damit sich die Regel nachs
 | **Kontakt** | Person (Gemeinde oder externe Fachperson), die als Verantwortliche/r oder Berater/in zugewiesen werden kann. |
 | **Gesuch** | Fördergesuch an den Kanton, inkl. Kontoinformationen für den Förderbeitrag. |
 
-Formate: Datum `dd.MM.yyyy`. Geldbeträge als ganze Franken, Anzeige mit Apostroph als Tausendertrenner, z. B. `12'500 CHF`. Fehlende Werte werden intern als `-` gespeichert und in der Ansicht als «Noch nicht erfasst» angezeigt.
+Formate: Datum `dd.MM.yyyy`. Datumsfelder haben einen **eigenen deutschen Datepicker** (Monatsnamen auf Deutsch, Woche ab Montag, «Heute»/«Löschen»), weil der native Kalender des Browsers sonst in der Browsersprache erscheint. Geldbeträge als ganze Franken, Anzeige mit Apostroph als Tausendertrenner, z. B. `12'500 CHF`. Fehlende Werte werden intern als `-` gespeichert und in der Ansicht als «Noch nicht erfasst» angezeigt.
 
 ---
 
@@ -99,7 +99,7 @@ Ja/Nein-Fragen sind ein Umschalter mit drei Zuständen: **Ja**, **Nein**, **Kein
 | Umsetzungszeitraum | – | berechnet, nicht editierbar (siehe 3.3) |
 | Budget in CHF | ja | nur ganze Zahlen (siehe 3.4) |
 | Verantwortlichkeit | nein | Auswahl aus den Kontakten |
-| Weitere Bemerkungen | nein | Freitext |
+| Bemerkungen / aktueller Stand | nein | Freitext |
 
 Zusätzlich: **Energieträger** (Tabelle mit ID, Spezifikation, Typ, Priorität) wird nur beim Handlungsfeld «Wärme- und Kälteversorgung» angezeigt. Die **geografische Markierung** (Punkt, Linie, Fläche) wird nur angezeigt. Ein Editor dafür fehlt im Prototyp.
 
@@ -122,7 +122,9 @@ Er wird beim Speichern neu berechnet. Im Formular aktualisiert er sich live.
 - Reporting «hohes Budget»: Budget **über 100'000 CHF** (strikt grösser).
 
 ### 3.5 Status der Massnahme
-**Geplant → Umsetzung → Abschluss.** Der Status kann im Stepper der Massnahme jederzeit gesetzt werden (auch rückwärts), ohne weitere Bedingung. Eine neue Massnahme startet immer als **Geplant**.
+**Geplant → Umsetzung → Abschluss**, zusätzlich **Verworfen**. Der Status kann im Stepper der Massnahme jederzeit gesetzt werden (auch rückwärts), ohne weitere Bedingung. «Verworfen» setzt man über «Massnahme verwerfen» (mit Bestätigung), zurück geht es mit «Wieder aufnehmen» (Status «Geplant»). Eine verworfene Massnahme bleibt in der Liste und im Protokoll erhalten. In den Dropdowns (z. B. Prüfkarte der Nachführung, Massenbearbeitung, Filter) ist «Verworfen» ebenfalls wählbar. Eine neue Massnahme startet immer als **Geplant**.
+
+**«Beendet»** heisst Abschluss oder Verworfen. Beendete Massnahmen werden nicht auf überfällige Fälligkeit überwacht (Report «Überfällige Massnahmen», Warnungen) und sind in der Nachführung nur prüfpflichtig, wenn sie neu oder geändert sind. Ein Fälligkeitsdatum in der Vergangenheit ist bei ihnen erlaubt.
 
 ### 3.6 Massenbearbeitung
 Mehrere Massnahmen können markiert und gemeinsam geändert werden: Prozessstatus, Priorität oder Umsetzungszeitraum. Es braucht einen nicht leeren Wert und eine Bestätigung. Es gibt keine weitere Validierung (siehe Lücke in 3.3).
@@ -177,13 +179,44 @@ Die Meilensteindaten 2 und 4 werden vom System bei der jeweiligen Aktion auf das
 ### 4.3 Phasen
 | Phase | Bedingung | Wirkung |
 |---|---|---|
-| vorab | Status ≠ Abschluss | keine Nachführung |
+| vorab | Status nicht beendet (weder Abschluss noch Verworfen) | keine Nachführung |
 | ruhend | nächste Frist in mehr als 12 Monaten | kein Prüfformular, vorzeitiger Start möglich |
 | offen | nächste Frist innerhalb der nächsten 12 Monate | Banner «Nachführung steht an», Prüfformular aktiv |
 | fällig | Frist erreicht oder überschritten | Warnhinweis (Pill, Banner, Liste «⚠ seit N Tagen») |
 | keine | Prüfpflicht beendet (siehe 4.2 Punkt 3) | keine Nachführung |
 
 Solange die Beratung noch nicht abgeschlossen ist, zeigt der Tab Nachführung nur den Termin der ersten Nachführung (Beratungsbeginn + 4 Jahre) und einen **Link zum aktuellen Prozessschritt** (z. B. «Zum aktuellen Schritt: 3 Massnahmen →»), damit klar ist, wo es weitergeht.
+
+Wenn gerade nichts zu tun ist (Phase «ruhend» oder «keine»), zeigt der Tab Nachführung:
+- eine **Statuszeile** («Alles in Ordnung · Nächste Nachführung am …» mit Rest-Zeit, letzter Nachführung und dem Knopf «Vorzeitig nachführen»). Bei «keine»: «Keine weitere Nachführung erforderlich»,
+- den **Verlauf zugeklappt** («Verlauf anzeigen»). Darin stehen die Zeitleiste und die Liste der **bisherigen Nachführungen** mit vollständigem Änderungsprotokoll (siehe unten). Das gilt für alle Phasen,
+- eine **schreibgeschützte Übersicht als drei Kacheln**: Verantwortliche Personen (Namen), Ziele (Anzahl erfasst), Massnahmen (Anzahl, abgeschlossen, überfällig). Ein Klick öffnet genau einen Bereich darunter. Bei den Massnahmen sind standardmässig nur die nicht abgeschlossenen sichtbar («Alle anzeigen»), ein Klick auf eine Zeile klappt die Details auf und markiert die Massnahme auf der Karte,
+
+Bearbeiten und Bestätigen ist erst in der Phase «offen»/«fällig» oder bei einer vorzeitigen Nachführung möglich.
+
+**Änderungsprotokoll («Bisherige Nachführungen»):** Jede abgeschlossene Nachführung speichert den **Stand** (Verantwortliche Personen, Ziele sowie Status und alle Angaben jeder Massnahme: Name, ES-Nr., Beschreibung, Handlungsfeld, Aktivitätsbereich, Priorität, Start, Fälligkeit, Budget, Verantwortlichkeit, Bemerkungen). Die Liste zeigt pro Nachführung Datum und Anzahl der Änderungen (ohne Namen der Person); per Klick klappen die Details auf, und zwar der Vergleich mit der **vorherigen** Nachführung:
+- Personen und Ziele: Bezeichnung mit «vorher» und «neu»,
+- neue Massnahmen (mit Status), Massnahmen mit neuem Status (alt → neu), entfernte Massnahmen,
+- **geänderte Massnahmenangaben**: je Massnahme die geänderten Felder (z. B. Fälligkeit, Budget, Beschreibung) mit altem und neuem Wert.
+
+Zuoberst steht, sofern es Änderungen gibt, der laufende Stand «Seit <Datum der letzten Nachführung>, noch nicht nachgeführt» mit den bisherigen Änderungen. Bei der ersten Nachführung gibt es keinen Vergleich, es steht nur der Ausgangsstand. Bei Altdaten ohne gespeicherten Stand («Details nicht gespeichert») fehlt das Protokoll. Der Umsetzungszeitraum wird nicht einzeln protokolliert, weil er sich aus Start und Fälligkeit berechnet. Bei Nachführungen, die vor der Einführung der Massnahmenangaben im Stand gespeichert wurden, fehlt der Vergleich der Massnahmenangaben.
+
+**Aktive Nachführung (Phase «offen», «fällig» oder vorzeitig gestartet):** gleiches Layout wie oben, aber zum Bearbeiten:
+- Statuszeile: «Nachführung fällig seit …» (Warnfarbe), «Nachführung fällig am …» oder «Vorzeitige Nachführung» (mit Knopf «Vorzeitige Nachführung abbrechen»). Der Verlauf ist zugeklappt. Im aufgeklappten Verlauf steht auch «Seit der letzten Nachführung …» (Zusammenfassung der Änderungen), weil die Information interessant, aber nicht wichtig ist.
+- Drei Kacheln mit **Bestätigungsstand** («✓ Bestätigt» bzw. «Zu prüfen»): Verantwortliche Personen, Ziele, Massnahmen (x von y bestätigt, überfällige in Rot). Darunter ist immer genau ein Bereich offen. Vorbelegt ist der erste noch nicht bestätigte Bereich. Nach dem Bestätigen eines Bereichs springt die Auswahl automatisch zum nächsten offenen. Ein Klick auf die offene Kachel schliesst sie.
+- Die Regeln zum Prüfen und Bestätigen sowie zum Abschliessen bleiben wie in 4.4. «Nachführung abschliessen» (Fusszeile) ist erst aktiv, wenn alle drei Bereiche bestätigt sind.
+
+**Prüfung der Massnahmen in der aktiven Nachführung:** Der Benutzer muss jede zu prüfende Massnahme mit **allen Feldern** ansehen und **ausdrücklich bestätigen**. Das Frontend stellt das so sicher:
+- Die Kachel «Massnahmen» zeigt eine kompakte Liste (Markierung ✓ bestätigt, ! Fälligkeit überfällig, leer = noch zu prüfen) und darunter eine **Prüfkarte** der gewählten Massnahme mit allen Feldern auf einmal: Name, ES-Nr., Massnahme aus EPA, Beschreibung, Handlungsfeld, Aktivitätsbereich, Priorität, Prozessstatus, Start, Fälligkeit, Umsetzungszeitraum (berechnet), Budget, Verantwortlichkeit, Bemerkungen. Es gibt kein Aufklappen mehr. Mit «Vorherige/Nächste» oder per Klick auf die Liste wechselt man die Massnahme.
+- Eine Massnahme gilt nur nach Klick auf «Geprüft, bestätigen» als bestätigt. Es gibt **keine** automatische Bestätigung durch Anklicken, Ändern, CSV-Import oder «Alle bestätigen» (entfernt). Nach dem Bestätigen springt die Ansicht zur nächsten noch offenen Massnahme.
+- Beim Bestätigen werden die Angaben geprüft wie im Massnahmenformular: Pflichtfelder (Name, Beschreibung, Massnahme aus EPA, Handlungsfeld, Aktivitätsbereich, Start, Fälligkeit, Budget), gültige Daten, Fälligkeit nach dem Start, Budget als ganze Zahl. Fehler werden am Feld angezeigt, und die Massnahme bleibt offen.
+- **Fälligkeit in der Vergangenheit:** Liegt sie vor heute und ist der Status nicht «Abschluss», zeigt die Karte eine rote Warnung, und die Massnahme kann nicht bestätigt werden. Der Benutzer muss das Datum anpassen oder den Status auf «Abschluss» setzen. Das gilt lückenlos: Eine Massnahme zählt nur dann als bestätigt, solange ihre Fälligkeit nicht in der Vergangenheit liegt. Wird eine bestätigte Massnahme später überfällig oder ihr Datum in die Vergangenheit geändert, ist sie wieder «zu prüfen» und «Nachführung abschliessen» bleibt gesperrt. Entsprechend gilt für Dummydaten: Nicht abgeschlossene Massnahmen einer bereits nachgeführten Planung haben nie eine Fälligkeit vor dem Datum der letzten Nachführung.
+- Änderungen werden sofort gespeichert. Jede Änderung setzt die Massnahme wieder auf «noch nicht bestätigt».
+- **Neue Massnahmen** können direkt in der Nachführung erfasst werden («Neue Massnahme» über der Liste), ohne den Tab zu verlassen. Es erscheint eine leere Prüfkarte (Status «Geplant»). Alle Pflichtangaben wie im Massnahmenformular müssen ausgefüllt und die Massnahme bestätigt werden, sonst lässt sich die Nachführung nicht abschliessen. Eine in dieser Nachführung erfasste Massnahme kann bis zum Abschluss wieder verworfen (gelöscht) werden. Sie erscheint im Änderungsprotokoll als «Neue Massnahme».
+- Beendete (abgeschlossene oder verworfene), unveränderte Massnahmen müssen nicht bestätigt werden (in der Liste mit «–» markiert, nur über «Alle anzeigen» sichtbar; in den Kacheln als «beendet» gezählt). Eine Änderung macht sie wieder prüfpflichtig.
+- «Nachführung abschliessen» wird erst aktiv, wenn alle zu prüfenden Massnahmen so bestätigt sind (zusätzlich zu Personen und Zielen).
+
+**Regel «Im Tab bleiben»:** Wer sich im Tab Nachführung befindet, bleibt dort. Ein Klick auf eine Massnahme (in der Übersicht, in der Prüfliste oder auf der Karte) öffnet deren Details innerhalb der Nachführung und wechselt **nicht** in den Tab Massnahmen. Gewechselt wird nur über die Tabs oben.
 
 Eine **vorzeitige Nachführung** ist in der Phase «ruhend» jederzeit startbar.
 
@@ -195,9 +228,9 @@ Zu bestätigen sind:
 
 «Nachführung abschliessen» ist nur aktiv, wenn alles bestätigt ist.
 
-Zu prüfen sind Massnahmen, die (a) noch nicht abgeschlossen sind, (b) seit der letzten Nachführung neu oder im Status geändert wurden oder (c) in dieser Nachführung bereits geändert/importiert wurden. Unveränderte, abgeschlossene Massnahmen gelten als automatisch bestätigt.
+Zu prüfen sind Massnahmen, die (a) noch nicht abgeschlossen sind, (b) seit der letzten Nachführung neu oder im Status geändert wurden oder (c) in dieser Nachführung bereits geändert/importiert wurden. Unveränderte, abgeschlossene Massnahmen müssen nicht bestätigt werden. Die Bestätigung einer Massnahme erfolgt ausschliesslich ausdrücklich in der Prüfkarte (siehe Abschnitt 4.3).
 
-Änderungen an Verantwortlichen Personen, Zielen und Massnahmen werden **sofort gespeichert**. Eine Änderung an einer Massnahme bestätigt sie zugleich. Eine Person unter «Verantwortliche Personen», die nicht mehr in den Kontakten existiert, wird mit Warnung markiert.
+Änderungen an Verantwortlichen Personen, Zielen und Massnahmen werden **sofort gespeichert**. Eine Änderung an einer Massnahme bestätigt sie **nicht**, sie setzt sie auf «noch nicht bestätigt». Hat sich ein Wert seit der letzten Nachführung geändert, erscheint darunter nur ein dezenter Hinweis «geändert seit <Datum> · früheren Stand anzeigen». Der frühere Wert (durchgestrichen) ist erst nach einem Klick sichtbar. Eine Person unter «Verantwortliche Personen», die nicht mehr in den Kontakten existiert, wird mit Warnung markiert.
 
 Beim Abschluss wird ein Protokolleintrag geschrieben: Datum, Benutzer, Anzahl geänderter Personen/Ziele, Anzahl Massnahmen, Momentaufnahme des Stands (Grundlage für «Seit der letzten Nachführung»). Danach beginnt ein neuer, ungeprüfter Zyklus und die nächste Frist wird nach 4.2 berechnet.
 
@@ -208,15 +241,14 @@ Dreistufig: **Datei → Zuordnung → Zusammenfassung**.
 
 - Spalten: ES-Nr., Massnahme (Pflicht), Beschreibung, Status, Bemerkung. Trennzeichen `;` oder `,` (automatisch erkannt). Zeilen ohne Massnahmenname werden ignoriert.
 - Statuswerte: `geplant`, `umsetzung`/`in umsetzung`, `abschluss`/`abgeschlossen`/`erledigt` (Gross-/Kleinschreibung egal), sonst leer.
-- **Automatische Zuordnung** zu einer bestehenden Massnahme: zuerst über die ES-Nr., sonst über den Namen (ohne Gross-/Kleinschreibung). Jede Zeile kann manuell neu zugeordnet werden: *Neue Massnahme anlegen*, *Nicht importieren* oder *Bestehende Massnahme überschreiben*.
-- **Überschreiben:** Name, ES-Nr., Beschreibung, Status und Bemerkung werden aus der Datei übernommen. **Leere Felder in der Datei lassen den bisherigen Wert unverändert.**
+- **Automatische Zuordnung** zu einer bestehenden Massnahme: zuerst über die ES-Nr., sonst über den Namen (ohne Gross-/Kleinschreibung). Jede Zeile kann manuell neu zugeordnet werden (in der Auswahl stehen zuerst die offenen Massnahmen, abgeschlossene und verworfene getrennt am Ende und mit Markierung «✓ Abgeschlossen» bzw. «✕ Verworfen»): *Neue Massnahme anlegen*, *Nicht importieren* oder *Bestehende Massnahme aktualisieren*.
+- **Aktualisieren:** Name, ES-Nr., Beschreibung, Status und Bemerkung werden aus der Datei übernommen. **Leere Felder in der Datei lassen den bisherigen Wert unverändert.**
 - **Neue Massnahmen** erhalten Status Geplant (oder den Status aus der Datei), «Massnahme aus EPA» = Nein, alle übrigen Felder leer (`-`).
 - **Nicht in der Datei enthaltene, noch nicht abgeschlossene Massnahmen** bekommen eine Aktion pro Massnahme:
   - *Unverändert lassen* (Standard),
   - *Als abgeschlossen markieren* (Status Abschluss),
-  - *Verworfen* (die Massnahme wird aus der Planung **entfernt**).
-- Jede importierte oder geänderte Massnahme gilt in der Nachführung als geprüft.
-- **Hinweis / Lücke:** «Verworfen» löscht die Massnahme. Es gibt (noch) keinen Massnahmenstatus «Verworfen». Soll die Massnahme erhalten bleiben, braucht es einen neuen Status (betrifft Stepper, Filter, Reports).
+  - *Verworfen* (der Status wird auf «Verworfen» gesetzt, die Massnahme bleibt erhalten).
+- Jede importierte oder geänderte Massnahme gilt in der Nachführung als **zu prüfen** und muss in der Prüfkarte bestätigt werden (neue Massnahmen sind unvollständig und müssen dabei ergänzt werden).
 
 ---
 
@@ -252,11 +284,12 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 ---
 
 ## 7. Liste der Energieplanungen
+- **Titel:** Admin sehen «Übersicht Energieplanungen», alle anderen Rollen «Meine Energieplanungen». Sieht (verantwortet) eine Person nur **eine** Energieplanung, heisst es im Singular «Meine Energieplanung». Das gilt auch für den Zurück-Link in der Detailansicht und die Gruppe im Karteninhalt (dort bleibt es bei Admin immer «Meine Energieplanungen»).
 - **Suche** über ID, Name, Jahr, Gemeinde und Regionsname.
 - **Filter** nach Prozessschritt (Grunddaten, EPA Beratung, Massnahmen, Gesuch, Nachführung).
 - **Sortierung:** Gemeinde, Jahr, Status (in Prozessreihenfolge), Termin, nächster Schritt.
 - **Hover Liste und Karte:** Fährt man in der Übersicht über eine Zeile, wird auf der Karte nur die **Grenze** der Gemeinde (bei regionalen Planungen aller Gemeinden der Region) hervorgehoben. Die Flächenfarbe (Prozessstand) ändert sich dabei nicht. Fährt man auf der Karte über eine Gemeinde, wird die zugehörige Zeile in der Liste hervorgehoben.
-- **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht.
+- **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung», …; = Anzahl erledigter Nachführungen + 1). Ist keine weitere Nachführung mehr nötig, steht nur «Nachführung». Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht.
 - **Termin-Spalte:** bei noch nicht gestarteter Beratung der *geplante Start* (überfällig, wenn in der Vergangenheit, Anzeige «seit N Tagen»), sonst die *nächste Nachführungsfrist* (bei fälligen mit Warnsymbol).
 - **Nächster Schritt:** Entwurf = «EPA Beratung starten/abschliessen», Verabschiedung = «Verabschiedung erfassen», Fördergesuch = «Fördergesuch einreichen» bzw. «Beratung abschliessen», Abschluss = «Nachführung <Jahr> abschliessen (fällig)», «… steht bald an» (Frist innerhalb eines Jahres) oder «Aktuell nichts zu tun».
 
@@ -267,7 +300,7 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 |---|---|
 | Alle Energieplanungen | Übersicht mit Gemeinde, Status, Anzahl Massnahmen |
 | EPA Masterplan | Stand der EPA-Beratung je Gemeinde (Daten aus der Masterplan-Datei) |
-| Überfällige Massnahmen | Fälligkeitsdatum **vor heute** und Status ≠ Abschluss |
+| Überfällige Massnahmen | Fälligkeitsdatum **vor heute** und Status nicht beendet (weder Abschluss noch Verworfen) |
 | Massnahmen mit hohem Budget | Budget **über 100'000 CHF** |
 | Nicht zugeordnete Kontakte | Kontakte, die weder bei einer EP (Verantwortlichkeit) noch bei einer Massnahme als Verantwortliche eingetragen sind (Vergleich über «Vorname Nachname») |
 
@@ -275,7 +308,6 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 
 ## 9. Offene Punkte / bekannte Lücken (Zusammenfassung)
 1. Massenbearbeitung und CSV-Import können den berechneten Umsetzungszeitraum umgehen (3.3).
-2. «Verworfen» im Import löscht die Massnahme, es gibt keinen Status «Verworfen» (4.5).
 3. Fachlogik der Nachführungsfrist bei Verspätung bestätigen (4.2).
 4. Keine Abhängigkeitsprüfungen beim Löschen von EP, Massnahmen und Kontakten (2.5, 3.7, 5).
 5. Keine Format-/Eindeutigkeitsprüfung bei E-Mail (Kontakte) und Gesuchs-Nr. von Hand (2.6, 5).
@@ -287,6 +319,25 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-12 | Umbenennung: Massnahmenfeld «Weitere Bemerkungen» heisst «Bemerkungen / aktueller Stand» (Abschnitt 3.1). |
+| 2026-11-12 | Neuer Massnahmenstatus «Verworfen» (Abschnitte 3.5, 4.5, 8). Importer: «Verworfen» setzt den Status statt zu löschen. |
+| 2026-11-12 | Nachführung: Fälligkeit in der Vergangenheit macht eine Massnahme wieder «zu prüfen» (lückenlos). Dummydaten: Fälligkeiten nicht abgeschlossener Massnahmen liegen nach der letzten Nachführung (Abschnitt 4.3). |
+| 2026-11-12 | Dummydaten: Alle Massnahmen haben ein Budget (alle Pflichtfelder gefüllt, wie das Massnahmenformular es verlangt). |
+| 2026-11-12 | Datepicker: eigener deutscher Kalender statt des nativen Browser-Kalenders (Abschnitt 1). |
+| 2026-11-12 | Nachführung: Massnahmen werden mit allen Feldern in einer Prüfkarte geprüft und ausdrücklich bestätigt. Fälligkeit in der Vergangenheit muss angepasst werden. Keine automatische Bestätigung mehr (Abschnitte 4.3, 4.4, 4.5). |
+| 2026-11-12 | Umbenennung: «Zeitverlauf anzeigen» heisst «Verlauf anzeigen» (Abschnitt 4.3). |
+| 2026-11-12 | Liste: Status-Spalte zeigt «n. Nachführung» im Schritt Nachführung (Abschnitt 7). |
+| 2026-11-12 | Änderungsprotokoll deckt jetzt auch Massnahmenangaben (Termine, Budget, Beschreibung u. a.) ab. Dummydaten: Planungen mit 3 bzw. 4 erledigten Nachführungen (Abschnitt 4.3). |
+| 2026-11-12 | Titel im Singular «Meine Energieplanung», wenn nur eine Energieplanung sichtbar ist (Abschnitt 7). |
+| 2026-11-12 | Titel der Planungsübersicht: «Meine Energieplanungen» für alle ausser Admin (Abschnitt 7). |
+| 2026-11-12 | Importer: «überschreiben» heisst «aktualisieren»; in der Zuordnungsliste stehen abgeschlossene und verworfene Massnahmen am Ende und sind markiert (Abschnitt 4.5). |
+| 2026-11-12 | «Bisherige Nachführungen»: vollständiges Änderungsprotokoll pro Nachführung inkl. laufendem Stand (Abschnitt 4.3). |
+| 2026-11-12 | «Bisherige Nachführungen» in den Verlauf verschoben (Abschnitt 4.3). |
+| 2026-11-12 | Früherer Stand (durchgestrichener Text) bei geänderten Personen/Zielen nur noch auf Klick sichtbar (Abschnitt 4.4). |
+| 2026-11-12 | «Seit der letzten Nachführung» in den zugeklappten Verlauf verschoben (Abschnitt 4.3). |
+| 2026-11-12 | Aktive Nachführung im gleichen Layout wie «ruhend»: Statuszeile, Verlauf zugeklappt, drei Kacheln mit Bestätigungsstand, ein Bereich offen (Abschnitt 4.3). |
+| 2026-11-12 | Nachführung (ruhend): Statuszeile, Verlauf zugeklappt, Kacheln statt langer Abschnitte; Regel «Im Tab Nachführung bleiben» bei Klick auf Massnahmen (Abschnitt 4.3). |
+| 2026-11-12 | Nachführung: schreibgeschützte Übersicht der Daten auch in der Phase «ruhend»/«keine» (Abschnitt 4.3). |
 | 2026-11-12 | Übersicht: Hover Tabelle hebt nur die Gemeindegrenze hervor, Hover Karte hebt die Tabellenzeile hervor (Abschnitt 7). |
 | 2026-11-12 | Massnahmen: Hover-Hervorhebung zwischen Liste und Karte, ohne Zoom (Abschnitt 3.7a). |
 | 2026-11-12 | Liste: Status-Spalte zeigt nur den Prozessschritt, ohne Zusatztext (Abschnitt 7). |

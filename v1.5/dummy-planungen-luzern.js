@@ -40,6 +40,12 @@
     if (zusaetzlich < 20 && statusJe[g] && statusJe[g] !== 'Abschluss') { statusJe[g] = 'Abschluss'; szenarioJe[g] = sz; zusaetzlich++; }
   });
 
+  // Planungen mit bereits mehreren erledigten Nachführungen (3. bzw. 4.), damit der Verlauf mit vielen Änderungen sichtbar ist:
+  //  review3 = 3 Nachführungen erledigt, nächste Frist in der Zukunft · review4 = 4 erledigt · faellig3 = 3 erledigt, 4. Nachführung fällig
+  [['Adligenswil', 'review3'], ['Ballwil', 'review4'], ['Altishofen', 'faellig3'], ['Buttisholz', 'review3'], ['Gisikon', 'review4']].forEach(([g, sz]) => {
+    if (statusJe[g] !== undefined) { statusJe[g] = 'Abschluss'; szenarioJe[g] = sz; }
+  });
+
   let seq = 900;
   GEMEINDEN_LUZERN.forEach(gemeinde => {
     const id = `EP-${seq++}`;
