@@ -1044,6 +1044,9 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 .fl-badge{display:flex; align-items:center; justify-content:center; width:22px; height:22px; box-sizing:border-box; border-radius:50%; border:2px solid #555; box-shadow:0 1px 3px rgba(0,0,0,.35); pointer-events:none;}
 .fl-badge svg{width:13px; height:13px;}
 .fl-badge.is-quadrat{border-radius:4px;}
+.karte-faellig{background:none; border:none;}
+.karte-faellig span{display:flex; align-items:center; justify-content:center; width:20px; height:20px; box-sizing:border-box; border-radius:50%; background:#e07a10; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.45); color:#fff; font:800 12px/1 system-ui, sans-serif; pointer-events:none;}
+.karte-faellig.is-grau span{background:#8a94a0;}
 .karte-legende-titel{font-weight:700; margin-bottom:2px; color:var(--text);}
 .karte-legende-row{display:flex; align-items:center; gap:8px;}
 .karte-legende-row i{width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.12); flex:none;}

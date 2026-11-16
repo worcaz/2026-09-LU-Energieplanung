@@ -300,6 +300,7 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 - **Sortierung:** Gemeinde, Jahr, Status (in Prozessreihenfolge), Termin, nächster Schritt.
 - **Hover Liste und Karte:** Fährt man in der Übersicht über eine Zeile, wird auf der Karte nur die **Grenze** der Gemeinde (bei regionalen Planungen aller Gemeinden der Region) hervorgehoben. Die Flächenfarbe (Prozessstand) ändert sich dabei nicht. Fährt man auf der Karte über eine Gemeinde, wird die zugehörige Zeile in der Liste hervorgehoben.
 - **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung», …; = Anzahl erledigter Nachführungen + 1). Ist keine weitere Nachführung mehr nötig, steht nur «Nachführung». Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht.
+- **Markierung auf der Übersichtskarte:** Gemeinden mit fälliger Nachführung sind orange eingefärbt, haben einen dunkelorangen Rand und über dem Gemeindenamen einen orangen «!»-Marker. Ist im Schritt «Grunddaten» der *geplante Start* der EPA-Beratung überfällig (Termin in der Vergangenheit, Beratung noch nicht gestartet), steht der «!»-Marker in **Grau**, die Fläche bleibt grau (Prozessstand «Grunddaten»). Bei regionalen Planungen erhält jede betroffene Gemeinde einen Marker. In der Detailansicht einer Planung erscheinen die Marker nur bei deren Gemeinden. Offene Frage (Fachbereich): Soll ein überfälliger geplanter Start auf der Karte überhaupt markiert werden und in welcher Form?
 - **Termin-Spalte:** bei noch nicht gestarteter Beratung der *geplante Start* (überfällig, wenn in der Vergangenheit, Anzeige «seit N Tagen»), sonst die *nächste Nachführungsfrist* (bei fälligen mit Warnsymbol).
 - **Nächster Schritt:** Entwurf = «EPA Beratung starten/abschliessen», Verabschiedung = «Verabschiedung erfassen», Fördergesuch = «Fördergesuch einreichen» bzw. «Beratung abschliessen», Abschluss = «Nachführung <Jahr> abschliessen (fällig)», «… steht bald an» (Frist innerhalb eines Jahres) oder «Aktuell nichts zu tun».
 
@@ -330,6 +331,7 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-16 | Übersichtskarte: fällige Nachführung mit oranger Fläche, Rand und «!»-Marker; überfälliger geplanter Start (Grunddaten) mit grauem «!»-Marker (Abschnitt 7). |
 | 2026-11-16 | Offene Fragen zur nicht abgeschlossenen Nachführung festgehalten (Abschnitt 4.4, Offene Punkte Nr. 8). |
 | 2026-11-16 | Nachführung: Massnahmenliste sortierbar; Klick auf Zeile scrollt zur Prüfkarte; Zähler «überfällig» an der Kachel zählt nur nicht beendete Massnahmen mit Fälligkeit vor heute (Abschnitt 4.3). |
 | 2026-11-12 | Umbenennung: Massnahmenfeld «Weitere Bemerkungen» heisst «Bemerkungen / aktueller Stand» (Abschnitt 3.1). |

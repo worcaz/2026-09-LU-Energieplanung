@@ -4789,8 +4789,8 @@ function karteStyleFor(feature, hover) {
   }
   return {
     fillColor: KARTE_FARBEN[key], fillOpacity: karteDeckkraft(hover ? 'hover' : 'normal'),
-    color: hover ? '#14324f' : info.regionalRand ? '#34506b' : '#ffffff',
-    weight: hover ? 2.5 : info.regionalRand ? 2 : 1, dashArray: info.regionalRand && !hover ? '5 3' : null
+    color: hover ? '#14324f' : key === 'warn' ? '#b45309' : info.regionalRand ? '#34506b' : '#ffffff',
+    weight: hover ? 2.5 : key === 'warn' ? 2.5 : info.regionalRand ? 2 : 1, dashArray: info.regionalRand && !hover ? '5 3' : null
   };
 }
 function karteTooltipFor(name) {
@@ -4983,6 +4983,23 @@ function updateMassnahmenKarte() {
     karteAuswahlControl.addTo(map);
   }
 }
+// Fällige Nachführung: zusätzlich zur orangen Fläche ein «!»-Marker in der Gemeindemitte (bleibt auch bei Luftbild und transparenten Flächen gut sichtbar)
+var karteFaelligMarker = [];
+function karteFaelligAktualisieren() {
+  karteFaelligMarker.forEach(m => m.remove()); karteFaelligMarker = [];
+  if (typeof GEMEINDE_BESCHRIFTUNG === 'undefined') return;
+  if (!map.getPane('faelligPane')) map.createPane('faelligPane').style.zIndex = 442;
+  const sel = karteAuswahlNamen();
+  GEMEINDE_BESCHRIFTUNG.forEach(b => {
+    if (sel && !sel.has(b.n)) return;
+    const p = karteInfoFor(b.n).gezeigt; if (!p) return;
+    // orange: Nachführung fällig · grau: geplanter Start der EPA-Beratung überfällig (Schritt «Grunddaten»)
+    const start = beratungStartFor(p), startUeberfaellig = !!start && start < new Date(new Date().setHours(0, 0, 0, 0));
+    const nachf = prozessSchrittFor(p).warn;
+    if (!nachf && !startUeberfaellig) return;
+    karteFaelligMarker.push(L.marker([b.lat, b.lon], { pane: 'faelligPane', interactive: false, keyboard: false, icon: L.divIcon({ className: 'karte-faellig' + (nachf ? '' : ' is-grau'), html: '<span title="' + (nachf ? 'Nachführung fällig' : 'Geplanter Start der EPA-Beratung überfällig') + '">!</span>', iconSize: [20, 20], iconAnchor: [10, 30] }) }).addTo(map));
+  });
+}
 function updateGemeindeKarte() {
   if (!gemeindeLayer) return;
   // Zurück aus der Detailansicht (Übersicht Energieplanungen): wieder auf alle Gemeinden mit Zugriff herauszoomen
@@ -4997,6 +5014,7 @@ function updateGemeindeKarte() {
     l.setTooltipContent(karteTooltipFor(l.feature.properties.name));
     if (sel && sel.has(l.feature.properties.name)) l.bringToFront();
   });
+  karteFaelligAktualisieren();
 }
 function initGemeindeKarte() {
   if (typeof GEMEINDEGRENZEN_LUZERN === 'undefined') return;
@@ -5326,6 +5344,8 @@ function stateToHash() {
     q.set('view', 'contact');
     if (state.contactIndex != null) q.set('contact', state.contactIndex);
   }
+  // Sortierung der Übersicht (nur wenn sie vom Standard «Gemeinde aufsteigend» abweicht)
+  if (state.tab === 'planungen' && state.view === 'list' && (state.list.sortField !== 'gemeinde' || state.list.sortDir !== 'asc')) q.set('sort', state.list.sortField + '.' + state.list.sortDir);
   if (state.tab === 'reporting' && state.reportView) q.set('report', state.reportView);
   if (state.layoutMode !== 'split') q.set('layout', state.layoutMode);
   if (state.personaId !== 'admin') q.set('user', state.personaId);
@@ -5338,6 +5358,9 @@ function applyHashToState(hash) {
   const tab = q.get('tab');
   state.tab = ['planungen', 'kontakte', 'reporting', 'zugriff'].includes(tab) ? tab : 'planungen';
   state.view = 'list';
+  const so = String(q.get('sort') || '').split('.');
+  if (['gemeinde', 'id', 'typ', 'status', 'termin', 'naechster'].includes(so[0]) && ['asc', 'desc'].includes(so[1])) { state.list.sortField = so[0]; state.list.sortDir = so[1]; }
+  else { state.list.sortField = 'gemeinde'; state.list.sortDir = 'asc'; }
   state.planungId = null; state.massnahmeId = null; state.mdMode = null; state.contactIndex = null; state.reportView = null;
   state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view'; state.planungPendingStatus = null; state.nfKontoHinweis = false;
   const pe = q.get('user') ? rollenPersonas().find(x => x.id === q.get('user')) : null;
