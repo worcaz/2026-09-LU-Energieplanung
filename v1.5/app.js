@@ -746,6 +746,7 @@ document.querySelectorAll('#version-switch [data-nav]').forEach(btn => {
 const $appBody = document.querySelector('.app-body');
 const $sidePanel = document.querySelector('.side-panel');
 let panelWidth = 840;
+var panelBreiteGesetzt = false;   // true, sobald die Breite per Splitter oder URL festgelegt wurde (dann steht sie als pw= in der URL)
 $sidePanel.style.minWidth = '0';
 $sidePanel.style.maxWidth = 'none';
 
@@ -773,6 +774,7 @@ $resizer.addEventListener('mousedown', e => {
     const min = 420;
     const max = Math.max(min, Math.round(window.innerWidth * 0.8));
     panelWidth = Math.min(max, Math.max(min, window.innerWidth - ev.clientX));
+    panelBreiteGesetzt = true;
     $sidePanel.style.width = `${panelWidth}px`;
   };
   const onMouseUp = () => {
@@ -782,6 +784,7 @@ $resizer.addEventListener('mousedown', e => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     map.invalidateSize();
+    if (typeof urlReady !== 'undefined' && urlReady) history.replaceState(null, '', stateToHash());
   };
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
@@ -996,7 +999,7 @@ function openPlanung(id, edit) {
   state.planungPendingStatus = editierbar && p ? p.status : null;
   state.massnahmeId = null;
   state.mdMode = null;
-  state.nfAktivTab = null; state.nfOv = null; state.nfPruefId = null; state.nfFehler = {};
+  state.nfAktivTab = null; state.nfOv = null; state.nfPruefId = null; state.nfFehler = {}; state.nfSort = null;
   state.collapsed = {};
   state.massList.selected.clear();
   render();
@@ -2299,6 +2302,18 @@ function nfMarkHtml(p, m) {
   return '<span class="nf-mark" title="Noch zu prüfen"></span>';
 }
 // Ausgewählte Massnahme: gewählte, sonst die erste noch nicht bestätigte
+// Angezeigte Liste der Prüfung (ggf. sortiert; ohne Sortierung in der Reihenfolge der Massnahmen)
+function nfListe(p) {
+  const basis = state.nfAlle ? p.massnahmen : nfZuPruefen(p), s = state.nfSort;
+  if (!s) return basis;
+  const dir = s.dir === 'desc' ? -1 : 1;
+  const wert = m => s.field === 'faelligkeitsdatum' ? (parseSwissDate(m.faelligkeitsdatum) || null) : String(m[s.field] || '');
+  return basis.slice().sort((a, b) => {
+    const x = wert(a), y = wert(b);
+    if (s.field === 'faelligkeitsdatum') { if (!x && !y) return 0; if (!x) return 1; if (!y) return -1; return (x - y) * dir; }
+    return String(x).localeCompare(String(y), 'de', { numeric: true }) * dir;
+  });
+}
 function nfPruefAuswahl(p) {
   const zp = nfZuPruefen(p), nf = nfState(p), liste = state.nfAlle ? p.massnahmen : zp;
   let id = state.nfPruefId;
@@ -2334,7 +2349,7 @@ function renderNachfuehrungPruefKarte(p, m, liste) {
   const verwerfen = nf.neu && nf.neu[m.id] ? '<button type="button" class="btn-link nfp-verwerfen" id="btn-nfp-verwerfen">Massnahme verwerfen</button>' : '';
   return '<div class="nfp-karte" id="nfp-karte">' +
     '<div class="nfp-kopf"><div class="nfp-titel"><span class="nfp-id">' + esc(m.id) + '</span><span class="nfp-name">' + esc(fixDash(m.name) || 'Neue Massnahme') + '</span></div>' + (inZp ? status : '') + '</div>' +
-    '<div class="nfp-zaehler">Massnahme ' + (idx + 1) + ' von ' + liste.length + ' · alle Angaben prüfen und bei Bedarf anpassen</div>' + warn +
+    '<div class="nfp-zaehler">Massnahme ' + (idx + 1) + ' von ' + liste.length + ' · alle Angaben prüfen und bei Bedarf anpassen · <button type="button" class="btn-link" id="btn-nfp-liste">↑ Zur Übersicht</button></div>' + warn +
     '<div class="nfp-grid">' +
       feld('name', 'Name', text('name'), true, true) +
       feld('esNr', 'ES-Nr.', text('esNr', 'bspw. 1.2.1')) +
@@ -2359,7 +2374,7 @@ function renderNachfuehrungPruefKarte(p, m, liste) {
 
 function renderNachfuehrungMassnahmenPruefung(p) {
   const nf = nfState(p), zp = nfZuPruefen(p), a = nfAenderungen(p), alle = !!state.nfAlle;
-  const liste = alle ? p.massnahmen : zp, selId = nfPruefAuswahl(p), sel = selId ? p.massnahmen.find(m => m.id === selId) : null;
+  const liste = nfListe(p), selId = nfPruefAuswahl(p), sel = selId ? p.massnahmen.find(m => m.id === selId) : null;
   const abgeschl = p.massnahmen.length - zp.length;
   const rows = liste.map(m => {
     const marke = a && a.neu.includes(m.id) ? ' <span class="nf-tag">neu</span>' : a && a.status.includes(m.id) ? ' <span class="nf-tag">Status geändert</span>' : '';
@@ -2373,7 +2388,7 @@ function renderNachfuehrungMassnahmenPruefung(p) {
   if (!p.massnahmen.length) return '<div class="nf-pk-kopf">' + tools + '</div><div class="empty-state">Keine Massnahmen vorhanden.</div>';
   if (!liste.length) return '<div class="nf-pk-kopf">' + badge + tools + '</div><div class="empty-state">Alle Massnahmen sind abgeschlossen und unverändert, nichts zu prüfen.</div>';
   return '<div class="nf-pk-kopf">' + badge + tools + '</div>' +
-    '<div class="table-scroll"><table class="data-table massnahmen-table nf-table nf-ptable"><thead><tr><th class="nf-mark-cell"></th><th>ID</th><th>Name</th><th>Prozessstatus</th><th>Fälligkeit</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="table-scroll"><table class="data-table massnahmen-table nf-table nf-ptable"><thead><tr><th class="nf-mark-cell"></th>' + [['id', 'ID'], ['name', 'Name'], ['prozessstatus', 'Prozessstatus'], ['faelligkeitsdatum', 'Fälligkeit']].map(([f, l]) => '<th class="nf-sort" data-nf-sort="' + f + '" title="Sortieren">' + l + ' <span class="sort-arrow">' + (state.nfSort && state.nfSort.field === f ? (state.nfSort.dir === 'asc' ? '▲' : '▼') : '↕') + '</span></th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
     (sel ? renderNachfuehrungPruefKarte(p, sel, liste) : '');
 }
 
@@ -2489,7 +2504,7 @@ function renderNachfuehrungAktiv(p, ph) {
   const reihenfolge = ['personen', 'ziele', 'massnahmen'];
   let offen = state.nfAktivTab;                       // null = automatisch der erste noch nicht bestätigte Bereich, '' = keiner
   if (offen === null || offen === undefined) offen = reihenfolge.find(k => !fertig[k]) || '';
-  const nUeber = zp.filter(m => { const d = parseSwissDate(m.faelligkeitsdatum); return d && d < jetzt; }).length;
+  const nUeber = zp.filter(nfIstUeberfaellig).length;   // gleiche Regel wie die rote Markierung in der Tabelle (Fälligkeit vor heute, nicht beendet)
   const name = v => (!v || v === '-') ? '–' : (v === KEINE_EXTERNE_BEGLEITUNG ? 'ohne externe Begleitung' : extractContactName(v));
   const nZiele = NF_FELDER.ziele.filter(f => !isEmptyRequiredValue(ef[f.key])).length;
   const kachel = (key, titel, sub) => '<button type="button" class="nf-tile' + (offen === key ? ' is-open' : '') + (fertig[key] ? ' is-done' : '') + '" data-nf-atile="' + key + '" aria-expanded="' + (offen === key) + '">' +
@@ -2581,8 +2596,22 @@ function bindPlanungNachfuehrungTab(p) {
   // ---- Prüfung der Massnahmen: Auswahl, Navigation, Felder, Bestätigung ----
   const toggle = document.getElementById('btn-nf-toggle-alle');
   if (toggle) toggle.addEventListener('click', () => { state.nfAlle = !state.nfAlle; rerender(); });
-  $panel.querySelectorAll('[data-nf-prow]').forEach(tr => tr.addEventListener('click', () => { state.nfPruefId = tr.dataset.nfProw; state.massnahmeId = tr.dataset.nfProw; state.mdMode = 'view'; rerender(); }));
-  $panel.querySelectorAll('[data-nfp-nav]').forEach(b => b.addEventListener('click', () => { if (!b.dataset.nfpNav) return; state.nfPruefId = b.dataset.nfpNav; state.massnahmeId = b.dataset.nfpNav; state.mdMode = 'view'; rerender(); }));
+  // Nach Auswahl zur Detailkarte scrollen (Karte oben im Sichtbereich)
+  const zurKarte = () => { const k = document.getElementById('nfp-karte'); if (k) k.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
+  const waehle = id => { state.nfPruefId = id; state.massnahmeId = id; state.mdMode = 'view'; rerender(); zurKarte(); };
+  $panel.querySelectorAll('[data-nf-prow]').forEach(tr => {
+    tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.title = 'Details anzeigen';
+    tr.addEventListener('click', () => waehle(tr.dataset.nfProw));
+    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); waehle(tr.dataset.nfProw); } });
+  });
+  $panel.querySelectorAll('[data-nfp-nav]').forEach(b => b.addEventListener('click', () => { if (!b.dataset.nfpNav) return; waehle(b.dataset.nfpNav); }));
+  $panel.querySelectorAll('[data-nf-sort]').forEach(th => th.addEventListener('click', () => {
+    const f = th.dataset.nfSort, s = state.nfSort;
+    state.nfSort = s && s.field === f ? { field: f, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: f, dir: 'asc' };
+    rerender();
+  }));
+  const zurListe = document.getElementById('btn-nfp-liste');
+  if (zurListe) zurListe.addEventListener('click', () => { const t = $panel.querySelector('.nf-ptable'); if (t) t.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
   if (!state.nfFehler) state.nfFehler = {};
   const feldMeldung = (el, msg) => {
     const f = el.closest('.nfp-field'); if (!f) return;
@@ -2607,6 +2636,7 @@ function bindPlanungNachfuehrungTab(p) {
     el.addEventListener('change', () => {
       const [id, key] = el.dataset.nfp.split('|');
       const m = p.massnahmen.find(x => x.id === id); if (!m) return;
+      const warZuPruefen = nfZuPruefen(p).some(x => x.id === id);
       let v = (el.value || '').trim();
       if (key === 'startdatum' || key === 'faelligkeitsdatum') {
         if (v) { const d = parseCHDate(v); if (!d) { feldMeldung(el, MF_DATE_MSG); return; } v = formatDate(d); el.value = v; }
@@ -2626,6 +2656,8 @@ function bindPlanungNachfuehrungTab(p) {
       } else feldMeldung(el, '');
       if (state.nfFehler[id]) delete state.nfFehler[id][key];
       nf.beruehrt[id] = true; nf.massnahmen[id] = false;
+      // Beendete Massnahme wird durch die Änderung prüfpflichtig (z. B. Status auf «Umsetzung»): Karte neu aufbauen, damit «Bestätigen» sofort erscheint
+      if (!warZuPruefen) { state.nfPruefId = id; rerender(); return; }
       nfRefresh(p, id);
     });
   });
@@ -2662,7 +2694,7 @@ function bindPlanungNachfuehrungTab(p) {
     }
     delete state.nfFehler[id];
     nf.beruehrt[id] = true; nf.massnahmen[id] = true;
-    const zp = nfZuPruefen(p), liste = state.nfAlle ? p.massnahmen : zp;
+    const zp = nfZuPruefen(p), liste = nfListe(p);
     const i = liste.findIndex(x => x.id === id);
     const weiter = liste.slice(i + 1).find(x => zp.some(z => z.id === x.id) && !nf.massnahmen[x.id]) || zp.find(x => !nf.massnahmen[x.id]);
     toast(id + ' wurde bestätigt.');
@@ -4707,7 +4739,8 @@ const LUZERN_CENTER = [47.0502, 8.3093];
 // Keine Hintergrundkarte: der Kanton Luzern wird mit seinen 79 Gemeinden dargestellt, eingefärbt nach Prozessstand der Energieplanung.
 const map = L.map('leaflet-map', { zoomControl: false, zoomSnap: 0.25, minZoom: 8 }).setView(LUZERN_CENTER, 10);
 map.attributionControl.setPrefix(false);
-map.attributionControl.addAttribution('Gemeindegrenzen &copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>');
+map.attributionControl.addAttribution('Gemeinde- und Kantonsgrenzen &copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>');
+map.attributionControl.addAttribution('Gebäude, Gewässer &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-Mitwirkende</a>');
 
 map.createPane('massnahmenPane').style.zIndex = 450;   // über den Gemeindeflächen (overlayPane 400), unter Tooltips
 L.control.zoom({ position: 'topright' }).addTo(map);
@@ -4721,6 +4754,9 @@ const KARTE_LEGENDE = [
   ['nachfuehrung', 'Nachführung'], ['warn', 'Nachführung fällig'], ['keine', 'Keine Energieplanung']
 ];
 const karteFilter = { kommunal: true, regional: true };
+// Luftbild (swisstopo) unter den farbigen Gemeindeflächen. Standard: an, die Flächen sind dann leicht transparent.
+const karteLuftbild = { an: true, deckkraft: 0.7 };   // deckkraft = Deckkraft der Gemeindeflächen über dem Luftbild (Regler im Karteninhalt)
+let karteLuftbildAnwenden = () => {};
 
 // Welche Planung zeigt eine Gemeinde unter dem aktuellen Filter? Kommunal hat Vorrang; regionale Zugehörigkeit wird zusätzlich gerahmt.
 function karteInfoFor(name) {
@@ -4735,6 +4771,12 @@ function karteAuswahlNamen() {
   const p = findPlanung(state.planungId);
   return p ? new Set(String(p.gemeinde).split(',').map(g => g.trim())) : null;
 }
+// Deckkraft der Gemeindeflächen: ohne Luftbild wie bisher, mit Luftbild gemäss Regler (Hover etwas deckender, damit er auffällt)
+const karteDeckkraft = (art) => {
+  if (!karteLuftbild.an) return { normal: 0.9, hover: 1, gewaehlt: 1 }[art];
+  const d = karteLuftbild.deckkraft;
+  return art === 'hover' ? Math.min(1, d + 0.15) : d;
+};
 function karteStyleFor(feature, hover) {
   const info = karteInfoFor(feature.properties.name);
   let key = 'keine';
@@ -4742,11 +4784,11 @@ function karteStyleFor(feature, hover) {
   const sel = karteAuswahlNamen();
   if (sel && !hover) {
     return sel.has(feature.properties.name)
-      ? { fillColor: KARTE_FARBEN[key], fillOpacity: 1, color: '#14324f', weight: 3, dashArray: null }
-      : { fillColor: KARTE_FARBEN[key], fillOpacity: 0.28, color: '#ffffff', weight: 1, dashArray: null };
+      ? { fillColor: KARTE_FARBEN[key], fillOpacity: karteDeckkraft('gewaehlt'), color: '#14324f', weight: 3, dashArray: null }
+      : { fillColor: KARTE_FARBEN[key], fillOpacity: Math.min(0.28, karteDeckkraft('gewaehlt')), color: '#ffffff', weight: 1, dashArray: null };
   }
   return {
-    fillColor: KARTE_FARBEN[key], fillOpacity: hover ? 1 : 0.9,
+    fillColor: KARTE_FARBEN[key], fillOpacity: karteDeckkraft(hover ? 'hover' : 'normal'),
     color: hover ? '#14324f' : info.regionalRand ? '#34506b' : '#ffffff',
     weight: hover ? 2.5 : info.regionalRand ? 2 : 1, dashArray: info.regionalRand && !hover ? '5 3' : null
   };
@@ -4833,6 +4875,7 @@ function karteZoomAufZugriff() {
   const key = state.personaId + '|' + [...namen].sort().join(',');
   if (key === karteZoomKey) return;
   karteZoomKey = key;
+  if (karteStartzoomUnterdruecken) { karteStartzoomUnterdruecken = false; return; }   // Ansicht kommt aus der URL
   const layers = [];
   gemeindeLayer.eachLayer(l => { if (namen.has(l.feature.properties.name)) layers.push(l); });
   const bounds = layers.length ? L.featureGroup(layers).getBounds() : gemeindeLayer.getBounds();
@@ -4957,6 +5000,53 @@ function updateGemeindeKarte() {
 }
 function initGemeindeKarte() {
   if (typeof GEMEINDEGRENZEN_LUZERN === 'undefined') return;
+  // Nachbarkantone nur zur Orientierung: hellgraue Flächen mit Kantonsgrenze, nicht anklickbar, unter den Gemeinden
+  let nachbarFlaeche = null;
+  if (typeof KANTONSGRENZEN_UMGEBUNG !== 'undefined') {
+    map.createPane('umgebungPane').style.zIndex = 350;
+    nachbarFlaeche = L.geoJSON(KANTONSGRENZEN_UMGEBUNG, {
+      pane: 'umgebungPane', interactive: false,
+      // Breiter Rand in Landfarbe: schliesst die feinen Spalten zwischen den (anders vereinfachten) Gemeindegrenzen und den Kantonsflächen, sonst schiene dort die See-Schraffur durch
+      style: { color: '#f3f5f7', weight: 8, opacity: 1, lineJoin: 'round', fillColor: '#f3f5f7', fillOpacity: 1 }
+    }).addTo(map);
+    L.geoJSON(KANTONSGRENZEN_UMGEBUNG, { pane: 'umgebungPane', interactive: false, style: { color: '#8693a1', weight: 1.5, opacity: 1, fill: false } }).addTo(map);
+    if (typeof KANTONSBESCHRIFTUNG !== 'undefined') {
+      map.createPane('umgebungLabelPane').style.zIndex = 355;
+      KANTONSBESCHRIFTUNG.forEach(k => L.marker([k.lat, k.lon], { pane: 'umgebungLabelPane', interactive: false, keyboard: false, icon: L.divIcon({ className: 'karte-kanton-label', html: k.kanton, iconSize: [40, 16] }) }).addTo(map));
+    }
+  }
+  // Seen: Die Schweiz als Ganzes (Umriss inkl. Seen) ist schraffiert (Wasser), die Land-Flächen (Gemeinden, Nachbarkantone) liegen opak darüber.
+  // Ein See ist damit genau die Aussparung in den Landflächen, seine Grenze stimmt zwangsläufig mit den Gemeinde- und Kantonsgrenzen überein (keine separaten Seendaten).
+  // Die Schraffur unterscheidet sich klar von den blauen Gemeindeflächen (Prozessstand).
+  {
+    map.createPane('seenPane').style.zIndex = 340;
+    const seenRenderer = L.svg({ pane: 'seenPane' });
+    // Basis ist der Umriss der Schweiz (einschliesslich der Seen), nicht ein Rechteck: Das Ausland bleibt ohne Schraffur
+    const wasserBasis = typeof SCHWEIZ_UMRISS !== 'undefined' ? SCHWEIZ_UMRISS : L.rectangle(L.geoJSON(GEMEINDEGRENZEN_LUZERN).getBounds().pad(0.6)).toGeoJSON();
+    L.geoJSON(wasserBasis, { renderer: seenRenderer, pane: 'seenPane', interactive: false, style: { stroke: false, fill: true, fillColor: 'url(#karte-see-muster)', fillOpacity: 1 } }).addTo(map);
+    const svg = seenRenderer._container;
+    if (svg) svg.insertAdjacentHTML('afterbegin', '<defs><pattern id="karte-see-muster" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#e2f2f6"/><line x1="0" y1="0" x2="0" y2="7" stroke="#8cc8d8" stroke-width="1.6"/></pattern></defs>');
+  }
+  // Deckende Basis unter den Gemeinden (gleiche Form): Die Gemeindefarben sind halbtransparent, ohne diese Basis schiene die See-Schraffur durch alle Flächen
+  map.createPane('landBasisPane').style.zIndex = 360;
+  L.geoJSON(GEMEINDEGRENZEN_LUZERN, { pane: 'landBasisPane', interactive: false, style: { stroke: false, fill: true, fillColor: '#e4ebf1', fillOpacity: 1 } }).addTo(map);
+  // Luftbild (swisstopo SWISSIMAGE) ganz unten. Ist es an, entfallen Wasserschraffur, deckende Basis und Nachbarkanton-Flächen (das Luftbild zeigt Land und Seen selbst),
+  // und die Gemeindeflächen werden leicht transparent (siehe karteStyleFor).
+  map.createPane('luftbildPane').style.zIndex = 330;
+  const luftbildLayer = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg', {
+    pane: 'luftbildPane', maxNativeZoom: 19, maxZoom: 21, attribution: 'Luftbild &copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>'
+  });
+  const nachbarFlaecheStil = an => an ? { stroke: false, fill: false } : { color: '#f3f5f7', weight: 8, opacity: 1, lineJoin: 'round', fill: true, fillColor: '#f3f5f7', fillOpacity: 1 };
+  karteLuftbildAnwenden = () => {
+    const an = karteLuftbild.an;
+    if (an && !map.hasLayer(luftbildLayer)) luftbildLayer.addTo(map); else if (!an && map.hasLayer(luftbildLayer)) luftbildLayer.remove();
+    ['seenPane', 'landBasisPane'].forEach(p => { const el = map.getPane(p); if (el) el.style.display = an ? 'none' : ''; });
+    if (nachbarFlaeche) nachbarFlaeche.setStyle(nachbarFlaecheStil(an));
+    map.getContainer().classList.toggle('mit-luftbild', an);
+    const lg = document.getElementById('karte-legende'); if (lg) lg.classList.toggle('mit-luftbild', an);
+    document.querySelectorAll('[data-karte-deckkraft]').forEach(r => { r.disabled = !an; r.closest('.layer-slider').classList.toggle('is-disabled', !an); });
+    if (gemeindeLayer) updateGemeindeKarte();
+  };
   gemeindeLayer = L.geoJSON(GEMEINDEGRENZEN_LUZERN, {
     style: f => karteStyleFor(f, false),
     onEachFeature: (f, layer) => {
@@ -4981,15 +5071,39 @@ function initGemeindeKarte() {
   }).addTo(map);
   map.on('movestart zoomstart', () => { karteHighlightEntfernen(); gemeindeLayer.eachLayer(l => l.closeTooltip()); });
   map.fitBounds(gemeindeLayer.getBounds(), { padding: [12, 12] });
-  map.setMaxBounds(gemeindeLayer.getBounds().pad(0.4));
+  map.setMaxBounds(gemeindeLayer.getBounds().pad(1.0));   // grosszügiger Rahmen: Der Kanton lässt sich frei verschieben (z. B. unter dem Karteninhalt hervor), die Daten der Umgebung (Kantone, Luftbild) reichen weit genug
+  // Nicht weiter herauszoomen, als die Umgebungsdaten (Nachbarkantone, Seen) reichen: sonst wären deren Zuschnittkanten und das Ausland sichtbar
+  const minZoomAnpassen = () => { const sz = map.getSize(); if (sz.x > 0 && sz.y > 0) map.setMinZoom(map.getBoundsZoom(map.options.maxBounds, true)); };
+  minZoomAnpassen(); map.on('resize', minZoomAnpassen);
+  // Beschriftung von Gemeinden und Seen ab einer Zoomstufe. Gemeindenamen erscheinen nur, wenn die Fläche gross genug ist (Text passt hinein), so überlappen sie nicht.
+  if (typeof GEMEINDE_BESCHRIFTUNG !== 'undefined') {
+    map.createPane('beschriftungPane').style.zIndex = 440;   // über den Seen, unter den Massnahmen (450)
+    const mk = (b, cls) => L.marker([b.lat, b.lon], { pane: 'beschriftungPane', interactive: false, keyboard: false, icon: L.divIcon({ className: cls, html: '<span>' + escapeHtml(b.n) + '</span>', iconSize: [0, 0] }) });
+    const gemLabels = GEMEINDE_BESCHRIFTUNG.map(b => ({ b, m: mk(b, 'karte-gem-label') }));
+    const seeLabels = (typeof SEEN_BESCHRIFTUNG !== 'undefined' ? SEEN_BESCHRIFTUNG : []).map(b => ({ b, m: mk(b, 'karte-see-label') }));
+    const KARTE_LABEL_ZOOM_GEMEINDE = 10.5, KARTE_LABEL_ZOOM_SEE = 10;
+    const labelsAktualisieren = () => {
+      const z = map.getZoom(), pxProGrad = 256 * Math.pow(2, z) / 360;
+      gemLabels.forEach(({ b, m }) => {
+        const zeigen = z >= KARTE_LABEL_ZOOM_GEMEINDE && b.w * pxProGrad >= b.n.length * 6.5;
+        if (zeigen && !map.hasLayer(m)) m.addTo(map); else if (!zeigen && map.hasLayer(m)) m.remove();
+      });
+      seeLabels.forEach(({ m }) => { const zeigen = z >= KARTE_LABEL_ZOOM_SEE; if (zeigen && !map.hasLayer(m)) m.addTo(map); else if (!zeigen && map.hasLayer(m)) m.remove(); });
+    };
+    map.on('zoomend', labelsAktualisieren); labelsAktualisieren();
+  }
   // Legende
-  const legende = L.control({ position: 'bottomleft' });
-  legende.onAdd = () => {
-    const d = L.DomUtil.create('div', 'karte-legende');
-    d.innerHTML = '<div class="karte-legende-titel">Prozessstand</div>' + KARTE_LEGENDE.map(([k, t]) => '<div class="karte-legende-row"><i style="background:' + KARTE_FARBEN[k] + '"></i>' + t + '</div>').join('');
-    return d;
-  };
-  legende.addTo(map);
+  // Legende: steht im Karteninhalt unter «Legende» (aufklappbar), nicht mehr als Kasten auf der Karte
+  const legendeEl = document.getElementById('karte-legende');
+  if (legendeEl) {
+    legendeEl.classList.add('karte-legende');
+    legendeEl.innerHTML = '<div class="karte-legende-titel">Prozessstand</div>' + KARTE_LEGENDE.map(([k, t]) => '<div class="karte-legende-row"><i style="background:' + KARTE_FARBEN[k] + '"></i>' + t + '</div>').join('') + '<div class="karte-legende-row karte-legende-see-row"><i class="karte-legende-see"></i>See</div>';
+    const kopf = document.getElementById('legende-kopf');
+    const umschalten = () => { const zu = legendeEl.hidden = !legendeEl.hidden; kopf.setAttribute('aria-expanded', String(!zu)); kopf.querySelector('.tree-toggle').textContent = zu ? '+' : '−'; };
+    kopf.addEventListener('click', umschalten);
+    kopf.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); umschalten(); } });
+  }
+  karteLuftbildAnwenden();
 }
 initGemeindeKarte();
 // «schliessen» minimiert den Karteninhalt auf seine Kopfzeile; erneuter Klick (Kopfzeile oder Button) öffnet ihn wieder
@@ -5005,9 +5119,149 @@ document.querySelector('.sidebar-close-tab').addEventListener('click', toggleKar
 document.querySelector('.sidebar-panel-header').addEventListener('click', toggleKarteninhalt);
 toggleKarteninhalt();   // Standard: zugeklappt
 // Filter «Kommunale / Regionale Energieplanungen» im Karteninhalt
+// «−»/«+» im Karteninhalt klappt den jeweiligen Zweig zu bzw. auf (der Fachlayer-Baum hat seine eigene Steuerung)
+document.querySelector('.layer-tree').addEventListener('click', e => {
+  const t = e.target.closest('.tree-toggle');
+  if (!t || t.classList.contains('fl-toggle') || t.classList.contains('fl-spacer')) return;
+  const li = t.closest('.layer-node'), sub = li && li.querySelector(':scope > .layer-subtree');
+  if (!sub) return;
+  e.preventDefault();   // Klick liegt im Label: sonst würde der Haken umgeschaltet
+  const zu = li.classList.toggle('is-zu');
+  t.textContent = zu ? '+' : '−';
+});
 document.querySelectorAll('[data-karte-mass]').forEach(cb => cb.addEventListener('change', () => {
   karteMassFilter[cb.dataset.karteMass] = cb.checked;
   updateMassnahmenKarte();
+}));
+/* ---------------------- FACHLAYER IM KARTENINHALT (Baumstruktur, Karteninhalt aus Dummydaten: dummy-fachlayer.js) ---------------------- */
+// Layerbaum laut Geoportal. Kürzel: i = Info-Symbol, g = ausgegraut (nicht schaltbar; aktuell ungenutzt), offen = aufgeklappt, l = Schlüssel der Dummydaten (FACHLAYER_DUMMY).
+// Standardmässig sind alle Layer aus. Ein Layer, der an mehreren Stellen im Baum vorkommt, ist sichtbar, sobald eine davon angehakt ist.
+const KL = (n, o) => Object.assign({ n }, o);
+const KARTE_FACHLAYER = [
+  KL('EPA-Karte', { kinder: [
+    KL('Stromeinfrastruktur', { i: 1, offen: 1, kinder: [KL("Elektrizitätsproduktionsanlagen 1:10'000 bis 1:300'000", { l: 'strom_prod' }), KL("Elektrizitätsproduktionsanlagen bis 1:10'000", { l: 'strom_prod_klein' })] }),
+    KL('Strompotential', { i: 1, offen: 1, kinder: [KL('Biogasanlagen', { l: 'biogas' }), KL('Elektrizität aus Kehrichtverbrennungsanlagen', { l: 'kva' }), KL('Gewässer mit Wasserkraftpotential (über 5kW m)', { l: 'wasserkraft' }), KL('Windenergiegebiete, gemäss Windenergiekonzept 2020', { l: 'wind' }), KL('Freies Solarpotential auf Hausdächern über 1000 m²', { l: 'solar_dach' })] }),
+    KL('Wärmeinfrastruktur', { i: 1, offen: 1, kinder: [KL('Thermische Netze: bestehende Zentralen', { l: 'zentralen' }), KL('Luft-Wasser-Wärmepumpen, geplante und bewilligte Anlagen', { l: 'lwwp' }), KL('Bestehende Erdwärmesonden', { l: 'sonden' }), KL('Bestehende thermische Solaranlagen', { l: 'therm_solar' }), KL('Thermische Netze: angeschlossene Gebäude', { l: 'therm_geb' }), KL('Thermische Netze: bestehende Leitungen (unvollständig erfasst)', { l: 'therm_leit' }), KL('Gas: angeschlossene Gebäude mit Gasheizung', { l: 'gas_geb' }), KL('Gas: bestehende Leitungen (unvollständig erfasst)', { l: 'gas_leit' })] }),
+    KL('Wärmepotential', { i: 1, offen: 1, kinder: [KL('Abwärme aus Kehrichtverbrennungsanlagen', { l: 'ab_kva' }), KL('Abwärme aus Industrie, hochwertig', { l: 'ab_ind_hoch' }), KL('Abwärme aus Industrie, niederwertig', { l: 'ab_ind_nieder' }), KL('Abwärme aus Abwasserreinigungsanlagen', { l: 'ab_ara' }), KL('Abwärme aus Abwasserkanälen (breiter als 1m)', { l: 'ab_kanal' }), KL('Erdwärme aus unüberbauten Bauzonen', { l: 'erd_bauzonen' }), KL('Wärmepotential aus Flüssen', { l: 'w_fluesse' }), KL('Wärmepotential aus Seen', { l: 'w_seen' }), KL('Grundwasservorkommen mit Wärmepotential', { l: 'grundwasser' }), KL('Abwärme aus Tunneln', { l: 'ab_tunnel' })] }),
+    KL('Wärmeversorgungsszenario 2050 ohne thermische Netze', { i: 1, l: 'szenario' })
+  ] }),
+  KL('EPA-Indikatoren', { kinder: [
+    KL('Indikatoren Energierichtplan', { i: 1, offen: 1, kinder: [
+      KL('Indikator 1: Wärmebedarf grösser als 400 MWh/a', { l: 'ind1' }),
+      KL('Indikator 2: Grössere Abwärmequellen', { offen: 1, kinder: [KL('Abwärme aus Kehrichtverbrennungsanlagen', { l: 'ab_kva' }), KL('Abwärme aus Industrie, hochwertig', { l: 'ab_ind_hoch' }), KL('Abwärme aus Industrie, niederwertig', { l: 'ab_ind_nieder' }), KL('Abwärme aus Abwasserreinigungsanlagen', { l: 'ab_ara' })] }),
+      KL('Indikator 3: Bedeutendes Vorkommen ortsgebundener Umweltwärme', { offen: 1, kinder: [KL('Wärmepotential aus Seen', { l: 'w_seen' }), KL('Grundwasservorkommen mit Wärmepotential', { l: 'grundwasser' })] }),
+      KL('Indikator 4: Bestehende Netzinfrastrukturen (Gas & Fernwärme)', { offen: 1, kinder: [KL('Thermische Netze: bestehende Zentralen', { l: 'zentralen' }), KL('Thermische Netze: angeschlossene Gebäude', { l: 'therm_geb' }), KL('Thermische Netze: bestehende Leitungen (unvollständig erfasst)', { l: 'therm_leit' }), KL('Gas: angeschlossene Gebäude mit Gasheizung', { l: 'gas_geb' }), KL('Gas: bestehende Leitungen (unvollständig erfasst)', { l: 'gas_leit' })] }),
+      KL('Indikator 5: Grosse Siedlungsentwicklungsgebiete (aus Richtplanung 2015, Teilrevision)', { offen: 1, kinder: [KL('Entwicklungsschwerpunkt für Arbeitsnutzung, Reservezone', { l: 'ind5_reserve' }), KL('Entwicklungsschwerpunkt für Arbeitsnutzung, Bauzone', { l: 'ind5_bauzone' })] })
+    ] }),
+    KL('Indikatoren für Gebiete mit Koordinationsbedarf', { i: 1, offen: 1, kinder: [KL('LWWP-Lärmrisikogebiete', { l: 'lwwp_gebiete' }), KL('LWWP-Lärmrisikoparzellen', { l: 'lwwp_parzellen' })] })
+  ] }),
+  KL('Gültige räumliche Energieplanungen', { i: 1, kinder: [
+    KL('Planungsstand', { i: 1, offen: 1, kinder: [KL('Planungsstand', { l: 'ps_stand' }), KL('Planungsebene regional', { l: 'ps_regional' }), KL('Planungsebene kommunal', { l: 'ps_kommunal' })] }),
+    KL('Massnahmengebiete', { i: 1, offen: 1, kinder: [KL('Massnahmengebiete thermisches Netz', { l: 'mg_netz' }), KL('Massnahmengebiete individuelle Wärmeversorgung', { l: 'mg_individuell' })] }),
+    KL('Gebiete mit Koordinationsbedarf', { i: 1, l: 'koordination' }),
+    KL('Gasnetz', { i: 1, l: 'gasnetz' }),
+    KL('Thermisches Netz', { l: 'thermisches_netz' })
+  ] })
+];
+function karteFachlayerHtml(knoten) {
+  return knoten.map(k => {
+    const hat = Array.isArray(k.kinder), offen = !!k.offen;
+    const info = k.i ? '<span class="fl-info" title="Informationen zum Layer (im Prototyp ohne Inhalt)" aria-label="Informationen zum Layer">i</span>' : '';
+    const sub = hat ? '<ul class="layer-subtree">' + karteFachlayerHtml(k.kinder) + '</ul>' : '';
+    return '<li class="layer-node fl-node' + (hat && !offen ? ' is-zu' : '') + (k.g ? ' is-grau' : '') + '"><div class="layer-row fl-row">' +
+      (hat ? '<button type="button" class="tree-toggle fl-toggle" aria-label="Auf- oder zuklappen">' + (offen ? '−' : '+') + '</button>' : '<span class="tree-toggle fl-spacer" aria-hidden="true"></span>') +
+      '<label class="fl-label"><input type="checkbox" data-fl-knoten' + (k.l ? ' data-fl-layer="' + k.l + '"' : '') + (k.g ? ' disabled' : '') + '><span>' + escapeHtml(k.n) + '</span></label>' + info + '</div>' + sub + '</li>';
+  }).join('');
+}
+// Fachlayer auf der Karte: Ebenen werden beim ersten Einschalten aus den Dummydaten erzeugt (Canvas, Punkte/Linien/Flächen) und danach ein-/ausgeblendet.
+const karteFachlayerEbenen = {};
+let karteFachlayerRenderer = null;
+// Gültige räumliche Energieplanungen: aus den echten Planungen des Prototyps (Gemeinden mit kommunaler bzw. regionaler Energieplanung)
+function karteFachlayerPlanungen(key, opt) {
+  const kom = new Set(), reg = new Set();
+  planungen.filter(planungDarfSehen).forEach(p => String(p.gemeinde).split(',').forEach(g => (p.typ === TYP_REGIONAL ? reg : kom).add(g.trim())));
+  const namen = key === 'ps_regional' ? reg : key === 'ps_kommunal' ? kom : new Set([...kom, ...reg]);
+  const stil = { ps_kommunal: { color: '#6aa51a', weight: 1, fillColor: '#b4ef4a', fillOpacity: 0.75 }, ps_regional: { color: '#222', weight: 2, fillColor: '#f6efa5', fillOpacity: 0.8 }, ps_stand: { color: '#1d7a3a', weight: 3, fillColor: '#9bd5a5', fillOpacity: 0.4 } }[key];
+  return L.geoJSON(GEMEINDEGRENZEN_LUZERN, { filter: f => namen.has(f.properties.name), renderer: opt.renderer, pane: opt.pane, interactive: false, style: () => stil });
+}
+function karteFachlayerAnwenden(key) {
+  const planung = key.indexOf('ps_') === 0;
+  if (typeof GEMEINDEGRENZEN_LUZERN === 'undefined' || !(planung || (typeof erzeugeFachlayer === 'function' && FACHLAYER_DUMMY[key]))) return;
+  if (!karteFachlayerRenderer) {
+    map.createPane('fachlayerPane').style.zIndex = 445;   // über den Beschriftungen (440), unter den Massnahmen (450)
+    map.getPane('fachlayerPane').classList.add('fachlayer-pane');
+    karteFachlayerRenderer = L.canvas({ pane: 'fachlayerPane', padding: 0.3 });
+  }
+  const an = !!document.querySelector('[data-fl-layer="' + key + '"]:checked');
+  if (an && !karteFachlayerEbenen[key]) karteFachlayerEbenen[key] = (planung ? karteFachlayerPlanungen : erzeugeFachlayer)(key, { renderer: karteFachlayerRenderer, pane: 'fachlayerPane' });
+  const ebene = karteFachlayerEbenen[key];
+  if (!ebene) return;
+  if (an && !map.hasLayer(ebene)) ebene.addTo(map); else if (!an && map.hasLayer(ebene)) ebene.remove();
+}
+(function initKarteFachlayer() {
+  const anker = document.querySelector('[data-karte-luftbild]');
+  const luftbildLi = anker && anker.closest('li');
+  if (!luftbildLi) return;
+  luftbildLi.insertAdjacentHTML('beforebegin', '<li class="fl-wurzel"><ul class="layer-tree fl-tree">' + karteFachlayerHtml(KARTE_FACHLAYER) + '</ul></li>');
+  const baum = luftbildLi.parentElement.querySelector('.fl-tree');
+  // Zustand der Ober-Layer aus den Unter-Layern ableiten: alle an = angehakt, einige = teilweise. Ausgegraute (nicht verfügbare) Layer zählen nicht mit.
+  const ableiten = li => {
+    const kinder = [...li.querySelectorAll(':scope > .layer-subtree [data-fl-knoten]:not(:disabled)')], pc = li.querySelector(':scope > .fl-row [data-fl-knoten]');
+    if (!kinder.length) return;
+    const an = kinder.filter(c => c.checked).length;
+    pc.checked = an === kinder.length; pc.indeterminate = an > 0 && an < kinder.length;
+  };
+  baum.addEventListener('click', e => {
+    const t = e.target.closest('.fl-toggle'); if (!t) return;
+    const li = t.closest('.fl-node'), zu = li.classList.toggle('is-zu');
+    t.textContent = zu ? '+' : '−';
+  });
+  // Ober-Layer schaltet alle verfügbaren Unter-Layer; danach werden die betroffenen Karten-Ebenen ein- bzw. ausgeblendet.
+  baum.addEventListener('change', e => {
+    const cb = e.target.closest('[data-fl-knoten]'); if (!cb) return;
+    const li = cb.closest('.fl-node');
+    li.querySelectorAll('[data-fl-knoten]:not(:disabled)').forEach(c => { c.checked = cb.checked; c.indeterminate = false; });
+    for (let p = li.parentElement.closest('.fl-node'); p; p = p.parentElement.closest('.fl-node')) ableiten(p);
+    const keys = new Set([...li.querySelectorAll('[data-fl-layer]')].map(c => c.dataset.flLayer));
+    keys.forEach(karteFachlayerAnwenden);
+  });
+})();
+// Layer «Gebäude» (eigener Eintrag, standardmässig an, leicht transparent): echte Grundrisse im ganzen Kanton, ab Zoom 14
+let karteGebaeudeEbene = null;
+function karteGebaeudeAnwenden() {
+  if (typeof erzeugeGebaeudeLayer !== 'function') return;
+  const cb = document.querySelector('[data-karte-gebaeude]'); if (!cb) return;
+  if (!karteGebaeudeEbene) {
+    map.createPane('gebaeudePane').style.zIndex = 436;   // über Flächen und Wasser, unter Beschriftungen (440), Fachlayern (445) und Massnahmen (450)
+    map.getPane('gebaeudePane').classList.add('fachlayer-pane');
+    karteGebaeudeEbene = erzeugeGebaeudeLayer({ renderer: L.canvas({ pane: 'gebaeudePane', padding: 0.3 }), pane: 'gebaeudePane', deckkraft: 0.6 });
+  }
+  if (cb.checked && !map.hasLayer(karteGebaeudeEbene)) karteGebaeudeEbene.addTo(map); else if (!cb.checked && map.hasLayer(karteGebaeudeEbene)) karteGebaeudeEbene.remove();
+}
+document.querySelectorAll('[data-karte-gebaeude]').forEach(cb => cb.addEventListener('change', karteGebaeudeAnwenden));
+// Layer «Gewässer» (eigener Eintrag, standardmässig aus): Seen und Fliessgewässer, unter den Gebäuden
+let karteGewaesserEbene = null;
+function karteGewaesserAnwenden() {
+  if (typeof erzeugeGewaesserLayer !== 'function') return;
+  const cb = document.querySelector('[data-karte-gewaesser]'); if (!cb) return;
+  if (cb.checked && !karteGewaesserEbene) {
+    map.createPane('gewaesserPane').style.zIndex = 434;
+    map.getPane('gewaesserPane').classList.add('fachlayer-pane');
+    karteGewaesserEbene = erzeugeGewaesserLayer({ renderer: L.canvas({ pane: 'gewaesserPane', padding: 0.3 }), pane: 'gewaesserPane' });
+  }
+  if (!karteGewaesserEbene) return;
+  if (cb.checked && !map.hasLayer(karteGewaesserEbene)) karteGewaesserEbene.addTo(map); else if (!cb.checked && map.hasLayer(karteGewaesserEbene)) karteGewaesserEbene.remove();
+}
+document.querySelectorAll('[data-karte-gewaesser]').forEach(cb => cb.addEventListener('change', karteGewaesserAnwenden));
+karteGebaeudeAnwenden();
+document.querySelectorAll('[data-karte-luftbild]').forEach(cb => cb.addEventListener('change', () => {
+  karteLuftbild.an = cb.checked;
+  karteLuftbildAnwenden();
+}));
+document.querySelectorAll('[data-karte-deckkraft]').forEach(r => r.addEventListener('input', () => {
+  karteLuftbild.deckkraft = Number(r.value) / 100;
+  const out = r.closest('.layer-slider').querySelector('output'); if (out) out.textContent = r.value + ' %';
+  if (karteLuftbild.an) updateGemeindeKarte();
 }));
 document.querySelectorAll('[data-karte-filter]').forEach(cb => cb.addEventListener('change', () => {
   karteFilter[cb.dataset.karteFilter] = cb.checked;
@@ -5016,6 +5270,49 @@ document.querySelectorAll('[data-karte-filter]').forEach(cb => cb.addEventListen
 
 /* ---------------------- URL-ZUSTAND (Reload / Browser-Zurück behalten die aktuelle Ansicht) ---------------------- */
 // Der Ansichts-Zustand steckt im URL-Hash, z.B. #tab=planungen&view=detail&planung=EP-844&ptab=epa&mass=M-3
+// ---- Kartenzustand in der URL: Ausschnitt und Zoomstufe (map=lat,lng,zoom), Karteninhalt offen (ki), Luftbild (lb) und Deckkraft (op),
+// Filter (kom/reg/mp/ml/mf = 0 wenn aus), eingeschaltete Fachlayer (fl = Positionen der angehakten Layer im Baum). Beim Laden der Seite wird er wiederhergestellt.
+const KARTE_URL_FILTER = [['kom', '[data-karte-filter="kommunal"]'], ['reg', '[data-karte-filter="regional"]'], ['mp', '[data-karte-mass="punkt"]'], ['ml', '[data-karte-mass="linie"]'], ['mf', '[data-karte-mass="flaeche"]']];
+function karteHashParams(q) {
+  if (typeof map === 'undefined') return;
+  // Solange die gespeicherte Ansicht noch nicht angewendet ist (Karte ohne Grösse), bleibt sie in der URL stehen
+  const c = map.getCenter(), w = karteAnsichtWartet;
+  q.set('map', w ? w[0].toFixed(5) + ',' + w[1].toFixed(5) + ',' + w[2].toFixed(2) : c.lat.toFixed(5) + ',' + c.lng.toFixed(5) + ',' + map.getZoom().toFixed(2));
+  const sb = document.querySelector('.map-sidebar');
+  if (sb && !sb.classList.contains('minimized')) q.set('ki', '1');
+  if (!karteLuftbild.an) q.set('lb', '0');
+  const gbx = document.querySelector('[data-karte-gebaeude]'); if (gbx && !gbx.checked) q.set('gb', '0');
+  const gwx = document.querySelector('[data-karte-gewaesser]'); if (gwx && gwx.checked) q.set('gw', '1');
+  if (Math.abs(karteLuftbild.deckkraft - 0.7) > 0.001) q.set('op', String(Math.round(karteLuftbild.deckkraft * 100)));
+  KARTE_URL_FILTER.forEach(([k, sel]) => { const cb = document.querySelector(sel); if (cb && !cb.checked) q.set(k, '0'); });
+  const an = [];
+  document.querySelectorAll('[data-fl-layer]').forEach((cb, i) => { if (cb.checked) an.push(i); });
+  if (an.length) q.set('fl', an.join('.'));
+}
+function karteWiederherstellen(q) {
+  if (typeof map === 'undefined') return;
+  const sb = document.querySelector('.map-sidebar');
+  if (sb && (q.get('ki') === '1') === sb.classList.contains('minimized')) toggleKarteninhalt();
+  const setze = (cb, an, ev) => { if (cb && cb.checked !== an) { cb.checked = an; cb.dispatchEvent(new Event(ev || 'change', { bubbles: true })); } };
+  setze(document.querySelector('[data-karte-luftbild]'), q.get('lb') !== '0');
+  setze(document.querySelector('[data-karte-gebaeude]'), q.get('gb') !== '0');
+  setze(document.querySelector('[data-karte-gewaesser]'), q.get('gw') === '1');
+  const op = Number(q.get('op'));
+  const sl = document.querySelector('[data-karte-deckkraft]');
+  if (sl) { sl.value = op >= 20 && op <= 100 ? op : 70; sl.dispatchEvent(new Event('input', { bubbles: true })); }
+  KARTE_URL_FILTER.forEach(([k, sel]) => setze(document.querySelector(sel), q.get(k) !== '0'));
+  const fl = new Set((q.get('fl') || '').split('.').filter(Boolean).map(Number));
+  document.querySelectorAll('[data-fl-layer]').forEach((cb, i) => setze(cb, fl.has(i)));
+  const m = (q.get('map') || '').split(',').map(Number);
+  if (m.length === 3 && m.every(Number.isFinite)) { karteAnsichtWartet = m; karteStartzoomUnterdruecken = true; karteAnsichtAnwenden(); }
+}
+// Gespeicherte Ansicht (aus der URL) setzen. Hat die Karte beim Laden noch keine Grösse, wird das beim ersten 'resize' nachgeholt.
+var karteAnsichtWartet = null, karteStartzoomUnterdruecken = false;   // var: wird schon beim Aufbau der Karte gelesen (vor dieser Zeile)
+function karteAnsichtAnwenden() {
+  if (!karteAnsichtWartet || map.getSize().x === 0 || map.getSize().y === 0) return;
+  const m = karteAnsichtWartet; karteAnsichtWartet = null;
+  map.setView([m[0], m[1]], Math.max(map.getMinZoom(), m[2]), { animate: false });
+}
 function stateToHash() {
   const q = new URLSearchParams();
   q.set('tab', state.tab);
@@ -5032,6 +5329,8 @@ function stateToHash() {
   if (state.tab === 'reporting' && state.reportView) q.set('report', state.reportView);
   if (state.layoutMode !== 'split') q.set('layout', state.layoutMode);
   if (state.personaId !== 'admin') q.set('user', state.personaId);
+  if (panelBreiteGesetzt && state.layoutMode === 'split') q.set('pw', (panelWidth / window.innerWidth * 100).toFixed(1));
+  karteHashParams(q);
   return '#' + q.toString();
 }
 function applyHashToState(hash) {
@@ -5043,6 +5342,8 @@ function applyHashToState(hash) {
   state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view'; state.planungPendingStatus = null; state.nfKontoHinweis = false;
   const pe = q.get('user') ? rollenPersonas().find(x => x.id === q.get('user')) : null;
   state.personaId = pe ? pe.id : 'admin'; state.role = pe ? pe.role : 'Admin'; state.benutzer = pe ? pe.key : null;
+  const pw = Number(q.get('pw'));
+  if (q.get('pw') && pw >= 10 && pw <= 80) { panelWidth = Math.min(Math.max(420, Math.round(window.innerWidth * 0.8)), Math.max(420, Math.round(pw / 100 * window.innerWidth))); panelBreiteGesetzt = true; }
   if (['map', 'split', 'data'].includes(q.get('layout'))) state.layoutMode = q.get('layout'); else state.layoutMode = 'split';
 
   if (state.tab === 'planungen' && q.get('view') === 'detail') {
@@ -5073,7 +5374,7 @@ function syncUiToState() {
 }
 let urlReady = false;   // erst nach dem Laden aller Daten (initApp) in die URL schreiben
 function pushUrlState() {
-  if (!urlReady) return;
+  if (!urlReady || karteAnsichtWartet) return;
   const h = stateToHash();
   if (h !== location.hash) history.pushState(null, '', h);
 }
@@ -5088,6 +5389,13 @@ function initApp() {
   applyHashToState(location.hash);
   syncUiToState();
   render();
+  karteWiederherstellen(new URLSearchParams(String(location.hash || '').replace(/^#/, '')));
   history.replaceState(null, '', stateToHash());
   urlReady = true;
+  // Kartenänderungen (Verschieben, Zoom, Layer, Filter, Karteninhalt) ersetzen den aktuellen URL-Eintrag, ohne den Browserverlauf zu füllen
+  const kartenUrl = () => { if (urlReady && !karteAnsichtWartet) history.replaceState(null, '', stateToHash()); };
+  map.on('resize', () => { karteAnsichtAnwenden(); kartenUrl(); });
+  map.on('moveend', kartenUrl);
+  const sbEl = document.querySelector('.map-sidebar');
+  if (sbEl) ['change', 'input', 'click'].forEach(ev => sbEl.addEventListener(ev, () => setTimeout(kartenUrl, 0)));
 }

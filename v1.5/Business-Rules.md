@@ -207,7 +207,7 @@ Zuoberst steht, sofern es Änderungen gibt, der laufende Stand «Seit <Datum der
 - Die Regeln zum Prüfen und Bestätigen sowie zum Abschliessen bleiben wie in 4.4. «Nachführung abschliessen» (Fusszeile) ist erst aktiv, wenn alle drei Bereiche bestätigt sind.
 
 **Prüfung der Massnahmen in der aktiven Nachführung:** Der Benutzer muss jede zu prüfende Massnahme mit **allen Feldern** ansehen und **ausdrücklich bestätigen**. Das Frontend stellt das so sicher:
-- Die Kachel «Massnahmen» zeigt eine kompakte Liste (Markierung ✓ bestätigt, ! Fälligkeit überfällig, leer = noch zu prüfen) und darunter eine **Prüfkarte** der gewählten Massnahme mit allen Feldern auf einmal: Name, ES-Nr., Massnahme aus EPA, Beschreibung, Handlungsfeld, Aktivitätsbereich, Priorität, Prozessstatus, Start, Fälligkeit, Umsetzungszeitraum (berechnet), Budget, Verantwortlichkeit, Bemerkungen. Es gibt kein Aufklappen mehr. Mit «Vorherige/Nächste» oder per Klick auf die Liste wechselt man die Massnahme.
+- Die Kachel «Massnahmen» zeigt eine kompakte Liste (Markierung ✓ bestätigt, ! Fälligkeit überfällig, leer = noch zu prüfen) und darunter eine **Prüfkarte** der gewählten Massnahme mit allen Feldern auf einmal: Name, ES-Nr., Massnahme aus EPA, Beschreibung, Handlungsfeld, Aktivitätsbereich, Priorität, Prozessstatus, Start, Fälligkeit, Umsetzungszeitraum (berechnet), Budget, Verantwortlichkeit, Bemerkungen. Es gibt kein Aufklappen mehr. Mit «Vorherige/Nächste» oder per Klick auf die Liste wechselt man die Massnahme (die Seite scrollt zur Prüfkarte). Die Liste ist nach ID, Name, Prozessstatus und Fälligkeit sortierbar (Klick auf die Spaltenüberschrift wechselt auf-/absteigend, leere Fälligkeiten stehen am Schluss); «Vorherige/Nächste» und «Bestätigen und weiter» folgen der gewählten Sortierung. Der Zähler «überfällig» an der Kachel gilt nach derselben Regel wie die rote Markierung (Fälligkeit vor heute, Status nicht beendet).
 - Eine Massnahme gilt nur nach Klick auf «Geprüft, bestätigen» als bestätigt. Es gibt **keine** automatische Bestätigung durch Anklicken, Ändern, CSV-Import oder «Alle bestätigen» (entfernt). Nach dem Bestätigen springt die Ansicht zur nächsten noch offenen Massnahme.
 - Beim Bestätigen werden die Angaben geprüft wie im Massnahmenformular: Pflichtfelder (Name, Beschreibung, Massnahme aus EPA, Handlungsfeld, Aktivitätsbereich, Start, Fälligkeit, Budget), gültige Daten, Fälligkeit nach dem Start, Budget als ganze Zahl. Fehler werden am Feld angezeigt, und die Massnahme bleibt offen.
 - **Fälligkeit in der Vergangenheit:** Liegt sie vor heute und ist der Status nicht «Abschluss», zeigt die Karte eine rote Warnung, und die Massnahme kann nicht bestätigt werden. Der Benutzer muss das Datum anpassen oder den Status auf «Abschluss» setzen. Das gilt lückenlos: Eine Massnahme zählt nur dann als bestätigt, solange ihre Fälligkeit nicht in der Vergangenheit liegt. Wird eine bestätigte Massnahme später überfällig oder ihr Datum in die Vergangenheit geändert, ist sie wieder «zu prüfen» und «Nachführung abschliessen» bleibt gesperrt. Entsprechend gilt für Dummydaten: Nicht abgeschlossene Massnahmen einer bereits nachgeführten Planung haben nie eine Fälligkeit vor dem Datum der letzten Nachführung.
@@ -235,6 +235,16 @@ Zu prüfen sind Massnahmen, die (a) noch nicht abgeschlossen sind, (b) seit der 
 Beim Abschluss wird ein Protokolleintrag geschrieben: Datum, Benutzer, Anzahl geänderter Personen/Ziele, Anzahl Massnahmen, Momentaufnahme des Stands (Grundlage für «Seit der letzten Nachführung»). Danach beginnt ein neuer, ungeprüfter Zyklus und die nächste Frist wird nach 4.2 berechnet.
 
 **Berater/in Energieplanung:** Statt einer externen Fachperson kann der Wert **«Aktuell keine externe Begleitung»** gewählt werden. Er steht zuoberst in der Auswahl und ist hervorgehoben. Das gilt überall, wo dieses Feld bearbeitet wird (Nachführung und Grunddaten). Der Wert wird nicht als «Person nicht mehr in den Kontakten» gewarnt und gibt keinen Zugriff (Abschnitt 6). Sobald dieses Auswahlfeld den Sonderwert anbietet, kann man es nicht mehr auf «leer» zurücksetzen. Man wählt eine Person oder «Aktuell keine externe Begleitung». Das Feld «Kontakt Gemeinde» ist das Feld «Verantwortlichkeit Gemeinde» der Grunddaten, nur in der Nachführung anders beschriftet.
+
+**Offene Frage (Fachbereich): Nachführung wird nicht abgeschlossen.** Heutiges Verhalten im Prototyp, nicht fachlich bestätigt:
+- Änderungen an Personen, Zielen und Massnahmen sind sofort gespeichert und im Datenbestand (Massnahmenliste, Reports, Exporte) sichtbar, obwohl sie noch nicht bestätigt sind. Es gibt keinen Entwurf, der erst beim Abschluss übernommen wird.
+- Die Nachführung bleibt offen («fällig seit …»), die Frist läuft weiter. Ein Protokolleintrag und eine Momentaufnahme entstehen erst bei «Nachführung abschliessen». «Seit der letzten Nachführung» vergleicht weiter mit dem Stand der letzten abgeschlossenen Nachführung.
+- «Vorzeitige Nachführung abbrechen» schliesst nur die Ansicht. Änderungen und Bestätigungen bleiben erhalten und sind beim erneuten Start einer vorzeitigen Nachführung wieder da.
+
+Zu klären:
+1. Soll ein Abbruch die Änderungen zurücksetzen (Momentaufnahme beim Start der Nachführung), oder bleiben sie bestehen?
+2. Sollen halb bestätigte Stände für andere sichtbar sein (z. B. Hinweis «Nachführung in Bearbeitung seit …» in der Liste), und sollen unbestätigte Änderungen in Reports und Exporten erscheinen?
+3. Was gilt bei paralleler Bearbeitung durch mehrere Personen (Sperre, Hinweis oder keine Regel)?
 
 ### 4.5 CSV-Import der Massnahmen
 Dreistufig: **Datei → Zuordnung → Zusammenfassung**.
@@ -313,12 +323,15 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 5. Keine Format-/Eindeutigkeitsprüfung bei E-Mail (Kontakte) und Gesuchs-Nr. von Hand (2.6, 5).
 6. Rollenprüfung nur im Frontend (6).
 7. Geografische Markierungen der Massnahmen sind nur lesbar, es gibt keinen Editor.
+8. Nicht abgeschlossene Nachführung: Verhalten bei Abbruch ungeklärt, Fachbereich befragen (4.4).
 
 ---
 
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-16 | Offene Fragen zur nicht abgeschlossenen Nachführung festgehalten (Abschnitt 4.4, Offene Punkte Nr. 8). |
+| 2026-11-16 | Nachführung: Massnahmenliste sortierbar; Klick auf Zeile scrollt zur Prüfkarte; Zähler «überfällig» an der Kachel zählt nur nicht beendete Massnahmen mit Fälligkeit vor heute (Abschnitt 4.3). |
 | 2026-11-12 | Umbenennung: Massnahmenfeld «Weitere Bemerkungen» heisst «Bemerkungen / aktueller Stand» (Abschnitt 3.1). |
 | 2026-11-12 | Neuer Massnahmenstatus «Verworfen» (Abschnitte 3.5, 4.5, 8). Importer: «Verworfen» setzt den Status statt zu löschen. |
 | 2026-11-12 | Nachführung: Fälligkeit in der Vergangenheit macht eine Massnahme wieder «zu prüfen» (lückenlos). Dummydaten: Fälligkeiten nicht abgeschlossener Massnahmen liegen nach der letzten Nachführung (Abschnitt 4.3). |

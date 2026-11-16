@@ -83,11 +83,13 @@
             <li><label class="layer-row"><input type="checkbox" checked data-karte-mass="flaeche"><span>Massnahmen (Flächen)</span></label></li>
           </ul>
         </li>
-        <li><label class="layer-row"><span class="tree-toggle">+</span><input type="checkbox"><span>EPA-Karte</span></label></li>
-        <li><label class="layer-row"><span class="tree-toggle">+</span><input type="checkbox"><span>EPA-Indikatoren</span></label></li>
-        <li><label class="layer-row"><span class="tree-toggle">+</span><input type="checkbox"><span>Gültige räumliche Energieplanungen</span></label></li>
+        <li><label class="layer-row"><span class="tree-toggle">&nbsp;</span><input type="checkbox" checked data-karte-gebaeude><span>Gebäude</span></label></li>
+        <li><label class="layer-row"><span class="tree-toggle">&nbsp;</span><input type="checkbox" data-karte-gewaesser><span>Gewässer</span></label></li>
+        <li><label class="layer-row"><span class="tree-toggle">&nbsp;</span><input type="checkbox" checked data-karte-luftbild><span>Luftbild</span></label></li>
+        <li class="layer-slider"><label><span>Deckkraft der Flächen</span><output>70 %</output><input type="range" min="20" max="100" step="5" value="70" data-karte-deckkraft aria-label="Deckkraft der farbigen Flächen über dem Luftbild"></label></li>
       </ul>
-      <div class="sidebar-tool-row"><span class="tree-toggle">+</span><span class="tool-icon">▤</span><span>Legende</span></div>
+      <div class="sidebar-tool-row sidebar-legende-kopf" id="legende-kopf" role="button" tabindex="0" aria-expanded="true"><span class="tree-toggle">−</span><span class="tool-icon">▤</span><span>Legende</span></div>
+      <div class="sidebar-legende" id="karte-legende"></div>
       <div class="sidebar-tool-row"><span class="tree-toggle">+</span><span class="tool-icon">🖶</span><span>Drucken</span></div>
       <div class="sidebar-tool-row"><span class="tree-toggle">+</span><span class="tool-icon">⇄</span><span>Teilen &amp; Tools</span></div>
     </div>
@@ -134,6 +136,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="dummy-gemeinden-luzern.js"></script>
 <script src="dummy-gemeindegrenzen-luzern.js"></script>
+<script src="dummy-kantonsgrenzen-umgebung.js"></script>
+<script src="dummy-kartenbeschriftung.js"></script>
+<script src="dummy-seen-flaechen.js"></script>
+<script src="dummy-gebaeude-luzern.js"></script>
+<script src="dummy-gewaesser-luzern.js"></script>
+<script src="dummy-fachlayer.js"></script>
 <script src="dummy-massnahmen-geometrien.js"></script>
 <script src="app.js"></script>
 <script src="dummy-kontakte-luzern.js"></script>

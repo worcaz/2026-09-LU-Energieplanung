@@ -201,6 +201,8 @@ Zustand der **laufenden** Prüfung, bis sie abgeschlossen wird.
 | nachfuehrung_entwurf | planung_id (PK/FK), personen_bestaetigt, ziele_bestaetigt, vorzeitig (Boolean) |
 | nachfuehrung_entwurf_massnahme | planung_id, massnahme_id, bestaetigt, beruehrt (geändert/importiert), neu_erfasst (in dieser Nachführung angelegt) |
 
+**Offene Frage (Fachbereich):** Der Entwurf enthält nur Bestätigungsmarken. Die geänderten Werte selbst stehen direkt in `planung` und `massnahme`. Wird eine Nachführung nicht abgeschlossen, bleiben sie dort stehen. Soll ein Abbruch sie zurücksetzen, braucht es zusätzlich eine Momentaufnahme beim Start (z. B. als Stand-Tabelle wie beim Protokoll). Ausserdem ist offen, ob unbestätigte Änderungen für Reports und andere Benutzer sichtbar sein dürfen und wie parallele Bearbeitung behandelt wird (siehe Business-Rules 4.4). Im Prototyp liegt der Entwurf (`nfPruefung`) nur im Arbeitsspeicher.
+
 Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen übernommen und gelöscht.
 
 ---
@@ -260,4 +262,5 @@ Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen überno
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-16 | Offene Frage zum Entwurf einer nicht abgeschlossenen Nachführung ergänzt (Abschnitt 3). |
 | 2026-11-12 | Erstfassung (Planung, Massnahmen, Kontakte, Zugriff, Nachführung mit Stand und laufender Prüfung, Massnahmenstatus «Verworfen»). |
