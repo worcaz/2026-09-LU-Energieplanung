@@ -19,7 +19,6 @@ erDiagram
   PLANUNG ||--o{ MASSNAHME : enthält
   PLANUNG ||--o{ NACHFUEHRUNG : "wurde nachgeführt"
   PLANUNG ||--o| NACHFUEHRUNG_ENTWURF : "laufende Prüfung"
-  MASSNAHME ||--o{ ENERGIETRAEGER : hat
   MASSNAHME ||--o| MASSNAHME_GEOMETRIE : "liegt bei"
   KONTAKT ||--o{ PLANUNG : "Kontakt Gemeinde / Berater/in"
   KONTAKT ||--o{ MASSNAHME : verantwortet
@@ -86,7 +85,7 @@ Die Gemeinden gelten gemeinsam für die Rollen Gemeinde und Energieberater/in. A
 | keine_externe_begleitung | Boolean | ersetzt den Prototyp-Sondertext «Aktuell keine externe Begleitung» |
 | ziel_netto_null, ziel_energieeffizienz, ziel_stromproduktion | Text | mehrzeilig |
 
-Nicht gespeichert: `jahr` (ergibt sich aus Beratungsbeginn bzw. geplantem Start), `prozessstatus` in der Beratung (Kopie von `status`), `pruefstatus.letzteUeberpruefung` (ergibt sich aus der letzten `nachfuehrung`).
+Nicht gespeichert: `jahr` (ergibt sich aus Beratungsbeginn bzw. geplantem Startjahr), `prozessstatus` in der Beratung (Kopie von `status`), `pruefstatus.letzteUeberpruefung` (ergibt sich aus der letzten `nachfuehrung`).
 
 ### planung_gemeinde
 | Feld | Typ | Hinweis |
@@ -103,12 +102,11 @@ Nicht gespeichert: `jahr` (ergibt sich aus Beratungsbeginn bzw. geplantem Start)
 | planung_id | PK/FK | 1:1 |
 | name | Text | |
 | beratungsperson_id | FK kontakt | externe Fachperson |
-| geplanter_start | DATE | |
+| geplanter_start_jahr | SMALLINT (JJJJ) | nur Jahresplanung, kein Datum. Nur durch Admin änderbar. Überfällig, sobald das Jahr vorbei ist |
 | beratungsbeginn | DATE | Start der Beratung. Basis der Nachführungsfristen |
 | epa_abschluss | DATE | EPA Beratung abgeschlossen (Übergang zu Verabschiedung) |
 | beratung_abschluss | DATE | Beratung abgeschlossen (Übergang zu Abschluss) |
 | bedarf_energierichtplan, bedarf_koordination, gebiete_koordinationsbedarf | Boolean (nullable) | Ja / Nein / Keine Angabe |
-| foerderabschlussformular | Text | Stand des Formulars |
 | energiestadt | Text | Ja / Nein |
 | kommentar | Text | intern |
 
@@ -142,17 +140,6 @@ Nicht gespeichert: `jahr` (ergibt sich aus Beratungsbeginn bzw. geplantem Start)
 | bemerkungen | Text | Feld «Bemerkungen / aktueller Stand» |
 
 Nicht gespeichert: `umsetzungszeitraum` (berechnet aus Start und Fälligkeit).
-
-### energietraeger
-| Feld | Typ | Hinweis |
-|---|---|---|
-| id | PK | |
-| massnahme_id | FK | |
-| spezifikation | Text | |
-| typ | Enum | siehe Abschnitt 3 |
-| prioritaet | Enum | |
-
-Nur bei Handlungsfeld «Wärme- und Kälteversorgung» relevant.
 
 ### massnahme_geometrie
 | Feld | Typ | Hinweis |
@@ -216,7 +203,6 @@ Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen überno
 | Handlungsfeld | Übergeordnete Massnahmen / Strategien, Wärme- und Kälteversorgung, Energieeffizienz, Ausbaupfad erneuerbare Energien, andere |
 | Aktivitätsbereich | Strategie / Planung, Information, Beratung, Förderung, Vorschrift, Vollzug, Vorbildfunktion |
 | Priorität | Hoch, Mittel, Tief |
-| Energieträgertyp | Hochwertige Abwärme (Vorlauftemperatur >= 60°C), Niederwertige Abwärme (Vorlauftemperatur < 60°C), Oberflächenwasser, Grundwasser, Erdwärme, Holz, Umgebungsluft, Sonne, Biomasse, Fossile Energieträger, Elektrizität, Massnahme ohne Energieträger, nicht definiert, andere, unbekannt |
 | Planungstyp | kommunal, regional |
 | Rolle | Admin, Energieberater/in, Gemeinde |
 
@@ -230,9 +216,9 @@ Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen überno
 | Nächste Nachführungsfrist | Erste Frist = Beratungsbeginn + 4 Jahre. Danach je Nachführung: rechtzeitig/vorzeitig = Datum + 4 Jahre, verspätet = ursprüngliche Frist + 4 Jahre. Keine Frist mehr, wenn das Jahr ≥ 2050 (Business-Rules 4.2) |
 | Anzahl erledigter Nachführungen / «n. Nachführung» | Anzahl Zeilen in `nachfuehrung` (+1 für die anstehende) |
 | Phase der Nachführung | vorab, ruhend (> 12 Monate bis Frist), offen (≤ 12 Monate), fällig, keine |
-| Prozessschritt | Grunddaten, EPA Beratung, Massnahmen, Gesuch, Nachführung: aus Status und Beratungsbeginn |
+| Prozessschritt | Personen, EPA Beratung, Massnahmen, Gesuch, Nachführung: aus Status und Beratungsbeginn |
 | Massnahme überfällig | Fälligkeit vor heute und Status weder Abschluss noch Verworfen |
-| Löschbar | Planung: nur im Schritt Grunddaten. Kontakt: nirgends mehr eingetragen |
+| Löschbar | Planung: nur durch Admin und nur im Schritt Personen. Kontakt: nirgends mehr eingetragen |
 
 ---
 
@@ -243,7 +229,7 @@ Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen überno
 - `foerdergesuch.gesuchs_nr`: eindeutig.
 - `kontakt`: eindeutig (vorname, nachname, organisation).
 - `kontakt` darf nicht gelöscht werden, solange er in `planung`, `epa_beratung` oder `massnahme` referenziert wird. Der Zugriff (`benutzer_zugriff`) wird beim Löschen mit entfernt.
-- `planung` darf nur im Prozessschritt «Grunddaten» gelöscht werden. Dabei werden die zugehörigen Massnahmen mitgelöscht.
+- `planung` darf nur durch die Rolle Admin und nur im Prozessschritt «Personen» gelöscht werden (serverseitig erzwingen). Dabei werden die zugehörigen Massnahmen mitgelöscht.
 - Sichtbarkeit: Nicht-Admins sehen nur Planungen, die mindestens eine ihrer freigeschalteten Gemeinden betreffen. Das muss serverseitig erzwungen werden.
 
 ---
@@ -262,6 +248,11 @@ Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen überno
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-19 | Tabelle `energietraeger` und Aufzählung «Energieträgertyp» entfernt. |
+| 2026-11-19 | Feld `epa_beratung.foerderabschlussformular` (Stand des Formulars) entfernt (Abschnitt 3). |
+| 2026-11-19 | `epa_beratung.geplanter_start` (DATE) ersetzt durch `geplanter_start_jahr` (JJJJ), nur Admin änderbar (Abschnitt 3). |
+| 2026-11-19 | Löschen von `planung` nur durch Admin (Abschnitte 5, 6). |
+| 2026-11-19 | Prozessschritt «Grunddaten» heisst neu «Personen» (Abschnitte 5, 6). `planung.name`, `typ` und Gemeinde(n) sind nach dem Anlegen unveränderlich. |
 | 2026-11-19 | `nachfuehrung_entwurf`: Bearbeitungsvermerk ergänzt, offene Frage zum Abbruch geklärt (Abschnitt 3). |
 | 2026-11-16 | Offene Frage zum Entwurf einer nicht abgeschlossenen Nachführung ergänzt (Abschnitt 3). |
 | 2026-11-12 | Erstfassung (Planung, Massnahmen, Kontakte, Zugriff, Nachführung mit Stand und laufender Prüfung, Massnahmenstatus «Verworfen»). |

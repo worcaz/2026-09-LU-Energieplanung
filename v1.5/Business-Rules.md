@@ -31,7 +31,7 @@ Formate: Datum `dd.MM.yyyy`. Datumsfelder haben einen **eigenen deutschen Datepi
 - Typ ist Pflicht: **Kommunal** (genau 1 Gemeinde) oder **Regional** (mindestens 2 Gemeinden).
 - Pro Gemeinde und Typ darf es nur **eine** Energieplanung geben. Existiert für mindestens eine der gewählten Gemeinden bereits eine EP desselben Typs, wird das Anlegen abgelehnt. Die Meldung verlinkt auf die bestehende EP.
 - Eine neue EP startet im Status **Entwurf**. Die ID wird fortlaufend vergeben.
-- Name: `<Typ> <Gemeinde(n)>`.
+- Name: `<Typ> <Gemeinde(n)>`, wird beim Anlegen vergeben. Name, Planungstyp und Gemeinde(n) sind im Tab «Personen» nicht mehr bearbeitbar (der Titel der Planung zeigt sie), die Gemeinde(n) auch nicht in der Ansicht.
 
 ### 2.2 Status (Prozessstatus) und Stepper
 Reihenfolge: **Entwurf → Verabschiedung → Fördergesuch → Abschluss**.
@@ -42,7 +42,7 @@ Reihenfolge: **Entwurf → Verabschiedung → Fördergesuch → Abschluss**.
 ### 2.3 Pflichtfelder je Status
 | Feld | Pflicht ab |
 |---|---|
-| Planungstyp, Gemeinde(n) | immer |
+| Planungstyp, Gemeinde(n) | werden beim Anlegen gewählt und sind danach nicht mehr bearbeitbar (kein Pflichtfeld im Formular) |
 | Beratungsperson | Fördergesuch |
 | Datum Beratungsbeginn | Fördergesuch |
 | Bedarf eines Energierichtplans? (Ja/Nein) | Fördergesuch |
@@ -57,7 +57,7 @@ Die Detailansicht führt durch 5 Schritte. Der aktuelle Schritt ergibt sich aus 
 
 | Schritt | Tab | Bedingung | Aktion am Ende des Schritts |
 |---|---|---|---|
-| 1 | Grunddaten | Status Entwurf, Beratung noch nicht gestartet (kein Beratungsbeginn) | «EPA Beratung starten» → setzt Datum Beratungsbeginn auf heute |
+| 1 | Personen | Status Entwurf, Beratung noch nicht gestartet (kein Beratungsbeginn) | «EPA Beratung starten» → setzt Datum Beratungsbeginn auf heute |
 | 2 | EPA Beratung | Status Entwurf, Beratung gestartet | «EPA Beratung abschliessen» → Status **Verabschiedung** |
 | 3 | Massnahmen | Status Verabschiedung | «Weiter zum Gesuch» → Status **Fördergesuch** (prüft die Pflichtfelder von «Verabschiedung») |
 | 4 | Gesuch | Status Fördergesuch | «Fördergesuch eingereicht» → setzt Gesuchseingang auf heute und vergibt die Gesuchs-Nr. (siehe 2.6); danach «Beratung abschliessen» → Status **Abschluss** (prüft die Pflichtfelder von «Abschluss») |
@@ -66,15 +66,16 @@ Die Detailansicht führt durch 5 Schritte. Der aktuelle Schritt ergibt sich aus 
 Schlägt die Pflichtfeldprüfung einer Aktion fehl, öffnet sich der Tab mit dem ersten fehlenden Feld im Bearbeiten-Modus.
 
 ### 2.5 Bearbeiten und Löschen
-- Bearbeiten gibt es in den Formular-Tabs (Grunddaten, EPA Beratung, Gesuch). Massnahmen und Nachführung sind direkt änderbar.
+- Bearbeiten gibt es in den Formular-Tabs (Personen, EPA Beratung, Gesuch). Massnahmen und Nachführung sind direkt änderbar.
 - Beim Speichern werden die Pflichtfelder des gewählten Status geprüft.
-- **Löschen** einer EP ist nur im Tab Grunddaten möglich, erfordert eine Bestätigung und ist **nur solange erlaubt, wie die EPA Beratung noch nicht gestartet wurde** (Prozessschritt «Grunddaten»). Sobald die Beratung läuft oder die EP in einem späteren Schritt steht (EPA Beratung, Massnahmen, Gesuch, Nachführung), kann sie nicht mehr gelöscht werden. Der Löschen-Link wird dann durch einen Hinweis ersetzt. Beim erlaubten Löschen werden die vorhandenen Massnahmen mit gelöscht.
+- **Löschen** einer EP dürfen **nur Admin**. Alle anderen Rollen sehen weder den Löschen-Link noch den Hinweis. Es ist nur im Tab Personen möglich, erfordert eine Bestätigung und ist **nur solange erlaubt, wie die EPA Beratung noch nicht gestartet wurde** (Prozessschritt «Personen»). Sobald die Beratung läuft oder die EP in einem späteren Schritt steht (EPA Beratung, Massnahmen, Gesuch, Nachführung), kann sie nicht mehr gelöscht werden. Der Löschen-Link wird dann durch einen Hinweis ersetzt. Beim erlaubten Löschen werden die vorhandenen Massnahmen mit gelöscht.
+- **Geplanter Start EPA-Beratung:** Das Feld ist nur eine **Jahresplanung** (Auswahl eines Jahres, kein Datum). Nur **Admin** können es bearbeiten, alle anderen Rollen sehen es schreibgeschützt. Bestehende Datumswerte werden auf das Jahr gekürzt angezeigt.
 
 ### 2.6 Gesuch und Kontrolle
 - Kontoinformationen: Kontoinhaber/in, Adresse, IBAN (Pflicht, siehe 2.3), Bankname (optional). Das Konto lautet immer auf die Gemeinde.
 - **Förderabschlussformular** (druckbar/PDF): erst verfügbar, wenn Kontoinhaber/in, Adresse und IBAN erfasst sind. Es muss von Berater/in und Gemeinderat unterschrieben werden.
 - **Gesuchs-Nr.**: Beim Erfassen des Gesuchseingangs wird eine eindeutige Nr. vorgeschlagen: `<Jahr><Nr der EP>` (z. B. EP-712 → 2026712). Ist sie bereits vergeben, wird eine Ziffer angehängt (`…2`, `…3`).
-- Tab **Kontrolle** liegt als Zwischenschritt **4.1** zwischen Gesuch (4) und Nachführung (5) und ist nur für Admin sichtbar. Er gehört nicht zum Prozessablauf (kein Weiter-Button, keine Aktion). Inhalt: Gesuchseingang, Gesuchs-Nr., Auszahlungsbetrag in CHF und interner Kommentar, nur für **Admin** sichtbar und bearbeitbar. Beim Wechsel auf eine andere Rolle fällt die Ansicht auf Grunddaten zurück.
+- Tab **Kontrolle** liegt als Zwischenschritt **4.1** zwischen Gesuch (4) und Nachführung (5) und ist nur für Admin sichtbar. Er gehört nicht zum Prozessablauf (kein Weiter-Button, keine Aktion). Inhalt: Gesuchseingang, Gesuchs-Nr., Auszahlungsbetrag in CHF und interner Kommentar, nur für **Admin** sichtbar und bearbeitbar. Beim Wechsel auf eine andere Rolle fällt die Ansicht auf Personen zurück.
 - **Hinweis / Lücke:** Gesuchseingang im Kontrolle-Tab ist ein freies Textfeld ohne Datumsprüfung. Die Gesuchs-Nr. wird nicht auf Eindeutigkeit geprüft, wenn sie von Hand geändert wird.
 
 ### 2.7 Ja/Nein-Felder
@@ -101,7 +102,7 @@ Ja/Nein-Fragen sind ein Umschalter mit drei Zuständen: **Ja**, **Nein**, **Kein
 | Verantwortlichkeit | nein | Auswahl aus den Kontakten |
 | Bemerkungen / aktueller Stand | nein | Freitext |
 
-Zusätzlich: **Energieträger** (Tabelle mit ID, Spezifikation, Typ, Priorität) wird nur beim Handlungsfeld «Wärme- und Kälteversorgung» angezeigt. Die **geografische Markierung** (Punkt, Linie, Fläche) wird nur angezeigt. Ein Editor dafür fehlt im Prototyp.
+Zusätzlich: Die **geografische Markierung** (Punkt, Linie, Fläche) wird nur angezeigt. Ein Editor dafür fehlt im Prototyp.
 
 ### 3.2 Validierung beim Speichern
 - Alle Pflichtfelder werden geprüft. Fehler erscheinen direkt unter dem Feld (rot) mit einer Meldung. Der Cursor springt ins erste fehlerhafte Feld. Die Fehlermarkierung verschwindet, sobald das Feld geändert wird.
@@ -234,7 +235,7 @@ Zu prüfen sind Massnahmen, die (a) noch nicht abgeschlossen sind, (b) seit der 
 
 Beim Abschluss wird ein Protokolleintrag geschrieben: Datum, Benutzer, Anzahl geänderter Personen/Ziele, Anzahl Massnahmen, Momentaufnahme des Stands (Grundlage für «Seit der letzten Nachführung»). Danach beginnt ein neuer, ungeprüfter Zyklus und die nächste Frist wird nach 4.2 berechnet.
 
-**Berater/in Energieplanung:** Statt einer externen Fachperson kann der Wert **«Aktuell keine externe Begleitung»** gewählt werden. Er steht zuoberst in der Auswahl und ist hervorgehoben. Das gilt überall, wo dieses Feld bearbeitet wird (Nachführung und Grunddaten). Der Wert wird nicht als «Person nicht mehr in den Kontakten» gewarnt und gibt keinen Zugriff (Abschnitt 6). Sobald dieses Auswahlfeld den Sonderwert anbietet, kann man es nicht mehr auf «leer» zurücksetzen. Man wählt eine Person oder «Aktuell keine externe Begleitung». Das Feld «Kontakt Gemeinde» ist das Feld «Verantwortlichkeit Gemeinde» der Grunddaten, nur in der Nachführung anders beschriftet.
+**Berater/in Energieplanung:** Statt einer externen Fachperson kann der Wert **«Aktuell keine externe Begleitung»** gewählt werden. Er steht zuoberst in der Auswahl und ist hervorgehoben. Das gilt überall, wo dieses Feld bearbeitet wird (Nachführung und Personen). Der Wert wird nicht als «Person nicht mehr in den Kontakten» gewarnt und gibt keinen Zugriff (Abschnitt 6). Sobald dieses Auswahlfeld den Sonderwert anbietet, kann man es nicht mehr auf «leer» zurücksetzen. Man wählt eine Person oder «Aktuell keine externe Begleitung». Das Feld «Kontakt Gemeinde» ist das Feld «Verantwortlichkeit Gemeinde» der Personen, nur in der Nachführung anders beschriftet. **Hinweis-Icon (i):** Neben «Verantwortlichkeit Gemeinde» bzw. «Kontakt Gemeinde» (Tab Personen, Ansicht und Formular, sowie Nachführung) steht ein Icon mit dem Text «Neue User bei uwe / Clara Bucher bestellen.» (Hover oder Fokus). Es erklärt, wie eine Person erhalten wird, die in der Auswahl fehlt.
 
 **Nachführung wird nicht abgeschlossen (vom Fachbereich geklärt, 2026-11-19):** Es gibt keinen Abbruch mit Zurücksetzen. Änderungen und Bestätigungen bleiben auch ohne Abschluss gespeichert und sind für alle sichtbar.
 - Änderungen an Personen, Zielen und Massnahmen sind sofort gespeichert und im Datenbestand (Massnahmenliste, Reports, Exporte) sichtbar. Es gibt keinen Entwurf, der erst beim Abschluss übernommen wird.
@@ -263,8 +264,8 @@ Dreistufig: **Datei → Zuordnung → Zusammenfassung**.
 ## 5. Kontakte
 - Pflicht: Vorname, Nachname, E-Mail. Organisation ist optional. Im Kontaktformular gibt es **keine** Prüfung des E-Mail-Formats und keine Eindeutigkeitsprüfung (anders als beim Erfassen aus einer Auswahl, siehe unten).
 - **Neue Person direkt in der Auswahl erfassen (nur Admin):** In jedem Personen-Auswahlfeld (Verantwortlichkeit der Massnahme, Beratungsperson, Kontakt Gemeinde, Berater/in Energieplanung, Verantwortlichkeit in der Nachführung) steht für Admins zuoberst «＋ Neue Person erfassen …». Der Dialog verlangt Vorname, Nachname und E-Mail (das Format wird geprüft). Eine Person mit gleichem Namen und gleicher Organisation wird abgelehnt. Je nach Feld gilt eine Einschränkung: bei **Kontakt Gemeinde** ist die Organisation eine der Gemeinden der Planung (vorgegebene Auswahl), bei **Beratungsperson** und **Berater/in Energieplanung** ist eine externe Organisation Pflicht (keine «Gemeinde …»). Im Dialog werden gleich die **Rollen** (Zugriff) gesetzt, mehrere sind möglich. Vorbelegt ist bei «Kontakt Gemeinde» die Rolle Gemeinde und bei den Berater-Feldern Energieberater/in, sonst keine Rolle. Die Rolle Gemeinde gilt für die Gemeinde der Organisation (die Organisation muss dazu eine Gemeinde des Kantons sein, «Gemeinde Adligenswil» oder nur «Adligenswil», sie wird dann als «Gemeinde …» gespeichert), die Rolle Energieberater/in für die Gemeinden der aktuellen Planung. Der Zugriff wird sofort gespeichert und nicht erst später automatisch berechnet. Die Person wird sofort in den Kontakten angelegt und im Feld gewählt. Bei den Feldern für externe Fachpersonen (Beratungsperson, Berater/in Energieplanung) ist die Rolle Gemeinde nicht wählbar. Andere Rollen sehen die Option nicht.
-- **Löschen** (einzeln oder mehrere) nach Bestätigung, aber **nur, wenn der Kontakt nirgends mehr eingetragen ist**. Geprüft werden: Kontakt Gemeinde und Berater/in Energieplanung (Grunddaten), Beratungsperson (EPA Beratung) und Verantwortlichkeit jeder Massnahme. Ein bestehender **Zugriff** (Rollen in der Zugriffsverwaltung) ist **kein** Löschgrund: er wird beim Löschen des Kontakts mit entfernt. War die gelöschte Person die angemeldete, wechselt die Ansicht zu Admin. Ist der Kontakt noch eingetragen, wird **nichts gelöscht** und es erscheint ein Hinweis mit der Liste aller Stellen, jeweils mit **Link**, der direkt dorthin führt (Planung im passenden Tab bzw. Massnahme); bei vielen Treffern werden die ersten 12 gezeigt. Beim Löschen mehrerer Kontakte wird gar nichts gelöscht, solange einer der ausgewählten verwendet wird. Einträge im Änderungsprotokoll früherer Nachführungen (Name der Person) zählen nicht als Verwendung.
-- Auswahllisten für Personen sind nach Gemeinde-Kontakten und externen Fachpersonen gruppiert. Die Verantwortliche Person der Gemeinde ist auf Kontakte der betreffenden Gemeinde(n) beschränkt, Berater/innen auf externe Fachpersonen.
+- **Löschen** (einzeln oder mehrere) nach Bestätigung, aber **nur, wenn der Kontakt nirgends mehr eingetragen ist**. Geprüft werden: Kontakt Gemeinde und Berater/in Energieplanung (Personen), Beratungsperson (EPA Beratung) und Verantwortlichkeit jeder Massnahme. Ein bestehender **Zugriff** (Rollen in der Zugriffsverwaltung) ist **kein** Löschgrund: er wird beim Löschen des Kontakts mit entfernt. War die gelöschte Person die angemeldete, wechselt die Ansicht zu Admin. Ist der Kontakt noch eingetragen, wird **nichts gelöscht** und es erscheint ein Hinweis mit der Liste aller Stellen, jeweils mit **Link**, der direkt dorthin führt (Planung im passenden Tab bzw. Massnahme); bei vielen Treffern werden die ersten 12 gezeigt. Beim Löschen mehrerer Kontakte wird gar nichts gelöscht, solange einer der ausgewählten verwendet wird. Einträge im Änderungsprotokoll früherer Nachführungen (Name der Person) zählen nicht als Verwendung.
+- Auswahllisten für Personen sind nach Gemeinde-Kontakten und externen Fachpersonen gruppiert. Die Verantwortliche Person der Gemeinde ist auf Kontakte der betreffenden Gemeinde(n) beschränkt, Berater/innen auf externe Fachpersonen. **Suche:** Jede Personen-Auswahl hat eine eingebaute Suchzeile (Teil von Vor- oder Nachname bzw. Organisation, ohne Gross-/Kleinschreibung und Akzente). Sie filtert die Liste beim Tippen, Pfeiltasten und Enter wählen, Escape schliesst. «＋ Neue Person erfassen …» und «Aktuell keine externe Begleitung» bleiben beim Filtern sichtbar.
 
 ---
 
@@ -294,12 +295,12 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 ## 7. Liste der Energieplanungen
 - **Titel:** Admin sehen «Übersicht Energieplanungen», alle anderen Rollen «Meine Energieplanungen». Sieht (verantwortet) eine Person nur **eine** Energieplanung, heisst es im Singular «Meine Energieplanung». Das gilt auch für den Zurück-Link in der Detailansicht und die Gruppe im Karteninhalt (dort bleibt es bei Admin immer «Meine Energieplanungen»).
 - **Suche** über ID, Name, Jahr, Gemeinde und Regionsname.
-- **Filter** nach Prozessschritt (Grunddaten, EPA Beratung, Massnahmen, Gesuch, Nachführung).
+- **Filter** nach Prozessschritt (Personen, EPA Beratung, Massnahmen, Gesuch, Nachführung).
 - **Sortierung:** Gemeinde, Jahr, Status (in Prozessreihenfolge), Termin, nächster Schritt.
 - **Hover Liste und Karte:** Fährt man in der Übersicht über eine Zeile, wird auf der Karte nur die **Grenze** der Gemeinde (bei regionalen Planungen aller Gemeinden der Region) hervorgehoben. Die Flächenfarbe (Prozessstand) ändert sich dabei nicht. Fährt man auf der Karte über eine Gemeinde, wird die zugehörige Zeile in der Liste hervorgehoben.
 - **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung», …; = Anzahl erledigter Nachführungen + 1). Ist keine weitere Nachführung mehr nötig, steht nur «Nachführung». Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht.
-- **Markierung auf der Übersichtskarte:** Gemeinden mit fälliger Nachführung sind orange eingefärbt, haben einen dunkelorangen Rand und über dem Gemeindenamen einen orangen «!»-Marker. Ist im Schritt «Grunddaten» der *geplante Start* der EPA-Beratung überfällig (Termin in der Vergangenheit, Beratung noch nicht gestartet), steht der «!»-Marker in **Grau**, die Fläche bleibt grau (Prozessstand «Grunddaten»). Bei regionalen Planungen erhält jede betroffene Gemeinde einen Marker. In der Detailansicht einer Planung erscheinen die Marker nur bei deren Gemeinden. Offene Frage (Fachbereich): Soll ein überfälliger geplanter Start auf der Karte überhaupt markiert werden und in welcher Form?
-- **Termin-Spalte:** bei noch nicht gestarteter Beratung der *geplante Start* (überfällig, wenn in der Vergangenheit, Anzeige «seit N Tagen»), sonst die *nächste Nachführungsfrist* (bei fälligen mit Warnsymbol).
+- **Markierung auf der Übersichtskarte:** Gemeinden mit fälliger Nachführung sind orange eingefärbt, haben einen dunkelorangen Rand und über dem Gemeindenamen einen orangen «!»-Marker. Ist im Schritt «Personen» der *geplante Start* der EPA-Beratung überfällig (geplantes Startjahr vorbei, Beratung noch nicht gestartet), steht der «!»-Marker in **Grau**, die Fläche bleibt grau (Prozessstand «Personen»). Bei regionalen Planungen erhält jede betroffene Gemeinde einen Marker. In der Detailansicht einer Planung erscheinen die Marker nur bei deren Gemeinden. Offene Frage (Fachbereich): Soll ein überfälliger geplanter Start auf der Karte überhaupt markiert werden und in welcher Form?
+- **Termin-Spalte:** bei noch nicht gestarteter Beratung das *geplante Startjahr* (nur Jahr, kein Datum). Überfällig ist es, sobald das Jahr vorbei ist (ab 1. Januar des Folgejahrs), Anzeige «⚠ geplant <Jahr>». Sonst die *nächste Nachführungsfrist* (bei fälligen mit Warnsymbol).
 - **Nächster Schritt:** Läuft eine Nachführung mit Änderungen oder Bestätigungen, steht «Nachführung <Jahr> in Bearbeitung seit <Datum>» (siehe 4.4). Sonst: Entwurf = «EPA Beratung starten/abschliessen», Verabschiedung = «Verabschiedung erfassen», Fördergesuch = «Fördergesuch einreichen» bzw. «Beratung abschliessen», Abschluss = «Nachführung <Jahr> abschliessen (fällig)», «… steht bald an» (Frist innerhalb eines Jahres) oder «Aktuell nichts zu tun».
 
 ---
@@ -329,6 +330,13 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-19 | Sektion «Energieträger» in der Massnahme entfernt (Abschnitt 3.1). |
+| 2026-11-19 | Textfeld «Förderabschlussformular» (Stand) in der EPA Beratung entfernt. Das druckbare Formular im Tab Gesuch bleibt (Abschnitt 2.6). |
+| 2026-11-19 | EPA Beratung: «Geplanter Start» ist nur noch eine Jahresplanung (Jahresauswahl statt Datum), nur durch Admin bearbeitbar, für andere Rollen schreibgeschützt. Überfällig erst nach Ablauf des Jahres (Abschnitte 2.5, 7). |
+| 2026-11-19 | Personen-Auswahlfelder mit eingebauter Suche (Abschnitt 5). |
+| 2026-11-19 | Hinweis-Icon bei «Verantwortlichkeit Gemeinde» / «Kontakt Gemeinde»: neue User bei uwe / Clara Bucher bestellen (Abschnitt 4.4). |
+| 2026-11-19 | Energieplanung löschen nur noch für Admin (Abschnitt 2.5). |
+| 2026-11-19 | Tab «Grunddaten» heisst neu «Personen» (interner Schlüssel bleibt `grunddaten`). Name, Planungstyp und Gemeinde(n) entfallen im Tab, sie werden nur noch beim Anlegen gesetzt (Abschnitte 2.1, 2.3, 2.5, 7). |
 | 2026-11-19 | Nachführung ohne Abschluss: Antworten des Fachbereichs übernommen (kein Zurücksetzen, Änderungen für alle sichtbar, Hinweis «in Bearbeitung seit …» in Liste und Tab, parallele Bearbeitung ohne Sperre) (Abschnitte 4.4, 7, Offene Punkte Nr. 8). |
 | 2026-11-16 | Übersichtskarte: fällige Nachführung mit oranger Fläche, Rand und «!»-Marker; überfälliger geplanter Start (Grunddaten) mit grauem «!»-Marker (Abschnitt 7). |
 | 2026-11-16 | Offene Fragen zur nicht abgeschlossenen Nachführung festgehalten (Abschnitt 4.4, Offene Punkte Nr. 8). |

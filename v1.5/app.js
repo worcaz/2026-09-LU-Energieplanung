@@ -36,24 +36,6 @@ function dummyDetailsZurueck(d) {
   }
   return n;
 }
-const ENERGIETRAEGER_TYPEN = [
-  'Hochwertige Abwärme (Vorlauftemperatur >= 60°C)',
-  'Niederwertige Abwärme (Vorlauftemperatur < 60°C)',
-  'Oberflächenwasser',
-  'Grundwasser',
-  'Erdwärme',
-  'Holz',
-  'Umgebungsluft',
-  'Sonne',
-  'Biomasse',
-  'Fossile Energieträger',
-  'Elektrizität',
-  'Massnahme ohne Energieträger',
-  'nicht definiert',
-  'andere',
-  'unbekannt'
-];
-
 const MASSNAHME_VORLAGEN = {
   'Übergeordnete Massnahmen / Strategien': [
     { name: 'Energieleitbild der Gemeinde', beschreibung: 'Erarbeitung eines übergeordneten Energie- und Klimaleitbilds für die Gemeinde.' },
@@ -159,7 +141,6 @@ function makeEnergieplanung(id, gemeinde, status, extra) {
       bedarfEnergierichtplan: '-',
       bedarfKoordination: '-',
       gebieteKoordinationsbedarf: '-',
-      foerderabschlussformular: 'Keine Massnahmen definiert',
       epaAbschluss: '-', beratungAbschluss: '-',   // Meilensteine: EPA Beratung abgeschlossen (→ Verabschiedung) / Beratung abgeschlossen (→ Abschluss)
       gesuchseingang: '-', auszahlungsbetrag: 7200, gesuchsNr: '-', energiestadt: '-', kommentar: '-'
     },
@@ -221,20 +202,6 @@ function randomDate(yearFrom, yearTo) { return new Date(randomInt(yearFrom, year
 function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
 function addYears(date, years) { const d = new Date(date); d.setFullYear(d.getFullYear() + years); return d; }
 
-function buildEnergietraeger(count) {
-  const rows = [];
-  for (let i = 1; i <= count; i++) {
-    const typ = pick(ENERGIETRAEGER_TYPEN);
-    rows.push({
-      id: `ET-${i}`,
-      spez: typ, // Spezifikation = Name des Energieträgers
-      typ,
-      prioritaet: pick(PRIORITAETEN)
-    });
-  }
-  return rows;
-}
-
 function formatContactLabel(contact) {
   return contact.organisation !== '-' ? `${contact.vorname} ${contact.nachname} (${contact.organisation})` : `${contact.vorname} ${contact.nachname}`;
 }
@@ -287,7 +254,7 @@ function planProzess(p) {
   const d = n => addDays(today, n);
   const plan = { today, status: p.status, gestartet: true, beginn: null, geplanterStart: null, gesuchseingang: null, letztePruefung: null };
   if (p.status === 'Entwurf') {
-    if (rand() < 0.45) { plan.gestartet = false; plan.geplanterStart = d(randomInt(-45, 420)); }
+    if (rand() < 0.45) { plan.gestartet = false; plan.geplanterStart = d(randomInt(-400, 420)); }
     else plan.beginn = d(-randomInt(20, 320));
   } else if (p.status === 'Verabschiedung') {
     plan.beginn = d(-randomInt(150, 600));
@@ -380,9 +347,7 @@ function buildMassnahme(index, planung, plan) {
     faelligkeitsdatum: formatDate(due),
     budget: rand() < 0.9 ? formatChf(randomInt(2, 400) * 500) : '-',
     verantwortlichkeit: contact ? formatContactLabel(contact) : '-',
-    bemerkungen: '-',
-    // Energieträger sind nur bei Handlungsfeld "Wärme- und Kälteversorgung" relevant
-    energietraeger: handlungsfeld === 'Wärme- und Kälteversorgung' && rand() < 0.6 ? buildEnergietraeger(randomInt(1, 2)) : []
+    bemerkungen: '-'
   };
   // Einzelne geplante Massnahmen wurden verworfen (aus einem Hash, damit sich die übrigen Dummy-Daten nicht verschieben)
   if (massnahme.prozessstatus === 'Geplant' && hashStr(planung.id + '|verworfen|' + index) % 100 < 6) massnahme.prozessstatus = 'Verworfen';
@@ -456,7 +421,7 @@ function fillPlanungDetails(planung, plan) {
   const gesuchsJahr = plan.gesuchseingang ? plan.gesuchseingang.getFullYear() : null;
 
   // EPA-Beratung
-  if (plan.geplanterStart) eb.geplanterStart = formatDate(plan.geplanterStart);
+  if (plan.geplanterStart && rand() < 0.3) eb.geplanterStart = String(plan.geplanterStart.getFullYear());   // nur Jahresplanung, wird von Admin erfasst: im Bestand meist noch leer
   if (plan.gestartet) {
     eb.beratungsperson = formatContactLabel(pick(KONTAKT_POOL));
     eb.datumBeratungsbeginn = formatDate(plan.beginn);
@@ -465,7 +430,6 @@ function fillPlanungDetails(planung, plan) {
     eb.bedarfKoordination = jn(anteil);
     eb.gebieteKoordinationsbedarf = jn(anteil);
   }
-  eb.foerderabschlussformular = plan.gesuchseingang ? 'Unterschrieben eingereicht' : gesuchPhase ? 'In Vorbereitung' : 'Noch nicht erstellt';
   eb.auszahlungsbetrag = rand() < 0.85 ? 7200 : pick([6000, 6500, 7800, 8200, 9000]);
   if (plan.gesuchseingang) {
     eb.gesuchseingang = formatDate(plan.gesuchseingang);
@@ -864,12 +828,24 @@ function typKurzer(typ) {
   const t = typKurz(typ);
   return t === 'kommunal' ? 'komm.' : t === 'regional' ? 'reg.' : String(t).slice(0, 4) + '.';
 }
+// Geplanter Start der EPA-Beratung ist nur eine Jahresplanung (Text «JJJJ»). Älterer Bestand mit Datum (dd.MM.yyyy) wird auf das Jahr gekürzt.
+function geplanterStartJahr(v) { const m = /(\d{4})\s*$/.exec(String(v || '')); return m ? Number(m[1]) : null; }
+// Ende des geplanten Jahres (31.12.): danach gilt der Start als überfällig
+// Admin: Auswahl des Jahres. Alle anderen Rollen: schreibgeschützt.
+function geplanterStartInput(v) {
+  const j = geplanterStartJahr(v), jetzt = new Date().getFullYear();
+  if (state.role !== 'Admin') return `<input type="text" id="f-eb-geplant" value="${j || ''}" placeholder="Noch nicht geplant" readonly title="Nur Admin können den geplanten Start ändern">`;
+  const jahre = []; for (let y = jetzt - 2; y <= jetzt + 10; y++) jahre.push(y);
+  if (j && !jahre.includes(j)) { jahre.push(j); jahre.sort((a, b) => a - b); }
+  return '<select id="f-eb-geplant" class="select-input"><option value="">– Jahr wählen –</option>' + jahre.map(y => `<option value="${y}"${y === j ? ' selected' : ''}>${y}</option>`).join('') + '</select>';
+}
+function geplanterStartEnde(v) { const j = geplanterStartJahr(v); return j ? new Date(j, 11, 31) : null; }
 // Entwurf ohne Beratungsbeginn: geplanter Start der EPA-Beratung; Abschluss: nächste Nachführung/Prüfung.
 function beratungStartFor(p) {
   if (p.status !== 'Entwurf') return null;
   const eb = p.epaBeratung || {};
   if (parseSwissDate(eb.datumBeratungsbeginn)) return null;
-  return parseSwissDate(eb.geplanterStart);
+  return geplanterStartEnde(eb.geplanterStart);
 }
 function terminFor(p) { return beratungStartFor(p) || naechstePruefungFor(p); }
 // Überfällige Termine als «seit N Tagen» (Datum im Tooltip)
@@ -884,15 +860,15 @@ function terminCell(p) {
   if (start) {
     const late = start < new Date(new Date().setHours(0, 0, 0, 0));
     return late
-      ? `<span class="termin-faellig" title="Geplanter Start der EPA-Beratung – überfällig seit ${formatDate(start)}">⚠ ${seitTagenText(start)}</span>`
-      : `<span title="Geplanter Start der EPA-Beratung">${formatDate(start)}</span>`;
+      ? `<span class="termin-faellig" title="Geplanter Start der EPA-Beratung (Jahresplanung ${start.getFullYear()}) – überfällig">⚠ geplant ${start.getFullYear()}</span>`
+      : `<span title="Geplanter Start der EPA-Beratung (Jahresplanung)">${start.getFullYear()}</span>`;
   }
   if (!t) return '<span class="muted">–</span>';
   if (pruefstatusFor(p) === 'faellig') return `<span class="termin-faellig" title="Fällig seit ${formatDate(t)}">⚠ ${seitTagenText(t)}</span>`;
   return formatDate(t);
 }
 // Prozessschritt einer Energieplanung gemäss den Tabs der Detailansicht:
-// 1 Grunddaten (Beratung noch nicht gestartet) · 2 EPA Beratung (Beratung läuft) · 3 Massnahmen (Verabschiedung) ·
+// 1 Personen (Beratung noch nicht gestartet) · 2 EPA Beratung (Beratung läuft) · 3 Massnahmen (Verabschiedung) ·
 // 4 Gesuch (Fördergesuch in Vorbereitung / beim Kanton) · 5 Nachführung (Abschluss, wiederkehrende Überprüfung)
 function prozessSchrittFor(p) {
   const eb = p.epaBeratung || {};
@@ -986,7 +962,7 @@ function planungenFuerGemeinden(gemeinden, typ) {
     String(p.gemeinde).split(',').some(x => set.has(x.trim().toLowerCase())));
 }
 // Öffnet eine Planung direkt im aktuellen Prozessschritt (Tab), in der Ansicht oder im Bearbeiten-Modus.
-// Bearbeiten gibt es nur in den Formular-Tabs (Grunddaten, EPA Beratung, Gesuch); Massnahmen und Nachführung sind direkt änderbar.
+// Bearbeiten gibt es nur in den Formular-Tabs (Personen, EPA Beratung, Gesuch); Massnahmen und Nachführung sind direkt änderbar.
 function openPlanung(id, edit) {
   karteHervorhebungEnde();
   const p = findPlanung(id);
@@ -1260,8 +1236,6 @@ function bindNavRow(backHandler) {
 /* ---------------------- PLANUNGSDETAILS: PFLICHTFELD-VALIDIERUNG ---------------------- */
 // Immer Pflicht (Status "Entwurf" & "Verabschiedung"); ab Status "Fördergesuch"/"Abschluss" kommen die übrigen Felder dazu.
 const PLANUNG_REQUIRED_FIELDS = [
-  { id: 'f-typ', label: 'Planungstyp', always: true, get: p => p.typ },
-  { id: 'f-gemeinde', label: 'Gemeinde(n)', always: true, get: p => p.gemeinde },
   { id: 'f-eb-beratungsperson', label: 'Beratungsperson', get: p => p.epaBeratung.beratungsperson },
   { id: 'f-eb-datum', label: 'Datum Beratungsbeginn', get: p => p.epaBeratung.datumBeratungsbeginn },
   { id: 'f-eb-energierichtplan', label: 'Bedarf eines Energierichtplans?', get: p => p.epaBeratung.bedarfEnergierichtplan },
@@ -1536,7 +1510,7 @@ function foerderFormularHtml(p) {
 
 /* ---------------------- PROZESS-TABS (führen durch den Beratungsprozess) ---------------------- */
 const PROZESS_TABS = [
-  { key: 'grunddaten', label: 'Grunddaten', short: 'Grunddaten' },
+  { key: 'grunddaten', label: 'Personen', short: 'Personen' },
   { key: 'epa', label: 'EPA Beratung', short: 'EPA' },
   { key: 'massnahmen', label: 'Massnahmen', short: 'Massn.' },
   { key: 'konto', label: 'Gesuch', short: 'Gesuch' },
@@ -1649,10 +1623,10 @@ function renderTabFooter(p) {
   </div>`;
 }
 
-// Löschen ist nur möglich, solange die EPA Beratung noch nicht gestartet ist (Prozessschritt Grunddaten). Ab der EPA Beratung nicht mehr.
+// Löschen ist nur möglich, solange die EPA Beratung noch nicht gestartet ist (Prozessschritt Personen). Ab der EPA Beratung nicht mehr.
 function planungLoeschbar(p) { return prozessSchrittFor(p).key === 'grunddaten'; }
 function renderDeleteLink(p) {
-  if (state.planungTab !== 'grunddaten' || state.planungDetailsMode === 'edit') return '';
+  if (state.role !== 'Admin' || state.planungTab !== 'grunddaten' || state.planungDetailsMode === 'edit') return '';   // Löschen nur für Admin
   if (!planungLoeschbar(p)) return `<div class="danger-zone"><span class="muted">Diese Energieplanung kann nicht mehr gelöscht werden, weil die EPA Beratung bereits gestartet wurde.</span></div>`;
   return `<div class="danger-zone"><button type="button" class="btn-link-danger" id="btn-del-planung">Energieplanung löschen</button></div>`;
 }
@@ -1885,7 +1859,7 @@ function importAusfuehren(p) {
       p.massnahmen.push({
         id: neuId, esNr: r.esNr || '-', name: r.name, prozessstatus: r.status || 'Geplant', ausEpa: 'Nein',
         beschreibung: r.beschreibung || '-', handlungsfeld: '-', aktivitaetsbereich: '-', prioritaet: '-', umsetzungszeitraum: '-',
-        startdatum: '-', faelligkeitsdatum: '-', budget: '-', verantwortlichkeit: '-', bemerkungen: r.bemerkung || '-', energietraeger: []
+        startdatum: '-', faelligkeitsdatum: '-', budget: '-', verantwortlichkeit: '-', bemerkungen: r.bemerkung || '-'
       });
       neu++;
       return;
@@ -2200,12 +2174,12 @@ function renderNachfuehrungBlock(p, art, titel) {
       const inp = art === 'angaben'
         ? personSelect(f.id, ef[f.key], f.key === 'verantwortlichkeit' ? p.gemeinde : null, f.key === 'beraterEnergieplanung', f.key === 'beraterEnergieplanung' ? KEINE_EXTERNE_BEGLEITUNG : null)
         : '<textarea id="' + f.id + '" rows="3">' + escapeHtml(fixDash(ef[f.key])) + '</textarea>';
-      return '<div class="form-field is-inline"><label>' + f.label + '</label><div class="form-field-body">' + inp + unbekannt(f) + '</div></div>';
+      return '<div class="form-field is-inline"><label>' + f.label + (f.key === 'verantwortlichkeit' ? kontaktGemeindeInfo() : '') + '</label><div class="form-field-body">' + inp + unbekannt(f) + '</div></div>';
     }).join('');
     body += '<div class="nf-block-actions"><span class="nf-autosave">Änderungen werden automatisch gespeichert.</span><button type="button" class="btn btn-primary btn-sm" data-nf-fertig="' + art + '">Bestätigen</button></div>';
   } else {
     body = NF_FELDER[art].map(f => {
-      const row = f.stacked ? fieldStacked(f.label, ef[f.key]) : field(f.label, ef[f.key]);
+      const row = f.stacked ? fieldStacked(f.label, ef[f.key]) : field(f.label, ef[f.key], f.key === 'verantwortlichkeit' ? kontaktGemeindeInfo() : '');
       const alt = stand ? (stand.stand.felder[f.key] || '') : null;
       const geaendert = stand && alt !== nfNorm(ef[f.key]);
       return row + unbekannt(f) + (geaendert ? '<details class="nf-vorher-d"><summary>geändert seit ' + escapeHtml(stand.datum) + ' · früheren Stand anzeigen</summary><div class="nf-vorher">' + (alt ? escapeHtml(alt) : '<em>leer</em>') + '</div></details>' : '');
@@ -2682,7 +2656,7 @@ function bindPlanungNachfuehrungTab(p) {
   const neuBtn = document.getElementById('btn-nf-neu');
   if (neuBtn) neuBtn.addEventListener('click', () => {
     const id = 'M-' + (nextMassnahmeSeq++);
-    p.massnahmen.push({ id: id, esNr: '-', name: '-', prozessstatus: 'Geplant', ausEpa: '-', beschreibung: '-', handlungsfeld: '-', aktivitaetsbereich: '-', prioritaet: '-', umsetzungszeitraum: '-', startdatum: '-', faelligkeitsdatum: '-', budget: '-', verantwortlichkeit: '-', bemerkungen: '-', energietraeger: [] });
+    p.massnahmen.push({ id: id, esNr: '-', name: '-', prozessstatus: 'Geplant', ausEpa: '-', beschreibung: '-', handlungsfeld: '-', aktivitaetsbereich: '-', prioritaet: '-', umsetzungszeitraum: '-', startdatum: '-', faelligkeitsdatum: '-', budget: '-', verantwortlichkeit: '-', bemerkungen: '-' });
     nf.neu = nf.neu || {}; nf.neu[id] = true; nf.beruehrt[id] = true; nf.massnahmen[id] = false; nfBearbeitet(p);
     state.nfPruefId = id; state.nfAktivTab = 'massnahmen';
     rerender();
@@ -2740,8 +2714,7 @@ function renderPlanungDetailsViewContent(p) {
   if (state.planungTab === 'grunddaten') {
     body = `
     ${section('energieplanung', 'Energieplanung', `
-      ${field(gemeindeLabel(p), p.gemeinde)}
-      ${field('Verantwortlichkeit Gemeinde', ef.verantwortlichkeit)}
+      ${field('Verantwortlichkeit Gemeinde', ef.verantwortlichkeit, kontaktGemeindeInfo())}
       ${field('Berater/in Energieplanung', ef.beraterEnergieplanung)}
     `)}`;
   } else if (state.planungTab === 'epa') {
@@ -2749,13 +2722,12 @@ function renderPlanungDetailsViewContent(p) {
     ${section('epa', 'EPA Beratung', `
       ${field('Name EPA-Beratung', eb.name)}
       ${field('Beratungsperson', eb.beratungsperson)}
-      ${field('Geplanter Start EPA-Beratung', eb.geplanterStart)}
+      ${field('Geplanter Start EPA-Beratung (Jahr)', geplanterStartJahr(eb.geplanterStart))}
       ${field('Datum Beratungsbeginn', eb.datumBeratungsbeginn)}
       ${field('EPA Beratung abgeschlossen am', eb.epaAbschluss)}
       ${field('Bedarf eines Energierichtplans?', eb.bedarfEnergierichtplan)}
       ${field('Bedarf einer Koordination mit weiteren Gemeinde(n)?', eb.bedarfKoordination)}
       ${field('Gebiete mit Koordinationsbedarf vorhanden?', eb.gebieteKoordinationsbedarf)}
-      ${field('Förderabschlussformular', eb.foerderabschlussformular)}
     `)}
 
     ${section('ziele', 'Ziele', `
@@ -2818,12 +2790,11 @@ function renderPlanungDetailsFormContent(p) {
     <h3 class="subheading" style="margin-top:0;">EPA Beratung</h3>
     <div class="form-field"><label>Name EPA-Beratung</label><input type="text" id="f-eb-name" value="${escapeAttr(fixDash(eb.name))}"></div>
     <div class="form-field"><label>Beratungsperson${condReq}</label>${personSelect('f-eb-beratungsperson', eb.beratungsperson, null, true)}</div>
-    <div class="form-field"><label>Geplanter Start EPA-Beratung</label><input type="text" id="f-eb-geplant" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.geplanterStart))}"></div>
+    <div class="form-field"><label>Geplanter Start EPA-Beratung (Jahr)</label>${geplanterStartInput(eb.geplanterStart)}</div>
     <div class="form-field"><label>Datum Beratungsbeginn${condReq}</label><input type="text" id="f-eb-datum" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.datumBeratungsbeginn))}"></div>
     <div class="form-field"><label>Bedarf eines Energierichtplans?${condReq}</label>${yesNoSelect('f-eb-energierichtplan', eb.bedarfEnergierichtplan)}</div>
     <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?${condReq}</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
     <div class="form-field"><label>Gebiete mit Koordinationsbedarf vorhanden?${condReq}</label>${yesNoSelect('f-eb-gebiete', eb.gebieteKoordinationsbedarf)}</div>
-    <div class="form-field"><label>Förderabschlussformular</label><input type="text" id="f-eb-foerderformular" value="${escapeAttr(fixDash(eb.foerderabschlussformular))}"></div>
 
     <h3 class="subheading">Ziele</h3>
     <div class="form-field"><label>Netto-null Ziel</label><textarea id="f-netto" rows="5">${escapeHtml(fixDash(ef.nettoNullZiel))}</textarea></div>
@@ -2833,11 +2804,8 @@ function renderPlanungDetailsFormContent(p) {
 
     <div ${pane('grunddaten')}>
     <h3 class="subheading" style="margin-top:0;">Energieplanung</h3>
-    <div class="form-field"><label>Name</label><input type="text" id="f-name" value="${escapeAttr(p.name)}"></div>
-    <div class="form-field"><label>Planungstyp<span class="req">*</span></label><input type="text" id="f-typ" value="${escapeAttr(p.typ)}"></div>
-    <div class="form-field"><label>${gemeindeLabel(p)}<span class="req">*</span></label><input type="text" id="f-gemeinde" value="${escapeAttr(p.gemeinde)}"></div>
     <input type="hidden" id="f-status" value="${escapeAttr(state.planungPendingStatus || p.status)}">
-    <div class="form-field"><label>Verantwortlichkeit Gemeinde</label>${personSelect('f-verantwortlichkeit', ef.verantwortlichkeit, p.gemeinde)}</div>
+    <div class="form-field"><label>Verantwortlichkeit Gemeinde${kontaktGemeindeInfo()}</label>${personSelect('f-verantwortlichkeit', ef.verantwortlichkeit, p.gemeinde)}</div>
     <div class="form-field"><label>Berater/in Energieplanung</label>${personSelect('f-berater-energieplanung', ef.beraterEnergieplanung, null, true, KEINE_EXTERNE_BEGLEITUNG)}</div>
     </div>
 
@@ -2893,6 +2861,7 @@ function bindPlanungDetailsTab(p) {
   });
   const delBtn = document.getElementById('btn-del-planung');
   if (delBtn) delBtn.addEventListener('click', async () => {
+    if (state.role !== 'Admin') { toast('Nur Admin dürfen Energieplanungen löschen.'); return; }
     if (!planungLoeschbar(p)) { toast('Diese Energieplanung kann nicht mehr gelöscht werden: Die EPA Beratung wurde bereits gestartet.'); return; }
     if (await confirmDialog(`Energieplanung ${p.id} wirklich löschen?`, { title: "Energieplanung löschen", confirmLabel: "Löschen", danger: true })) {
       const idx = planungen.findIndex(x => x.id === p.id);
@@ -2955,20 +2924,16 @@ function bindPlanungDetailsForm(p) {
     eb.name = document.getElementById('f-eb-name').value || eb.name;
     eb.beratungsperson = document.getElementById('f-eb-beratungsperson').value || '-';
     eb.datumBeratungsbeginn = document.getElementById('f-eb-datum').value || '-';
-    eb.geplanterStart = document.getElementById('f-eb-geplant').value || '-';
+    if (state.role === 'Admin') eb.geplanterStart = document.getElementById('f-eb-geplant').value || '-';   // nur Admin dürfen die Jahresplanung ändern
     eb.bedarfEnergierichtplan = document.getElementById('f-eb-energierichtplan').value;
     eb.bedarfKoordination = document.getElementById('f-eb-koordination').value;
     eb.gebieteKoordinationsbedarf = document.getElementById('f-eb-gebiete').value;
-    eb.foerderabschlussformular = document.getElementById('f-eb-foerderformular').value || '-';
 
     k.kontoinhaber = document.getElementById('f-k-inhaber').value || '-';
     k.adresse = document.getElementById('f-k-adresse').value || '-';
     k.iban = document.getElementById('f-k-iban').value || '-';
     k.bankname = document.getElementById('f-k-bankname').value || '-';
 
-    p.name = document.getElementById('f-name').value || p.name;
-    p.typ = document.getElementById('f-typ').value || p.typ;
-    p.gemeinde = document.getElementById('f-gemeinde').value || p.gemeinde;
     p.status = document.getElementById('f-status').value;
     ef.verantwortlichkeit = document.getElementById('f-verantwortlichkeit').value || '-';
     ef.beraterEnergieplanung = document.getElementById('f-berater-energieplanung').value || '-';
@@ -3300,9 +3265,13 @@ function fieldStacked(label, value) {
     <div class="field-value">${fieldValueHtml(value)}</div>
   </div>`;
 }
-function field(label, value, withInfo) {
+// Hinweis-Icon (i) mit Text bei Hover/Fokus; für «Verantwortlichkeit Gemeinde» / «Kontakt Gemeinde»
+const KONTAKT_GEMEINDE_HINWEIS = "Neue User bei uwe / Clara Bucher bestellen.";
+function infoIcon(text) { return `<span class="info-icon" tabindex="0" role="note" aria-label="${escapeAttr(text)}" data-tip="${escapeAttr(text)}">i</span>`; }
+const kontaktGemeindeInfo = () => infoIcon(KONTAKT_GEMEINDE_HINWEIS);
+function field(label, value, info) {
   return `<div class="field-row">
-    <div class="field-label">${label}</div>
+    <div class="field-label">${label}${info || ""}</div>
     <div class="field-value">${fieldValueHtml(value)}</div>
   </div>`;
 }
@@ -3512,23 +3481,6 @@ function renderMassnahmeViewPanel(m) {
       <div class="field-wide">${field('Geografische Markierung', geometrieText(m))}</div>
       <div class="field-wide">${field('Bemerkungen / aktueller Stand', m.bemerkungen)}</div>
     </div>
-
-    ${m.handlungsfeld === 'Wärme- und Kälteversorgung' ? `
-    <h3 class="subheading">Energieträger</h3>
-    <table class="data-table">
-      <thead><tr>
-        <th>ID <span class="sort-arrow">↕</span></th>
-        <th>Spezifikation <span class="sort-arrow">↕</span></th>
-        <th>Typ <span class="sort-arrow">↕</span></th>
-        <th>Priorität <span class="sort-arrow">↕</span></th>
-      </tr></thead>
-      <tbody>
-        ${m.energietraeger.length === 0
-          ? `<tr class="table-empty-row"><td colspan="4">Keine Einträge vorhanden.</td></tr>`
-          : m.energietraeger.map(e => `<tr><td>${e.id}</td><td>${e.spez}</td><td>${e.typ}</td><td>${e.prioritaet}</td></tr>`).join('')}
-      </tbody>
-    </table>
-    ` : ''}
 
     <div class="md-actions">
       <button type="button" class="btn-outline-danger md-del" id="btn-del-massnahme" title="Massnahme löschen" aria-label="Massnahme löschen">
@@ -3821,7 +3773,6 @@ function bindMassnahmeDetailPanel(p) {
       umsetzungszeitraum: umsetzungszeitraumFor(parseCHDate(start), parseCHDate(due)),
       verantwortlichkeit: document.getElementById('mf-verantwortlichkeit').value || '-',
       prozessstatus: m ? m.prozessstatus : 'Geplant',
-      energietraeger: m ? m.energietraeger : []
     };
     if (isEdit) {
       Object.assign(m, data);
@@ -3883,8 +3834,8 @@ function kontaktVerwendungen(c) {
   const gleich = v => v === label;
   planungen.forEach(p => {
     const kopf = p.id + ' · ' + planungTitel(p);
-    if (gleich(p.energieplanungFelder.verantwortlichkeit)) items.push({ text: kopf + ': Kontakt Gemeinde (Grunddaten)', ziel: { typ: 'planung', planungId: p.id, tab: 'grunddaten' } });
-    if (gleich(p.energieplanungFelder.beraterEnergieplanung)) items.push({ text: kopf + ': Berater/in Energieplanung (Grunddaten)', ziel: { typ: 'planung', planungId: p.id, tab: 'grunddaten' } });
+    if (gleich(p.energieplanungFelder.verantwortlichkeit)) items.push({ text: kopf + ': Kontakt Gemeinde (Personen)', ziel: { typ: 'planung', planungId: p.id, tab: 'grunddaten' } });
+    if (gleich(p.energieplanungFelder.beraterEnergieplanung)) items.push({ text: kopf + ': Berater/in Energieplanung (Personen)', ziel: { typ: 'planung', planungId: p.id, tab: 'grunddaten' } });
     if (gleich(p.epaBeratung.beratungsperson)) items.push({ text: kopf + ': Beratungsperson (EPA Beratung)', ziel: { typ: 'planung', planungId: p.id, tab: 'epa' } });
     p.massnahmen.forEach(m => { if (gleich(m.verantwortlichkeit)) items.push({ text: kopf + ': Massnahme ' + m.id + ' ' + m.name + ' (Verantwortlichkeit)', ziel: { typ: 'massnahme', planungId: p.id, massnahmeId: m.id } }); });
   });
@@ -4532,7 +4483,7 @@ const zugriffsdaten = new Map();   // Anzeigename der Person -> { rollen: [], ge
 const zugriffUi = { search: '', filter: 'aktiv', sortField: 'person', sortDir: 'asc' };   // Standard: Person A–Z
 
 // Demo-Personen mit Zugriff auf Gemeinden, deren kommunale Energieplanungen in unterschiedlichen Prozessschritten stehen
-// (Grunddaten, EPA Beratung, Massnahmen, Gesuch, Nachführung): je Schritt `proSchritt` Gemeinden.
+// (Personen, EPA Beratung, Massnahmen, Gesuch, Nachführung): je Schritt `proSchritt` Gemeinden.
 function gemeindenMitVerschiedenemFortschritt(eigene, proSchritt) {
   const gruppen = {};
   // Gemeinden in einer regionalen Planung auslassen, damit die Person genau so viele Planungen sieht, wie sie Gemeinden hat
@@ -4767,7 +4718,7 @@ L.control.scale({ imperial: false }).addTo(map);
 var gemeindeLayer = null;   // var: render() darf schon vor der Initialisierung aufgerufen werden
 const KARTE_FARBEN = { grunddaten: '#d5dae0', epa: '#9ccbea', massnahmen: '#5aa2d6', konto: '#b9a6e8', nachfuehrung: '#6fc79a', warn: '#f0b84f', keine: '#f3f5f7' };
 const KARTE_LEGENDE = [
-  ['grunddaten', 'Grunddaten'], ['epa', 'EPA Beratung'], ['massnahmen', 'Massnahmen'], ['konto', 'Gesuch'],
+  ['grunddaten', 'Personen'], ['epa', 'EPA Beratung'], ['massnahmen', 'Massnahmen'], ['konto', 'Gesuch'],
   ['nachfuehrung', 'Nachführung'], ['warn', 'Nachführung fällig'], ['keine', 'Keine Energieplanung']
 ];
 const karteFilter = { kommunal: true, regional: true };
@@ -5010,7 +4961,7 @@ function karteFaelligAktualisieren() {
   GEMEINDE_BESCHRIFTUNG.forEach(b => {
     if (sel && !sel.has(b.n)) return;
     const p = karteInfoFor(b.n).gezeigt; if (!p) return;
-    // orange: Nachführung fällig · grau: geplanter Start der EPA-Beratung überfällig (Schritt «Grunddaten»)
+    // orange: Nachführung fällig · grau: geplanter Start der EPA-Beratung überfällig (Schritt «Personen»)
     const start = beratungStartFor(p), startUeberfaellig = !!start && start < new Date(new Date().setHours(0, 0, 0, 0));
     const nachf = prozessSchrittFor(p).warn;
     if (!nachf && !startUeberfaellig) return;
