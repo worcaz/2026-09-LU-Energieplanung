@@ -236,15 +236,13 @@ Beim Abschluss wird ein Protokolleintrag geschrieben: Datum, Benutzer, Anzahl ge
 
 **Berater/in Energieplanung:** Statt einer externen Fachperson kann der Wert **«Aktuell keine externe Begleitung»** gewählt werden. Er steht zuoberst in der Auswahl und ist hervorgehoben. Das gilt überall, wo dieses Feld bearbeitet wird (Nachführung und Grunddaten). Der Wert wird nicht als «Person nicht mehr in den Kontakten» gewarnt und gibt keinen Zugriff (Abschnitt 6). Sobald dieses Auswahlfeld den Sonderwert anbietet, kann man es nicht mehr auf «leer» zurücksetzen. Man wählt eine Person oder «Aktuell keine externe Begleitung». Das Feld «Kontakt Gemeinde» ist das Feld «Verantwortlichkeit Gemeinde» der Grunddaten, nur in der Nachführung anders beschriftet.
 
-**Offene Frage (Fachbereich): Nachführung wird nicht abgeschlossen.** Heutiges Verhalten im Prototyp, nicht fachlich bestätigt:
-- Änderungen an Personen, Zielen und Massnahmen sind sofort gespeichert und im Datenbestand (Massnahmenliste, Reports, Exporte) sichtbar, obwohl sie noch nicht bestätigt sind. Es gibt keinen Entwurf, der erst beim Abschluss übernommen wird.
+**Nachführung wird nicht abgeschlossen (vom Fachbereich geklärt, 2026-11-19):** Es gibt keinen Abbruch mit Zurücksetzen. Änderungen und Bestätigungen bleiben auch ohne Abschluss gespeichert und sind für alle sichtbar.
+- Änderungen an Personen, Zielen und Massnahmen sind sofort gespeichert und im Datenbestand (Massnahmenliste, Reports, Exporte) sichtbar. Es gibt keinen Entwurf, der erst beim Abschluss übernommen wird.
 - Die Nachführung bleibt offen («fällig seit …»), die Frist läuft weiter. Ein Protokolleintrag und eine Momentaufnahme entstehen erst bei «Nachführung abschliessen». «Seit der letzten Nachführung» vergleicht weiter mit dem Stand der letzten abgeschlossenen Nachführung.
 - «Vorzeitige Nachführung abbrechen» schliesst nur die Ansicht. Änderungen und Bestätigungen bleiben erhalten und sind beim erneuten Start einer vorzeitigen Nachführung wieder da.
+- **Hinweis «in Bearbeitung»:** Sobald in einer laufenden Nachführung etwas geändert oder bestätigt wurde, steht in der Liste der Energieplanungen bei «Nächster Schritt» «Nachführung <Jahr> in Bearbeitung seit <Datum>» (für alle Personen mit Zugriff auf die Planung, inkl. Admin). Im Tab Nachführung steht in der Statuszeile «In Bearbeitung seit <Datum> (begonnen von <Person>)». Der Hinweis verschwindet beim Abschluss.
+- **Parallele Bearbeitung** ist erlaubt, es gibt **keine Sperre**. Hat zuletzt eine andere Person als die angemeldete daran gearbeitet, erscheint im Tab der Hinweis «<Person> hat zuletzt am <Datum> daran gearbeitet». Bei exakt gleichzeitigem Speichern gilt der zuletzt gespeicherte Wert (Annahme, im Prototyp nicht prüfbar).
 
-Zu klären:
-1. Soll ein Abbruch die Änderungen zurücksetzen (Momentaufnahme beim Start der Nachführung), oder bleiben sie bestehen?
-2. Sollen halb bestätigte Stände für andere sichtbar sein (z. B. Hinweis «Nachführung in Bearbeitung seit …» in der Liste), und sollen unbestätigte Änderungen in Reports und Exporten erscheinen?
-3. Was gilt bei paralleler Bearbeitung durch mehrere Personen (Sperre, Hinweis oder keine Regel)?
 
 ### 4.5 CSV-Import der Massnahmen
 Dreistufig: **Datei → Zuordnung → Zusammenfassung**.
@@ -302,7 +300,7 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 - **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung», …; = Anzahl erledigter Nachführungen + 1). Ist keine weitere Nachführung mehr nötig, steht nur «Nachführung». Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht.
 - **Markierung auf der Übersichtskarte:** Gemeinden mit fälliger Nachführung sind orange eingefärbt, haben einen dunkelorangen Rand und über dem Gemeindenamen einen orangen «!»-Marker. Ist im Schritt «Grunddaten» der *geplante Start* der EPA-Beratung überfällig (Termin in der Vergangenheit, Beratung noch nicht gestartet), steht der «!»-Marker in **Grau**, die Fläche bleibt grau (Prozessstand «Grunddaten»). Bei regionalen Planungen erhält jede betroffene Gemeinde einen Marker. In der Detailansicht einer Planung erscheinen die Marker nur bei deren Gemeinden. Offene Frage (Fachbereich): Soll ein überfälliger geplanter Start auf der Karte überhaupt markiert werden und in welcher Form?
 - **Termin-Spalte:** bei noch nicht gestarteter Beratung der *geplante Start* (überfällig, wenn in der Vergangenheit, Anzeige «seit N Tagen»), sonst die *nächste Nachführungsfrist* (bei fälligen mit Warnsymbol).
-- **Nächster Schritt:** Entwurf = «EPA Beratung starten/abschliessen», Verabschiedung = «Verabschiedung erfassen», Fördergesuch = «Fördergesuch einreichen» bzw. «Beratung abschliessen», Abschluss = «Nachführung <Jahr> abschliessen (fällig)», «… steht bald an» (Frist innerhalb eines Jahres) oder «Aktuell nichts zu tun».
+- **Nächster Schritt:** Läuft eine Nachführung mit Änderungen oder Bestätigungen, steht «Nachführung <Jahr> in Bearbeitung seit <Datum>» (siehe 4.4). Sonst: Entwurf = «EPA Beratung starten/abschliessen», Verabschiedung = «Verabschiedung erfassen», Fördergesuch = «Fördergesuch einreichen» bzw. «Beratung abschliessen», Abschluss = «Nachführung <Jahr> abschliessen (fällig)», «… steht bald an» (Frist innerhalb eines Jahres) oder «Aktuell nichts zu tun».
 
 ---
 
@@ -324,13 +322,14 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 5. Keine Format-/Eindeutigkeitsprüfung bei E-Mail (Kontakte) und Gesuchs-Nr. von Hand (2.6, 5).
 6. Rollenprüfung nur im Frontend (6).
 7. Geografische Markierungen der Massnahmen sind nur lesbar, es gibt keinen Editor.
-8. Nicht abgeschlossene Nachführung: Verhalten bei Abbruch ungeklärt, Fachbereich befragen (4.4).
+8. Parallele Bearbeitung der Nachführung: nur Hinweis auf die zuletzt bearbeitende Person, keine Konflikterkennung. Produktiv klären, wie bei exakt gleichzeitigem Speichern vorzugehen ist (4.4).
 
 ---
 
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-19 | Nachführung ohne Abschluss: Antworten des Fachbereichs übernommen (kein Zurücksetzen, Änderungen für alle sichtbar, Hinweis «in Bearbeitung seit …» in Liste und Tab, parallele Bearbeitung ohne Sperre) (Abschnitte 4.4, 7, Offene Punkte Nr. 8). |
 | 2026-11-16 | Übersichtskarte: fällige Nachführung mit oranger Fläche, Rand und «!»-Marker; überfälliger geplanter Start (Grunddaten) mit grauem «!»-Marker (Abschnitt 7). |
 | 2026-11-16 | Offene Fragen zur nicht abgeschlossenen Nachführung festgehalten (Abschnitt 4.4, Offene Punkte Nr. 8). |
 | 2026-11-16 | Nachführung: Massnahmenliste sortierbar; Klick auf Zeile scrollt zur Prüfkarte; Zähler «überfällig» an der Kachel zählt nur nicht beendete Massnahmen mit Fälligkeit vor heute (Abschnitt 4.3). |

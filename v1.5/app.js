@@ -936,6 +936,7 @@ function naechsterSchrittFor(p) {
   if (p.status === 'Fördergesuch') return { text: eingang ? 'Beratung abschliessen' : 'Fördergesuch einreichen', art: 'aufgabe' };
   const t = naechstePruefungFor(p);
   if (t) {
+    if (nfInBearbeitung(p)) return { text: `Nachführung ${t.getFullYear()} in Bearbeitung seit ${nfDatumKurz(p.nfPruefung.bearbeitung.seit)}`, art: 'aufgabe' };
     if (pruefstatusFor(p) === 'faellig') return { text: `Nachführung ${t.getFullYear()} abschliessen (fällig)`, art: 'warn' };
     if (t < addYears(new Date(), 1)) return { text: `Nachführung ${t.getFullYear()} steht bald an`, art: 'aufgabe' };
   }
@@ -1874,7 +1875,7 @@ function renderImportDialog() {
 function importAusfuehren(p) {
   const imp = state.import;
   let ueber = 0, neu = 0, alt = 0;
-  const nf = nfState(p), beruehre = id => { nf.beruehrt[id] = true; nf.massnahmen[id] = false; };   // importierte/geänderte Massnahmen müssen noch geprüft und bestätigt werden
+  const nf = nfState(p), beruehre = id => { nf.beruehrt[id] = true; nf.massnahmen[id] = false; nfBearbeitet(p); };   // importierte/geänderte Massnahmen müssen noch geprüft und bestätigt werden
   imp.rows.forEach((r, i) => {
     const z = imp.ziel[i];
     if (z === 'skip') return;
@@ -2009,6 +2010,14 @@ function nfState(p) {
   if (!p.nfPruefung.beruehrt) p.nfPruefung.beruehrt = {};
   return p.nfPruefung;
 }
+// Bearbeitungsvermerk: wer die laufende Nachführung seit wann bearbeitet und zuletzt angefasst hat (kein Sperren, nur Hinweis)
+function nfBearbeitet(p) {
+  const nf = nfState(p), jetzt = new Date().toISOString(), wer = aktuellerBenutzerName();
+  if (!nf.bearbeitung) nf.bearbeitung = { seit: jetzt, von: wer };
+  nf.bearbeitung.zuletzt = jetzt; nf.bearbeitung.zuletztVon = wer;
+}
+function nfInBearbeitung(p) { return !!(p.nfPruefung && p.nfPruefung.bearbeitung); }
+const nfDatumKurz = iso => formatDate(new Date(iso));
 const nfNorm = v => (v && v !== '-') ? String(v) : '';
 function nfStand(p) { const h = (p.nfHistorie || [])[0]; return h && h.stand ? h : null; }
 function nfSnapshot(p) {
@@ -2493,7 +2502,14 @@ function renderNachfuehrungStatusAktiv(p, ph) {
     titel = 'Vorzeitige Nachführung'; sub = 'Reguläre Frist am ' + formatDate(t) + ' (' + rel(t) + ')' + zuletzt;
     aktion = '<button type="button" class="btn btn-outline btn-sm btn-with-icon nf-abbrechen" id="btn-nf-vorzeitig-ende"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg><span>Vorzeitige Nachführung abbrechen</span></button>';
   }
-  return '<div class="nf-status is-' + art + '"><span class="nf-status-icon" aria-hidden="true">' + icon + '</span><div class="nf-status-text"><div class="nf-status-title">' + escapeHtml(titel) + '</div><div class="nf-status-sub">' + (art === 'warn' ? escapeHtml(sub) : sub) + '</div></div>' + aktion + '</div>';
+  // Bearbeitungshinweis (keine Sperre): seit wann die Nachführung läuft, und wenn jemand anderes zuletzt daran gearbeitet hat, wer
+  let bearb = '';
+  const b = nfInBearbeitung(p) ? p.nfPruefung.bearbeitung : null;
+  if (b) {
+    bearb = '<div class="nf-status-sub nf-bearbeitung">In Bearbeitung seit ' + escapeHtml(nfDatumKurz(b.seit)) + (b.von ? ' (begonnen von ' + escapeHtml(b.von) + ')' : '') + '.' +
+      (b.zuletztVon && b.zuletztVon !== aktuellerBenutzerName() ? ' <strong>' + escapeHtml(b.zuletztVon) + '</strong> hat zuletzt am ' + escapeHtml(nfDatumKurz(b.zuletzt)) + ' daran gearbeitet. Änderungen sind bereits gespeichert und für alle sichtbar.' : '') + '</div>';
+  }
+  return '<div class="nf-status is-' + art + '"><span class="nf-status-icon" aria-hidden="true">' + icon + '</span><div class="nf-status-text"><div class="nf-status-title">' + escapeHtml(titel) + '</div><div class="nf-status-sub">' + (art === 'warn' ? escapeHtml(sub) : sub) + '</div>' + bearb + '</div>' + aktion + '</div>';
 }
 
 // Aktive Nachführung: Statuszeile, Verlauf zugeklappt, drei Kacheln mit Bestätigungsstand, darunter genau ein Bereich zum Prüfen/Bestätigen
@@ -2580,6 +2596,7 @@ function bindPlanungNachfuehrungTab(p) {
       const neu = el.value || '-';
       if (neu === (ef[f.key] || '-')) return;
       ef[f.key] = neu;
+      if (nfAktiv(p)) nfBearbeitet(p);
       toast('Gespeichert.');
     });
   }));
@@ -2587,11 +2604,11 @@ function bindPlanungNachfuehrungTab(p) {
   $panel.querySelectorAll('[data-nf-fertig]').forEach(b => b.addEventListener('click', () => {
     const art = b.dataset.nfFertig;
     nfEdit()[art] = false;
-    nf[art] = true;
+    nf[art] = true; nfBearbeitet(p);
     state.nfAktivTab = null;
     rerender();
   }));
-  $panel.querySelectorAll('[data-nf-ok]').forEach(b => b.addEventListener('click', () => { nf[b.dataset.nfOk] = true; state.nfAktivTab = null; rerender(); }));
+  $panel.querySelectorAll('[data-nf-ok]').forEach(b => b.addEventListener('click', () => { nf[b.dataset.nfOk] = true; nfBearbeitet(p); state.nfAktivTab = null; rerender(); }));
 
   // ---- Prüfung der Massnahmen: Auswahl, Navigation, Felder, Bestätigung ----
   const toggle = document.getElementById('btn-nf-toggle-alle');
@@ -2655,7 +2672,7 @@ function bindPlanungNachfuehrungTab(p) {
         if (key === 'startdatum') { const se = document.getElementById('nfp-' + id + '-startdatum'); if (se) feldMeldung(se, fe.startdatum || ''); }
       } else feldMeldung(el, '');
       if (state.nfFehler[id]) delete state.nfFehler[id][key];
-      nf.beruehrt[id] = true; nf.massnahmen[id] = false;
+      nf.beruehrt[id] = true; nf.massnahmen[id] = false; nfBearbeitet(p);
       // Beendete Massnahme wird durch die Änderung prüfpflichtig (z. B. Status auf «Umsetzung»): Karte neu aufbauen, damit «Bestätigen» sofort erscheint
       if (!warZuPruefen) { state.nfPruefId = id; rerender(); return; }
       nfRefresh(p, id);
@@ -2666,7 +2683,7 @@ function bindPlanungNachfuehrungTab(p) {
   if (neuBtn) neuBtn.addEventListener('click', () => {
     const id = 'M-' + (nextMassnahmeSeq++);
     p.massnahmen.push({ id: id, esNr: '-', name: '-', prozessstatus: 'Geplant', ausEpa: '-', beschreibung: '-', handlungsfeld: '-', aktivitaetsbereich: '-', prioritaet: '-', umsetzungszeitraum: '-', startdatum: '-', faelligkeitsdatum: '-', budget: '-', verantwortlichkeit: '-', bemerkungen: '-', energietraeger: [] });
-    nf.neu = nf.neu || {}; nf.neu[id] = true; nf.beruehrt[id] = true; nf.massnahmen[id] = false;
+    nf.neu = nf.neu || {}; nf.neu[id] = true; nf.beruehrt[id] = true; nf.massnahmen[id] = false; nfBearbeitet(p);
     state.nfPruefId = id; state.nfAktivTab = 'massnahmen';
     rerender();
     const n = document.getElementById('nfp-' + id + '-name'); if (n) { n.scrollIntoView({ block: 'center', behavior: 'smooth' }); n.focus(); }
@@ -2693,7 +2710,7 @@ function bindPlanungNachfuehrungTab(p) {
       return;
     }
     delete state.nfFehler[id];
-    nf.beruehrt[id] = true; nf.massnahmen[id] = true;
+    nf.beruehrt[id] = true; nf.massnahmen[id] = true; nfBearbeitet(p);
     const zp = nfZuPruefen(p), liste = nfListe(p);
     const i = liste.findIndex(x => x.id === id);
     const weiter = liste.slice(i + 1).find(x => zp.some(z => z.id === x.id) && !nf.massnahmen[x.id]) || zp.find(x => !nf.massnahmen[x.id]);

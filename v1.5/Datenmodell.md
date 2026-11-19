@@ -198,10 +198,10 @@ Zustand der **laufenden** Prüfung, bis sie abgeschlossen wird.
 
 | Tabelle | Felder |
 |---|---|
-| nachfuehrung_entwurf | planung_id (PK/FK), personen_bestaetigt, ziele_bestaetigt, vorzeitig (Boolean) |
+| nachfuehrung_entwurf | planung_id (PK/FK), personen_bestaetigt, ziele_bestaetigt, vorzeitig (Boolean), bearbeitung_seit, bearbeitung_begonnen_von, zuletzt_bearbeitet, zuletzt_bearbeitet_von |
 | nachfuehrung_entwurf_massnahme | planung_id, massnahme_id, bestaetigt, beruehrt (geändert/importiert), neu_erfasst (in dieser Nachführung angelegt) |
 
-**Offene Frage (Fachbereich):** Der Entwurf enthält nur Bestätigungsmarken. Die geänderten Werte selbst stehen direkt in `planung` und `massnahme`. Wird eine Nachführung nicht abgeschlossen, bleiben sie dort stehen. Soll ein Abbruch sie zurücksetzen, braucht es zusätzlich eine Momentaufnahme beim Start (z. B. als Stand-Tabelle wie beim Protokoll). Ausserdem ist offen, ob unbestätigte Änderungen für Reports und andere Benutzer sichtbar sein dürfen und wie parallele Bearbeitung behandelt wird (siehe Business-Rules 4.4). Im Prototyp liegt der Entwurf (`nfPruefung`) nur im Arbeitsspeicher.
+Der Entwurf enthält Bestätigungsmarken und einen Bearbeitungsvermerk. Die geänderten Werte stehen direkt in `planung` und `massnahme`. Fachlich geklärt (2026-11-19): Wird eine Nachführung nicht abgeschlossen, bleiben sie dort stehen und sind für alle sichtbar, es gibt keine Momentaufnahme zum Zurücksetzen. Der Bearbeitungsvermerk (Zeitstempel und Benutzer) wird bei der ersten Änderung oder Bestätigung gesetzt und bei jeder weiteren aktualisiert. Er steuert nur den Hinweis «in Bearbeitung seit …» und die Anzeige der zuletzt bearbeitenden Person, es gibt keine Sperre (Business-Rules 4.4). Im Prototyp liegt der Entwurf (`nfPruefung`, Unterobjekt `bearbeitung`) nur im Arbeitsspeicher.
 
 Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen übernommen und gelöscht.
 
@@ -262,5 +262,6 @@ Beim Abschluss wird der Entwurf in `nachfuehrung` und die Stand-Tabellen überno
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-19 | `nachfuehrung_entwurf`: Bearbeitungsvermerk ergänzt, offene Frage zum Abbruch geklärt (Abschnitt 3). |
 | 2026-11-16 | Offene Frage zum Entwurf einer nicht abgeschlossenen Nachführung ergänzt (Abschnitt 3). |
 | 2026-11-12 | Erstfassung (Planung, Massnahmen, Kontakte, Zugriff, Nachführung mit Stand und laufender Prüfung, Massnahmenstatus «Verworfen»). |
