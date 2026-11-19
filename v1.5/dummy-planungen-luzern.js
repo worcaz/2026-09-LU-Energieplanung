@@ -46,8 +46,8 @@
     if (statusJe[g] !== undefined) { statusJe[g] = 'Abschluss'; szenarioJe[g] = sz; }
   });
 
-  // Nachführung bereits in Bearbeitung (etwas geändert/bestätigt, aber nicht abgeschlossen): Aesch (fällig), Büron (offen)
-  const IN_BEARBEITUNG = { Aesch: { sz: 'faellig', seit: -12, von: 'Admin', zuletzt: -3 }, 'Büron': { sz: 'offen', seit: -20, von: 'Gemeinde', zuletzt: -1 } };
+  // Nachführung bereits in Bearbeitung (etwas geändert/bestätigt, aber nicht abgeschlossen): Aesch (fällig), Büron (offen), Alberswil (2. Nachführung fällig)
+  const IN_BEARBEITUNG = { Alberswil: { sz: 'faellig1', seit: -8, von: 'Admin', zuletzt: -2 }, Aesch: { sz: 'faellig', seit: -12, von: 'Admin', zuletzt: -3 }, 'Büron': { sz: 'offen', seit: -20, von: 'Gemeinde', zuletzt: -1 } };
   Object.keys(IN_BEARBEITUNG).forEach(g => {
     if (statusJe[g] !== undefined) { statusJe[g] = 'Abschluss'; szenarioJe[g] = IN_BEARBEITUNG[g].sz; }
   });

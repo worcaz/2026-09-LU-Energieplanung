@@ -267,7 +267,7 @@ function planProzess(p) {
     //  review = Frist verstrichen und Nachführung erfolgt (nächste Frist wieder in ferner Zukunft)
     const sz = p.nfSzenario;
     // Mehrere erledigte Nachführungen: [Alter Beratungsbeginn min, max (Tage), Anzahl Nachführungen]
-    const mehr = { review3: [4670, 4970, 3], review4: [6135, 6355, 4], faellig3: [6025, 6390, 3] }[sz];
+    const mehr = { review3: [4670, 4970, 3], review4: [6135, 6355, 4], faellig3: [6025, 6390, 3], faellig1: [3000, 3300, 1] }[sz];
     const alter = mehr ? randomInt(mehr[0], mehr[1]) : sz === 'ruhend' ? randomInt(420, 1000) : sz === 'offen' ? randomInt(1160, 1420) : sz === 'faellig' ? randomInt(1500, 2150) : sz === 'review' ? randomInt(1700, 2300) : randomInt(420, 2300);
     plan.beginn = d(-alter);
     plan.gesuchseingang = addDays(plan.beginn, randomInt(120, 300));
@@ -577,7 +577,7 @@ function erzeugeMehrfachHistorie(p, plan) {
 const planungen = [
   makeEnergieplanung('EP-844', 'Adligenswil', 'Fördergesuch'),
   makeEnergieplanung('EP-713', 'Aesch', 'Abschluss', { nfSzenario: 'faellig' }),   // Nachführung fällig und bereits in Bearbeitung (siehe dummy-planungen-luzern.js)
-  makeEnergieplanung('EP-842', 'Alberswil', 'Entwurf'),
+  makeEnergieplanung('EP-842', 'Alberswil', 'Abschluss', { nfSzenario: 'faellig1' }),   // 1 Nachführung erledigt, 2. Nachführung fällig und in Bearbeitung
   makeEnergieplanung('EP-838', 'Ballwil', 'Entwurf'),
   makeEnergieplanung('EP-839', 'Buchrain', 'Abschluss'),
   makeEnergieplanung('EP-772', 'Buttisholz', 'Entwurf'),
@@ -2446,7 +2446,7 @@ function renderNachfuehrungStatusAktiv(p, ph) {
   };
   const zuletzt = letzte ? ' · zuletzt am ' + escapeHtml(letzte.datum) : '';
   let art = 'info', icon = 'i', titel, sub, aktion = '';
-  if (ph === 'faellig') { art = 'warn'; icon = '!'; titel = 'Nachführung fällig seit ' + formatDate(t); sub = 'Verantwortliche Personen, Ziele und Massnahmen prüfen und bestätigen, danach unten abschliessen.'; }
+  if (ph === 'faellig') { art = 'warn'; icon = '!'; titel = 'Nachführung fällig seit ' + formatDate(t); sub = ''; }
   else if (ph === 'offen') { titel = 'Nachführung fällig am ' + formatDate(t); sub = rel(t).charAt(0).toUpperCase() + rel(t).slice(1) + zuletzt; }
   else {
     titel = 'Vorzeitige Nachführung'; sub = 'Reguläre Frist am ' + formatDate(t) + ' (' + rel(t) + ')' + zuletzt;
