@@ -180,3 +180,15 @@
     .observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('DOMContentLoaded', () => alleErweitern(document.body));
 })();
+
+/* Text markieren und kopieren: Werte (Tabellenzeilen, Felder, Karten) müssen sich markieren lassen.
+   Ein Klick, der nur das Ende einer Markierung ist, löst keine Zeilen-Aktion aus (öffnen, Tab wechseln, neu zeichnen). */
+(function () {
+  'use strict';
+  document.addEventListener('click', e => {
+    const s = window.getSelection && window.getSelection();
+    if (!s || s.isCollapsed || !s.toString().trim()) return;
+    if (e.target.closest && e.target.closest('button, a, input, select, textarea, label, summary, [role="option"], .ps-pop, .dp-pop')) return;
+    e.stopPropagation();   // Capture-Phase: die Klick-Handler der Zeilen laufen nicht
+  }, true);
+})();

@@ -46,12 +46,34 @@
     if (statusJe[g] !== undefined) { statusJe[g] = 'Abschluss'; szenarioJe[g] = sz; }
   });
 
+  // Nachführung bereits in Bearbeitung (etwas geändert/bestätigt, aber nicht abgeschlossen): Aesch (fällig), Büron (offen)
+  const IN_BEARBEITUNG = { Aesch: { sz: 'faellig', seit: -12, von: 'Admin', zuletzt: -3 }, 'Büron': { sz: 'offen', seit: -20, von: 'Gemeinde', zuletzt: -1 } };
+  Object.keys(IN_BEARBEITUNG).forEach(g => {
+    if (statusJe[g] !== undefined) { statusJe[g] = 'Abschluss'; szenarioJe[g] = IN_BEARBEITUNG[g].sz; }
+  });
+
+  // Laufende Nachführung mit Bearbeitungsvermerk: Personen bestätigt, eine Massnahme bestätigt, Rest offen
+  function dummyNachfuehrungInBearbeitung(p, cfg) {
+    const tag = n => addDays(DUMMY_REFERENZDATUM, n).toISOString();
+    const nf = { angaben: true, ziele: false, massnahmen: {}, beruehrt: {}, bearbeitung: { seit: tag(cfg.seit), von: cfg.von, zuletzt: tag(cfg.zuletzt), zuletztVon: cfg.von } };
+    const m = p.massnahmen.find(x => !massnahmeBeendet(x));
+    if (m) { nf.beruehrt[m.id] = true; nf.massnahmen[m.id] = true; }
+    p.nfPruefung = nf;
+  }
+
   let seq = 900;
   GEMEINDEN_LUZERN.forEach(gemeinde => {
     const id = `EP-${seq++}`;
     const p = makeEnergieplanung(id, gemeinde, statusJe[gemeinde], szenarioJe[gemeinde] ? { nfSzenario: szenarioJe[gemeinde] } : undefined);
     generiereProzessDaten(p);
+    if (IN_BEARBEITUNG[gemeinde]) dummyNachfuehrungInBearbeitung(p, IN_BEARBEITUNG[gemeinde]);
     planungen.push(p);
+  });
+
+  // Bereits in app.js angelegte Planungen (z. B. Aesch) bekommen den Bearbeitungsvermerk hier
+  Object.keys(IN_BEARBEITUNG).forEach(g => {
+    const p = planungen.find(x => x.typ === 'Kommunale Energieplanung' && x.gemeinde === g);
+    if (p && !p.nfPruefung) dummyNachfuehrungInBearbeitung(p, IN_BEARBEITUNG[g]);
   });
 
   // Regionale Energieplanungen: Gemeinden, die im Kanton Luzern bereits heute regional zusammenarbeiten.

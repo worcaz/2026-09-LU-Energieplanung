@@ -21,7 +21,9 @@ Verweise auf den Code (`app.js`) nennen die Funktion, damit sich die Regel nachs
 | **Kontakt** | Person (Gemeinde oder externe Fachperson), die als Verantwortliche/r oder Berater/in zugewiesen werden kann. |
 | **Gesuch** | Fördergesuch an den Kanton, inkl. Kontoinformationen für den Förderbeitrag. |
 
-Formate: Datum `dd.MM.yyyy`. Datumsfelder haben einen **eigenen deutschen Datepicker** (Monatsnamen auf Deutsch, Woche ab Montag, «Heute»/«Löschen»), weil der native Kalender des Browsers sonst in der Browsersprache erscheint. Geldbeträge als ganze Franken, Anzeige mit Apostroph als Tausendertrenner, z. B. `12'500 CHF`. Fehlende Werte werden intern als `-` gespeichert und in der Ansicht als «Noch nicht erfasst» angezeigt.
+Formate: Datum `dd.MM.yyyy`. Datumsfelder haben einen **eigenen deutschen Datepicker** (Monatsnamen auf Deutsch, Woche ab Montag, «Heute»/«Löschen»), weil der native Kalender des Browsers sonst in der Browsersprache erscheint. Geldbeträge als ganze Franken, Anzeige mit Apostroph als Tausendertrenner, z. B. `12'500 CHF`. Fehlende Werte werden intern als `-` gespeichert und in der Ansicht als «Noch nicht erfasst» angezeigt. **Eingabe von Beträgen (Nice-to-have, keine verbindliche Anforderung):** In Feldern mit Franken-Beträgen (Budget einer Massnahme, Auszahlungsbetrag) wird beim Tippen automatisch der Tausendertrenner eingefügt (1000 wird zu 1'000). Eingegeben werden dürfen nur Ziffern. Ein eingegebener Trenner wird akzeptiert und beim Speichern entfernt, der Wert wird als ganze Zahl gespeichert.
+
+**Markieren und Kopieren:** Alle angezeigten Werte (Tabellenzellen, Felder in Ansichten, Karten, Texte) müssen sich mit der Maus markieren und mit Copy-Paste kopieren lassen. Ein Markieren darf keine Aktion der Zeile auslösen (z. B. Planung oder Massnahme öffnen, Tab wechseln, Ansicht neu zeichnen). Nur Bedienelemente (Knöpfe, Spaltenüberschriften zum Sortieren, Ein-/Ausklapp-Kopfzeilen) sind nicht markierbar. Im bisherigen System war das nicht möglich, im neuen ist es Pflicht.
 
 ---
 
@@ -69,11 +71,12 @@ Schlägt die Pflichtfeldprüfung einer Aktion fehl, öffnet sich der Tab mit dem
 - Bearbeiten gibt es in den Formular-Tabs (Personen, EPA Beratung, Gesuch). Massnahmen und Nachführung sind direkt änderbar.
 - Beim Speichern werden die Pflichtfelder des gewählten Status geprüft.
 - **Löschen** einer EP dürfen **nur Admin**. Alle anderen Rollen sehen weder den Löschen-Link noch den Hinweis. Es ist nur im Tab Personen möglich, erfordert eine Bestätigung und ist **nur solange erlaubt, wie die EPA Beratung noch nicht gestartet wurde** (Prozessschritt «Personen»). Sobald die Beratung läuft oder die EP in einem späteren Schritt steht (EPA Beratung, Massnahmen, Gesuch, Nachführung), kann sie nicht mehr gelöscht werden. Der Löschen-Link wird dann durch einen Hinweis ersetzt. Beim erlaubten Löschen werden die vorhandenen Massnahmen mit gelöscht.
-- **Geplanter Start EPA-Beratung:** Das Feld ist nur eine **Jahresplanung** (Auswahl eines Jahres, kein Datum). Nur **Admin** können es bearbeiten, alle anderen Rollen sehen es schreibgeschützt. Bestehende Datumswerte werden auf das Jahr gekürzt angezeigt.
+- **Geplanter Start EPA-Beratung:** Das Feld ist nur eine **Jahresplanung** (Auswahl eines Jahres, kein Datum). Nur **Admin** können es bearbeiten, alle anderen Rollen sehen es schreibgeschützt. Bestehende Datumswerte werden auf das Jahr gekürzt angezeigt. **Annahme (Offene Frage):** Ein geplanter Start gilt als überfällig, sobald das Jahr vorbei ist (ab 1. Januar des Folgejahrs). In den Dummy-Daten ist das Jahr bei jeder Planung gesetzt. Offen ist, ob es ein Pflichtfeld sein soll (beim Anlegen oder ab einem Status), heute ist es keines.
+- **Inhalt des Tabs «Personen»:** Verantwortlichkeit Gemeinde und Berater/in Energieplanung (mit Hinweis-Icon, siehe 4.4). Name, Planungstyp und Gemeinde(n) werden hier nicht mehr angezeigt oder bearbeitet.
 
 ### 2.6 Gesuch und Kontrolle
 - Kontoinformationen: Kontoinhaber/in, Adresse, IBAN (Pflicht, siehe 2.3), Bankname (optional). Das Konto lautet immer auf die Gemeinde.
-- **Förderabschlussformular** (druckbar/PDF): erst verfügbar, wenn Kontoinhaber/in, Adresse und IBAN erfasst sind. Es muss von Berater/in und Gemeinderat unterschrieben werden.
+- **Förderabschlussformular** (druckbar/PDF): erst verfügbar, wenn Kontoinhaber/in, Adresse und IBAN erfasst sind. Es muss von Berater/in und Gemeinderat unterschrieben werden. Ein Textfeld «Förderabschlussformular» (Stand des Formulars) in der EPA Beratung gibt es nicht mehr.
 - **Gesuchs-Nr.**: Beim Erfassen des Gesuchseingangs wird eine eindeutige Nr. vorgeschlagen: `<Jahr><Nr der EP>` (z. B. EP-712 → 2026712). Ist sie bereits vergeben, wird eine Ziffer angehängt (`…2`, `…3`).
 - Tab **Kontrolle** liegt als Zwischenschritt **4.1** zwischen Gesuch (4) und Nachführung (5) und ist nur für Admin sichtbar. Er gehört nicht zum Prozessablauf (kein Weiter-Button, keine Aktion). Inhalt: Gesuchseingang, Gesuchs-Nr., Auszahlungsbetrag in CHF und interner Kommentar, nur für **Admin** sichtbar und bearbeitbar. Beim Wechsel auf eine andere Rolle fällt die Ansicht auf Personen zurück.
 - **Hinweis / Lücke:** Gesuchseingang im Kontrolle-Tab ist ein freies Textfeld ohne Datumsprüfung. Die Gesuchs-Nr. wird nicht auf Eindeutigkeit geprüft, wenn sie von Hand geändert wird.
@@ -102,7 +105,7 @@ Ja/Nein-Fragen sind ein Umschalter mit drei Zuständen: **Ja**, **Nein**, **Kein
 | Verantwortlichkeit | nein | Auswahl aus den Kontakten |
 | Bemerkungen / aktueller Stand | nein | Freitext |
 
-Zusätzlich: Die **geografische Markierung** (Punkt, Linie, Fläche) wird nur angezeigt. Ein Editor dafür fehlt im Prototyp.
+Zusätzlich: Die **geografische Markierung** (Punkt, Linie, Fläche) wird nur angezeigt. Ein Editor dafür fehlt im Prototyp. Energieträger werden bei Massnahmen **nicht** erfasst (die frühere Tabelle «Energieträger» gibt es nicht mehr).
 
 ### 3.2 Validierung beim Speichern
 - Alle Pflichtfelder werden geprüft. Fehler erscheinen direkt unter dem Feld (rot) mit einer Meldung. Der Cursor springt ins erste fehlerhafte Feld. Die Fehlermarkierung verschwindet, sobald das Feld geändert wird.
@@ -241,7 +244,7 @@ Beim Abschluss wird ein Protokolleintrag geschrieben: Datum, Benutzer, Anzahl ge
 - Änderungen an Personen, Zielen und Massnahmen sind sofort gespeichert und im Datenbestand (Massnahmenliste, Reports, Exporte) sichtbar. Es gibt keinen Entwurf, der erst beim Abschluss übernommen wird.
 - Die Nachführung bleibt offen («fällig seit …»), die Frist läuft weiter. Ein Protokolleintrag und eine Momentaufnahme entstehen erst bei «Nachführung abschliessen». «Seit der letzten Nachführung» vergleicht weiter mit dem Stand der letzten abgeschlossenen Nachführung.
 - «Vorzeitige Nachführung abbrechen» schliesst nur die Ansicht. Änderungen und Bestätigungen bleiben erhalten und sind beim erneuten Start einer vorzeitigen Nachführung wieder da.
-- **Hinweis «in Bearbeitung»:** Sobald in einer laufenden Nachführung etwas geändert oder bestätigt wurde, steht in der Liste der Energieplanungen bei «Nächster Schritt» «Nachführung <Jahr> in Bearbeitung seit <Datum>» (für alle Personen mit Zugriff auf die Planung, inkl. Admin). Im Tab Nachführung steht in der Statuszeile «In Bearbeitung seit <Datum> (begonnen von <Person>)». Der Hinweis verschwindet beim Abschluss.
+- **Hinweis «in Bearbeitung»:** Sobald in einer laufenden Nachführung etwas geändert oder bestätigt wurde, steht im Tab Nachführung in der Statuszeile «In Bearbeitung seit <Datum> (begonnen von <Person>)». Der Hinweis verschwindet beim Abschluss. In der Liste der Energieplanungen zeigt das Badge in der Spalte «Status» einen blauen Punkt (siehe 7).
 - **Parallele Bearbeitung** ist erlaubt, es gibt **keine Sperre**. Hat zuletzt eine andere Person als die angemeldete daran gearbeitet, erscheint im Tab der Hinweis «<Person> hat zuletzt am <Datum> daran gearbeitet». Bei exakt gleichzeitigem Speichern gilt der zuletzt gespeicherte Wert (Annahme, im Prototyp nicht prüfbar).
 
 
@@ -296,12 +299,11 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 - **Titel:** Admin sehen «Übersicht Energieplanungen», alle anderen Rollen «Meine Energieplanungen». Sieht (verantwortet) eine Person nur **eine** Energieplanung, heisst es im Singular «Meine Energieplanung». Das gilt auch für den Zurück-Link in der Detailansicht und die Gruppe im Karteninhalt (dort bleibt es bei Admin immer «Meine Energieplanungen»).
 - **Suche** über ID, Name, Jahr, Gemeinde und Regionsname.
 - **Filter** nach Prozessschritt (Personen, EPA Beratung, Massnahmen, Gesuch, Nachführung).
-- **Sortierung:** Gemeinde, Jahr, Status (in Prozessreihenfolge), Termin, nächster Schritt.
+- **Sortierung:** Gemeinde, Jahr, Status (in Prozessreihenfolge) und Termin (Fälligkeit).
 - **Hover Liste und Karte:** Fährt man in der Übersicht über eine Zeile, wird auf der Karte nur die **Grenze** der Gemeinde (bei regionalen Planungen aller Gemeinden der Region) hervorgehoben. Die Flächenfarbe (Prozessstand) ändert sich dabei nicht. Fährt man auf der Karte über eine Gemeinde, wird die zugehörige Zeile in der Liste hervorgehoben.
-- **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung», …; = Anzahl erledigter Nachführungen + 1). Ist keine weitere Nachführung mehr nötig, steht nur «Nachführung». Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht.
+- **Status-Spalte:** Zeigt nur den Prozessschritt (z. B. «Gesuch», «Massnahmen») mit dem Fortschrittsbalken, ohne Zusatztext. Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung», …; = Anzahl erledigter Nachführungen + 1). Ist keine weitere Nachführung mehr nötig, steht nur «Nachführung». Eine fällige Nachführung wird über die Farbe des Badges (Warnfarbe) und die Termin-Spalte kenntlich gemacht. Läuft die Nachführung bereits (es wurde etwas geändert oder bestätigt, aber noch nicht abgeschlossen), hat das Badge oben rechts einen **blauen Punkt** (Tooltip «Nachführung in Bearbeitung seit <Datum>», siehe 4.4). Die Spalte «Nächster Schritt» gibt es nicht mehr.
 - **Markierung auf der Übersichtskarte:** Gemeinden mit fälliger Nachführung sind orange eingefärbt, haben einen dunkelorangen Rand und über dem Gemeindenamen einen orangen «!»-Marker. Ist im Schritt «Personen» der *geplante Start* der EPA-Beratung überfällig (geplantes Startjahr vorbei, Beratung noch nicht gestartet), steht der «!»-Marker in **Grau**, die Fläche bleibt grau (Prozessstand «Personen»). Bei regionalen Planungen erhält jede betroffene Gemeinde einen Marker. In der Detailansicht einer Planung erscheinen die Marker nur bei deren Gemeinden. Offene Frage (Fachbereich): Soll ein überfälliger geplanter Start auf der Karte überhaupt markiert werden und in welcher Form?
 - **Termin-Spalte:** bei noch nicht gestarteter Beratung das *geplante Startjahr* (nur Jahr, kein Datum). Überfällig ist es, sobald das Jahr vorbei ist (ab 1. Januar des Folgejahrs), Anzeige «⚠ geplant <Jahr>». Sonst die *nächste Nachführungsfrist* (bei fälligen mit Warnsymbol).
-- **Nächster Schritt:** Läuft eine Nachführung mit Änderungen oder Bestätigungen, steht «Nachführung <Jahr> in Bearbeitung seit <Datum>» (siehe 4.4). Sonst: Entwurf = «EPA Beratung starten/abschliessen», Verabschiedung = «Verabschiedung erfassen», Fördergesuch = «Fördergesuch einreichen» bzw. «Beratung abschliessen», Abschluss = «Nachführung <Jahr> abschliessen (fällig)», «… steht bald an» (Frist innerhalb eines Jahres) oder «Aktuell nichts zu tun».
 
 ---
 
@@ -324,12 +326,18 @@ Eine Person kann **mehrere Rollen gleichzeitig** haben (z. B. Admin + Gemeinde o
 6. Rollenprüfung nur im Frontend (6).
 7. Geografische Markierungen der Massnahmen sind nur lesbar, es gibt keinen Editor.
 8. Parallele Bearbeitung der Nachführung: nur Hinweis auf die zuletzt bearbeitende Person, keine Konflikterkennung. Produktiv klären, wie bei exakt gleichzeitigem Speichern vorzugehen ist (4.4).
+9. Geplanter Start der EPA-Beratung (nur Jahr): ob Pflichtfeld und ab wann «überfällig» gilt, fachlich bestätigen (2.5).
 
 ---
 
 ## Änderungsverlauf
 | Datum | Änderung |
 |---|---|
+| 2026-11-19 | Beträge in CHF (Budget, Auszahlungsbetrag): automatischer Tausendertrenner bei der Eingabe, als Nice-to-have gekennzeichnet (Abschnitt 1, Formate). |
+| 2026-11-19 | Liste: Spalte «Nächster Schritt» entfernt (auch aus der Sortierung). «In Bearbeitung» wird als blauer Punkt am Status-Badge gezeigt (Abschnitte 4.4, 7). |
+| 2026-11-19 | «In Bearbeitung» wird nur im Tab Nachführung angezeigt (Statuszeile), nicht in der Liste der Energieplanungen (Abschnitte 4.4, 7). |
+| 2026-11-19 | Dokumentation zum Stand dieser Änderungsrunde vervollständigt: Inhalt Tab Personen, Förderabschlussformular-Textfeld entfernt, Annahmen und offener Punkt Nr. 9 zum geplanten Start (Abschnitte 2.5, 2.6, 9). |
+| 2026-11-19 | Neue Regel: Werte müssen markier- und kopierbar sein, Markieren löst keine Zeilen-Aktion aus (Abschnitt 1, Formate). |
 | 2026-11-19 | Sektion «Energieträger» in der Massnahme entfernt (Abschnitt 3.1). |
 | 2026-11-19 | Textfeld «Förderabschlussformular» (Stand) in der EPA Beratung entfernt. Das druckbare Formular im Tab Gesuch bleibt (Abschnitt 2.6). |
 | 2026-11-19 | EPA Beratung: «Geplanter Start» ist nur noch eine Jahresplanung (Jahresauswahl statt Datum), nur durch Admin bearbeitbar, für andere Rollen schreibgeschützt. Überfällig erst nach Ablauf des Jahres (Abschnitte 2.5, 7). |

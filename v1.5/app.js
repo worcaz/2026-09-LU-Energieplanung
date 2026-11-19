@@ -421,7 +421,7 @@ function fillPlanungDetails(planung, plan) {
   const gesuchsJahr = plan.gesuchseingang ? plan.gesuchseingang.getFullYear() : null;
 
   // EPA-Beratung
-  if (plan.geplanterStart && rand() < 0.3) eb.geplanterStart = String(plan.geplanterStart.getFullYear());   // nur Jahresplanung, wird von Admin erfasst: im Bestand meist noch leer
+  eb.geplanterStart = String((plan.geplanterStart || plan.beginn).getFullYear());   // Jahresplanung: in den Dummy-Daten immer gesetzt (geplanter Start bzw. Jahr des Beratungsbeginns)
   if (plan.gestartet) {
     eb.beratungsperson = formatContactLabel(pick(KONTAKT_POOL));
     eb.datumBeratungsbeginn = formatDate(plan.beginn);
@@ -576,7 +576,7 @@ function erzeugeMehrfachHistorie(p, plan) {
 
 const planungen = [
   makeEnergieplanung('EP-844', 'Adligenswil', 'Fördergesuch'),
-  makeEnergieplanung('EP-713', 'Aesch', 'Verabschiedung'),
+  makeEnergieplanung('EP-713', 'Aesch', 'Abschluss', { nfSzenario: 'faellig' }),   // Nachführung fällig und bereits in Bearbeitung (siehe dummy-planungen-luzern.js)
   makeEnergieplanung('EP-842', 'Alberswil', 'Entwurf'),
   makeEnergieplanung('EP-838', 'Ballwil', 'Entwurf'),
   makeEnergieplanung('EP-839', 'Buchrain', 'Abschluss'),
@@ -791,10 +791,6 @@ function getFilteredPlanungen() {
   const dir = state.list.sortDir === 'desc' ? -1 : 1;
   list.sort((a, b) => {
     if (field === 'jahr') return (a.jahr - b.jahr) * dir;
-    if (field === 'naechster') {
-      const na = naechsterSchrittFor(a).text.toLowerCase(), nb = naechsterSchrittFor(b).text.toLowerCase();
-      return na < nb ? -1 * dir : na > nb ? 1 * dir : 0;
-    }
     if (field === 'termin') {
       const ta = terminFor(a), tb = terminFor(b);
       if (!ta && !tb) return 0;
@@ -834,7 +830,7 @@ function geplanterStartJahr(v) { const m = /(\d{4})\s*$/.exec(String(v || '')); 
 // Admin: Auswahl des Jahres. Alle anderen Rollen: schreibgeschützt.
 function geplanterStartInput(v) {
   const j = geplanterStartJahr(v), jetzt = new Date().getFullYear();
-  if (state.role !== 'Admin') return `<input type="text" id="f-eb-geplant" value="${j || ''}" placeholder="Noch nicht geplant" readonly title="Nur Admin können den geplanten Start ändern">`;
+  if (state.role !== 'Admin') return `<input type="text" id="f-eb-geplant" value="${j || ''}" placeholder="Noch nicht geplant" readonly title="Nur Admin können den geplanten Start ändern" aria-disabled="true"> <span class="np-hint">Nur Admin können dieses Feld bearbeiten.</span>`;
   const jahre = []; for (let y = jetzt - 2; y <= jetzt + 10; y++) jahre.push(y);
   if (j && !jahre.includes(j)) { jahre.push(j); jahre.sort((a, b) => a - b); }
   return '<select id="f-eb-geplant" class="select-input"><option value="">– Jahr wählen –</option>' + jahre.map(y => `<option value="${y}"${y === j ? ' selected' : ''}>${y}</option>`).join('') + '</select>';
@@ -852,7 +848,8 @@ function terminFor(p) { return beratungStartFor(p) || naechstePruefungFor(p); }
 function seitTagenText(d) {
   const heute = new Date(); heute.setHours(0, 0, 0, 0);
   const tage = Math.max(1, Math.round((heute - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000));
-  return 'seit ' + tage + (tage === 1 ? ' Tag' : ' Tagen');
+  // Bei schmalem Panel «seit 481 d» statt «seit 481 Tagen» (siehe .tage-voll / .tage-kurz)
+  return 'seit ' + tage + ' <span class="tage-voll">' + (tage === 1 ? 'Tag' : 'Tagen') + '</span><span class="tage-kurz" aria-hidden="true">d</span>';
 }
 function terminCell(p) {
   const t = terminFor(p);
@@ -897,31 +894,12 @@ function phaseBadge(p) {
   const segs = PROZESS_TABS.map((t, i) => `<i class="${i < st.nr ? 'on' : ''}"></i>`).join('');
   // Im Schritt Nachführung steht, die wievielte Nachführung ansteht bzw. läuft («1. Nachführung», «4. Nachführung» …)
   const label = st.key === 'nachfuehrung' && naechstePruefungFor(p) ? (nfErledigt(p) + 1) + '. Nachführung' : st.label;
-  return `<span class="phase-badge phase-${st.key}${st.warn ? ' is-warn' : ''}"><span class="pseg" role="img" aria-label="Schritt ${st.nr} von ${PROZESS_TABS.length}" title="Schritt ${st.nr} von ${PROZESS_TABS.length}: ${label}">${segs}</span><span class="phase-label">${label}</span></span>`;
+  // Kurzform für ganz schmale Panels: «1. NF», «EPA», «Massn.»
+  const kurz = label.replace(/Nachführung$/, 'NF').replace('EPA Beratung', 'EPA').replace('Massnahmen', 'Massn.');
+  const bearb = nfInBearbeitung(p) ? nfDatumKurz(p.nfPruefung.bearbeitung.seit) : null;   // Punkt am Badge: Nachführung in Bearbeitung
+  return `<span class="phase-badge phase-${st.key}${st.warn ? ' is-warn' : ''}${bearb ? ' is-bearbeitung' : ''}"${bearb ? ' title="Nachführung in Bearbeitung seit ' + bearb + '"' : ''}><span class="pseg" role="img" aria-label="Schritt ${st.nr} von ${PROZESS_TABS.length}" title="Schritt ${st.nr} von ${PROZESS_TABS.length}: ${label}">${segs}</span><span class="phase-label"><span class="pl-full">${label}</span><span class="pl-short" aria-hidden="true">${kurz}</span></span></span>`;
 }
 
-// Nächster Schritt je Energieplanung (abgeleitet aus Status / Prüfpflicht, analog v2)
-// art: 'aufgabe' | 'warn' (fällig) | 'ok' (nichts zu tun)
-function naechsterSchrittFor(p) {
-  // Entspricht der Aktion am Ende des jeweils aktuellen Prozessschritts (siehe prozessAktionFor)
-  const eb = p.epaBeratung || {};
-  const gestartet = !!(eb.datumBeratungsbeginn && eb.datumBeratungsbeginn !== '-');
-  const eingang = !!(eb.gesuchseingang && eb.gesuchseingang !== '-');
-  if (p.status === 'Entwurf') return { text: gestartet ? 'EPA Beratung abschliessen' : 'EPA Beratung starten', art: 'aufgabe' };
-  if (p.status === 'Verabschiedung') return { text: 'Verabschiedung erfassen', art: 'aufgabe' };
-  if (p.status === 'Fördergesuch') return { text: eingang ? 'Beratung abschliessen' : 'Fördergesuch einreichen', art: 'aufgabe' };
-  const t = naechstePruefungFor(p);
-  if (t) {
-    if (nfInBearbeitung(p)) return { text: `Nachführung ${t.getFullYear()} in Bearbeitung seit ${nfDatumKurz(p.nfPruefung.bearbeitung.seit)}`, art: 'aufgabe' };
-    if (pruefstatusFor(p) === 'faellig') return { text: `Nachführung ${t.getFullYear()} abschliessen (fällig)`, art: 'warn' };
-    if (t < addYears(new Date(), 1)) return { text: `Nachführung ${t.getFullYear()} steht bald an`, art: 'aufgabe' };
-  }
-  return { text: 'Aktuell nichts zu tun', art: 'ok' };
-}
-function naechsterSchrittCell(p) {
-  const n = naechsterSchrittFor(p);
-  return `<span class="next-step next-${n.art}">${n.text}</span>`;
-}
 
 /* ---------------------- BESTÄTIGUNGS-DIALOG (ersetzt window.confirm) ---------------------- */
 function confirmDialog(message, opts = {}) {
@@ -1119,9 +1097,8 @@ function renderPlanungList() {
         <thead><tr>
           ${planungSortHeader('id', 'ID')}
           ${planungSortHeader('gemeinde', 'Gemeinde(n)')}
-          ${planungSortHeader('typ', 'Typ')}
+          ${planungSortHeader('typ', 'Typ').replace('<th ', '<th class="col-typ" ')}
           ${planungSortHeader('status', 'Status')}
-          ${planungSortHeader('naechster', 'Nächster Schritt').replace('<th ', '<th class="col-next" ')}
           ${planungSortHeader('termin', 'Fälligkeit')}
           <th class="col-actions"><span class="sr-only">Aktionen</span></th>
         </tr></thead>
@@ -1130,9 +1107,8 @@ function renderPlanungList() {
             <tr data-open-planung="${p.id}">
               <td>${p.id}</td>
               <td title="${escapeAttr(p.gemeinde)}">${planungGemeindeCell(p)}</td>
-              <td title="${p.typ}"><span class="t-full">${typKurz(p.typ)}</span><span class="t-short" aria-hidden="true">${typKurzer(p.typ)}</span></td>
+              <td class="col-typ" title="${p.typ}"><span class="t-full">${typKurz(p.typ)}</span><span class="t-short" aria-hidden="true">${typKurzer(p.typ)}</span></td>
               <td>${phaseBadge(p)}</td>
-              <td class="col-next">${naechsterSchrittCell(p)}</td>
               <td class="cell-termin">${terminCell(p)}</td>
               <td class="col-actions">
                 <button type="button" class="row-action" data-open-planung="${p.id}" title="Ansehen" aria-label="${p.id} ansehen"><svg viewBox="0 0 24 24"><path d="M12 5C7 5 2.7 8.1 1 12.5 2.7 16.9 7 20 12 20s9.3-3.1 11-7.5C21.3 8.1 17 5 12 5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button>
@@ -2316,8 +2292,8 @@ function renderNachfuehrungPruefKarte(p, m, liste) {
   const area = (key, rows) => '<textarea id="' + fid(key) + '" rows="' + rows + '" data-nfp="' + dk(key) + '">' + esc(fixDash(m[key])) + '</textarea>';
   const auswahl = (key, werte, platzhalter) => '<select id="' + fid(key) + '" data-nfp="' + dk(key) + '">' + (platzhalter ? '<option value=""' + (!m[key] || m[key] === '-' ? ' selected' : '') + '>' + platzhalter + '</option>' : '') + werte.map(w => '<option' + (w === m[key] ? ' selected' : '') + '>' + esc(w) + '</option>').join('') + '</select>';
   const datum = key => '<div class="date-field-wrap"><input type="text" id="' + fid(key) + '" data-nfp="' + dk(key) + '" placeholder="dd.MM.yyyy" autocomplete="off" value="' + att(fixDash(m[key])) + '"><button type="button" class="cal-btn" data-nfp-cal="' + fid(key) + '" aria-label="Datum wählen">📅</button></div>';
-  const budgetWert = m.budget && m.budget !== '-' ? String(parseChfAmount(m.budget) ?? '') : '';
-  const budget = '<input type="text" id="' + fid('budget') + '" data-nfp="' + dk('budget') + '" inputmode="numeric" placeholder="Budget in CHF (ganze Zahl)" autocomplete="off" value="' + att(budgetWert) + '">';
+  const budgetWert = m.budget && m.budget !== '-' ? formatChfAmount(parseChfAmount(m.budget) ?? '') : '';
+  const budget = '<input type="text" id="' + fid('budget') + '" data-nfp="' + dk('budget') + '" data-chf inputmode="numeric" placeholder="Budget in CHF (ganze Zahl)" autocomplete="off" value="' + att(budgetWert) + '">';
   const epa = yesNoSelect(fid('ausEpa'), m.ausEpa).replace('<input type="hidden"', '<input type="hidden" data-nfp="' + dk('ausEpa') + '"');
   const person = personSelect(fid('verantwortlichkeit'), m.verantwortlichkeit).replace('<select ', '<select data-nfp="' + dk('verantwortlichkeit') + '" ');
   const zeitraum = '<input type="text" id="' + fid('umsetzungszeitraum') + '" readonly tabindex="-1" value="' + att(fixDash(m.umsetzungszeitraum)) + '" placeholder="wird aus Start und Fälligkeit berechnet">';
@@ -2629,6 +2605,7 @@ function bindPlanungNachfuehrungTab(p) {
       const m = p.massnahmen.find(x => x.id === id); if (!m) return;
       const warZuPruefen = nfZuPruefen(p).some(x => x.id === id);
       let v = (el.value || '').trim();
+      if (key === 'budget') v = v.replace(/['’\s]/g, '');   // Tausendertrennzeichen entfernen
       if (key === 'startdatum' || key === 'faelligkeitsdatum') {
         if (v) { const d = parseCHDate(v); if (!d) { feldMeldung(el, MF_DATE_MSG); return; } v = formatDate(d); el.value = v; }
       } else if (key === 'budget') {
@@ -2706,6 +2683,8 @@ function activatePane(key) {
   state.planungTab = key;
   document.querySelectorAll('#planung-form [data-pane]').forEach(el => { el.hidden = el.dataset.pane !== key; });
   document.querySelectorAll('[data-subtab]').forEach(b => b.classList.toggle('active', b.dataset.subtab === key));
+  // Im Bearbeiten-Modus wird nicht neu gezeichnet, deshalb die URL hier nachführen (ersetzen, damit «Zurück» die Eingaben nicht verwirft)
+  if (urlReady) history.replaceState(null, '', stateToHash());
 }
 
 function renderPlanungDetailsViewContent(p) {
@@ -2722,7 +2701,7 @@ function renderPlanungDetailsViewContent(p) {
     ${section('epa', 'EPA Beratung', `
       ${field('Name EPA-Beratung', eb.name)}
       ${field('Beratungsperson', eb.beratungsperson)}
-      ${field('Geplanter Start EPA-Beratung (Jahr)', geplanterStartJahr(eb.geplanterStart))}
+      ${field('Geplanter Start EPA-Beratung', geplanterStartJahr(eb.geplanterStart))}
       ${field('Datum Beratungsbeginn', eb.datumBeratungsbeginn)}
       ${field('EPA Beratung abgeschlossen am', eb.epaAbschluss)}
       ${field('Bedarf eines Energierichtplans?', eb.bedarfEnergierichtplan)}
@@ -2790,7 +2769,7 @@ function renderPlanungDetailsFormContent(p) {
     <h3 class="subheading" style="margin-top:0;">EPA Beratung</h3>
     <div class="form-field"><label>Name EPA-Beratung</label><input type="text" id="f-eb-name" value="${escapeAttr(fixDash(eb.name))}"></div>
     <div class="form-field"><label>Beratungsperson${condReq}</label>${personSelect('f-eb-beratungsperson', eb.beratungsperson, null, true)}</div>
-    <div class="form-field"><label>Geplanter Start EPA-Beratung (Jahr)</label>${geplanterStartInput(eb.geplanterStart)}</div>
+    <div class="form-field"><label>Geplanter Start EPA-Beratung</label>${geplanterStartInput(eb.geplanterStart)}</div>
     <div class="form-field"><label>Datum Beratungsbeginn${condReq}</label><input type="text" id="f-eb-datum" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.datumBeratungsbeginn))}"></div>
     <div class="form-field"><label>Bedarf eines Energierichtplans?${condReq}</label>${yesNoSelect('f-eb-energierichtplan', eb.bedarfEnergierichtplan)}</div>
     <div class="form-field"><label>Bedarf einer Koordination mit weiteren Gemeinde(n)?${condReq}</label>${yesNoSelect('f-eb-koordination', eb.bedarfKoordination)}</div>
@@ -2984,7 +2963,7 @@ function renderPlanungKontrolleFormContent(p) {
     <h3 class="subheading" style="margin-top:0;">Gesuch (intern)</h3>
     <div class="form-field"><label>Gesuchseingang</label><input type="text" id="f-eb-gesuchseingang" placeholder="dd.MM.yyyy" value="${escapeAttr(fixDash(eb.gesuchseingang))}"></div>
     <div class="form-field"><label>Gesuchs-Nr.</label><input type="number" id="f-eb-gesuchsnr" value="${eb.gesuchsNr && eb.gesuchsNr !== '-' ? eb.gesuchsNr : vorschlagGesuchsNr(p)}"></div>
-    <div class="form-field"><label>Auszahlungsbetrag CHF</label><input type="number" id="f-eb-auszahlungsbetrag" value="${eb.auszahlungsbetrag}"></div>
+    <div class="form-field"><label>Auszahlungsbetrag CHF</label><input type="text" id="f-eb-auszahlungsbetrag" data-chf inputmode="numeric" value="${formatChfAmount(eb.auszahlungsbetrag)}"></div>
     <div class="form-field"><label>Kommentar</label>
       <textarea id="f-eb-kommentar" placeholder="Interner Kommentar...">${escapeHtml(eb.kommentar !== '-' ? eb.kommentar : '')}</textarea></div>
 
@@ -3017,7 +2996,7 @@ function bindPlanungKontrolleForm(p) {
   document.getElementById('btn-save-kontrolle').addEventListener('click', () => {
     eb.gesuchseingang = document.getElementById('f-eb-gesuchseingang').value || '-';
     eb.gesuchsNr = Number(document.getElementById('f-eb-gesuchsnr').value) || eb.gesuchsNr;
-    eb.auszahlungsbetrag = Number(document.getElementById('f-eb-auszahlungsbetrag').value) || eb.auszahlungsbetrag;
+    eb.auszahlungsbetrag = Number(document.getElementById('f-eb-auszahlungsbetrag').value.replace(/['’\s]/g, '')) || eb.auszahlungsbetrag;
     eb.kommentar = document.getElementById('f-eb-kommentar').value || '-';
     toast('Kontrolle wurde gespeichert.');
     state.planungKontrolleMode = 'view';
@@ -3136,6 +3115,12 @@ function bindMassnahmenListPanel(p) {
       state.massnahmeId = row.dataset.openMassnahme;
       state.mdMode = 'view';
       renderPlanungDetail();
+      // Schmales Panel: Liste und Details stehen untereinander, dann zur Detailkarte der gewählten Massnahme scrollen
+      const lay = document.querySelector('.md-layout');
+      if (lay && getComputedStyle(lay).flexDirection === 'column') {
+        const det = lay.querySelector('.md-right');
+        if (det) det.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
     });
   });
 }
@@ -3486,7 +3471,7 @@ function renderMassnahmeViewPanel(m) {
       <button type="button" class="btn-outline-danger md-del" id="btn-del-massnahme" title="Massnahme löschen" aria-label="Massnahme löschen">
         <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
       </button>
-      <button class="btn btn-outline btn-with-icon" id="btn-geodaten"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg><span>Geodaten</span></button>
+      <button class="btn btn-outline btn-with-icon" id="btn-geodaten" title="Geodaten" aria-label="Geodaten"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></button>
       <button class="btn btn-secondary btn-with-icon" id="btn-edit-massnahme"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg><span>Bearbeiten</span></button>
     </div>
   `;
@@ -3532,7 +3517,7 @@ function renderMassnahmeFormPanel(p, isEdit) {
     <div class="form-field"><label>Umsetzungszeitraum</label>
       <input type="text" id="mf-zeitraum" readonly tabindex="-1" placeholder="Wird aus Start- und Fälligkeitsdatum berechnet" value="${escapeAttr(m ? fixDash(m.umsetzungszeitraum) : '')}"></div>
     <div class="form-field"><label>Budget in CHF<span class="req">*</span></label>
-      <input type="text" id="mf-budget" inputmode="numeric" placeholder="Budget in CHF (ganze Zahl)" autocomplete="off" value="${escapeAttr(m && m.budget !== '-' ? String(parseChfAmount(m.budget) ?? '') : '')}"></div>
+      <input type="text" id="mf-budget" data-chf inputmode="numeric" placeholder="Budget in CHF (ganze Zahl)" autocomplete="off" value="${escapeAttr(m && m.budget !== '-' ? formatChfAmount(parseChfAmount(m.budget) ?? '') : '')}"></div>
     <div class="form-field"><label>Verantwortlichkeit</label>
       ${personSelect('mf-verantwortlichkeit', m ? m.verantwortlichkeit : '')}</div>
     <div class="form-field"><label>Bemerkungen / aktueller Stand</label>
@@ -3637,7 +3622,7 @@ function validateMassnahmeForm() {
   if (req('mf-start')) { sd = parseCHDate(val('mf-start')); if (!sd) errs.push({ id: 'mf-start', msg: MF_DATE_MSG }); }
   if (req('mf-due')) { dd = parseCHDate(val('mf-due')); if (!dd) errs.push({ id: 'mf-due', msg: MF_DATE_MSG }); }
   if (sd && dd && dd <= sd) errs.push({ id: 'mf-due', msg: 'Das Fälligkeitsdatum muss nach dem Startdatum liegen.' });
-  if (req('mf-budget') && !/^\d+$/.test(val('mf-budget'))) errs.push({ id: 'mf-budget', msg: MF_BUDGET_MSG });
+  if (req('mf-budget') && !/^\d+$/.test(val('mf-budget').replace(/['’\s]/g, ''))) errs.push({ id: 'mf-budget', msg: MF_BUDGET_MSG });
   return errs;
 }
 function clearMassnahmeFieldError(id) {
@@ -3678,8 +3663,8 @@ function bindMassnahmeFormValidation() {
   // Budget: nur Ziffern; unzulässige Zeichen werden entfernt und mit Hinweis quittiert
   const budget = document.getElementById('mf-budget');
   budget.addEventListener('input', () => {
-    const cleaned = budget.value.replace(/\D/g, '');
-    if (cleaned !== budget.value) {
+    const roh = budget.value.replace(/['’\s]/g, ''), cleaned = roh.replace(/\D/g, '');   // Tausendertrennzeichen sind erlaubt
+    if (cleaned !== roh) {
       budget.value = cleaned;
       MF_FIELDS.forEach(clearMassnahmeFieldError);
       showMassnahmeFormErrors([{ id: 'mf-budget', msg: MF_BUDGET_MSG }], true);
@@ -3761,7 +3746,7 @@ function bindMassnahmeDetailPanel(p) {
     const aktivitaetsbereich = document.getElementById('mf-aktivitaetsbereich').value;
     const start = formatDate(parseCHDate(document.getElementById('mf-start').value));
     const due = formatDate(parseCHDate(document.getElementById('mf-due').value));
-    const budget = formatChf(Number(document.getElementById('mf-budget').value.trim()));
+    const budget = formatChf(Number(document.getElementById('mf-budget').value.replace(/['’\s]/g, '').trim()));
     const data = {
       esNr: document.getElementById('mf-esnr').value.trim() || '-',
       name, beschreibung,
@@ -3927,7 +3912,7 @@ function renderContactList() {
           <th class="col-check"><input type="checkbox" id="select-all-contacts"></th>
           ${contactSortHeader('name', 'Name')}
           ${contactSortHeader('organisation', 'Firma')}
-          ${contactSortHeader('email', 'E-Mail')}
+          ${contactSortHeader('email', 'E-Mail').replace('<th ', '<th class="col-mail" ')}
         </tr></thead>
         <tbody>
           ${list.map(c => `
@@ -3935,7 +3920,7 @@ function renderContactList() {
               <td class="col-check"><input type="checkbox" class="row-check" data-contact-idx="${c.__idx}" ${state.contactList.selected.has(c.__idx) ? 'checked' : ''}></td>
               <td>${c.vorname} ${c.nachname}</td>
               <td>${val(c.organisation)}</td>
-              <td>${c.email}</td>
+              <td class="col-mail">${c.email}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -4705,6 +4690,15 @@ function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
 /* ---------------------- LEAFLET MAP ---------------------- */
 const LUZERN_CENTER = [47.0502, 8.3093];
 // Keine Hintergrundkarte: der Kanton Luzern wird mit seinen 79 Gemeinden dargestellt, eingefärbt nach Prozessstand der Energieplanung.
+// Ist die Karte ausgeblendet oder 0 px breit (Datenpanel füllt das Fenster, schmales Fenster), rechnet Leaflet mit NaN und wirft Fehler.
+// Das brach das Laden von app.js ab (u. a. die Aktualisierung der URL beim Tab-Wechsel). Darum gilt für die Berechnungen eine Mindestgrösse.
+(function () {
+  const orig = L.Map.prototype.getSize;
+  L.Map.prototype.getSize = function () {
+    const sz = orig.call(this);
+    return (sz.x < 300 || sz.y < 300) ? new L.Point(Math.max(sz.x, 300), Math.max(sz.y, 300)) : sz;
+  };
+})();
 const map = L.map('leaflet-map', { zoomControl: false, zoomSnap: 0.25, minZoom: 8 }).setView(LUZERN_CENTER, 10);
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution('Gemeinde- und Kantonsgrenzen &copy; <a href="https://www.swisstopo.admin.ch">swisstopo</a>');
@@ -5327,7 +5321,7 @@ function applyHashToState(hash) {
   state.tab = ['planungen', 'kontakte', 'reporting', 'zugriff'].includes(tab) ? tab : 'planungen';
   state.view = 'list';
   const so = String(q.get('sort') || '').split('.');
-  if (['gemeinde', 'id', 'typ', 'status', 'termin', 'naechster'].includes(so[0]) && ['asc', 'desc'].includes(so[1])) { state.list.sortField = so[0]; state.list.sortDir = so[1]; }
+  if (['gemeinde', 'id', 'typ', 'status', 'termin'].includes(so[0]) && ['asc', 'desc'].includes(so[1])) { state.list.sortField = so[0]; state.list.sortDir = so[1]; }
   else { state.list.sortField = 'gemeinde'; state.list.sortDir = 'asc'; }
   state.planungId = null; state.massnahmeId = null; state.mdMode = null; state.contactIndex = null; state.reportView = null;
   state.planungDetailsMode = 'view'; state.planungKontrolleMode = 'view'; state.planungPendingStatus = null; state.nfKontoHinweis = false;
@@ -5365,7 +5359,7 @@ function syncUiToState() {
 }
 let urlReady = false;   // erst nach dem Laden aller Daten (initApp) in die URL schreiben
 function pushUrlState() {
-  if (!urlReady || karteAnsichtWartet) return;
+  if (!urlReady) return;   // auch bei noch nicht angewendeter Kartenansicht (z. B. Datenansicht ohne Karte): karteHashParams behält sie in der URL
   const h = stateToHash();
   if (h !== location.hash) history.pushState(null, '', h);
 }
@@ -5384,7 +5378,7 @@ function initApp() {
   history.replaceState(null, '', stateToHash());
   urlReady = true;
   // Kartenänderungen (Verschieben, Zoom, Layer, Filter, Karteninhalt) ersetzen den aktuellen URL-Eintrag, ohne den Browserverlauf zu füllen
-  const kartenUrl = () => { if (urlReady && !karteAnsichtWartet) history.replaceState(null, '', stateToHash()); };
+  const kartenUrl = () => { if (urlReady) history.replaceState(null, '', stateToHash()); };
   map.on('resize', () => { karteAnsichtAnwenden(); kartenUrl(); });
   map.on('moveend', kartenUrl);
   const sbEl = document.querySelector('.map-sidebar');

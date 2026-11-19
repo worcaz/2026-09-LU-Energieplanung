@@ -105,7 +105,7 @@
     const ortsplanungsrevision = rand() < 0.4 ? randomInt(2025, 2028) : '-';
     const info = rand() < 0.2 ? pick(INFO_NOTIZEN) : '-';
     // «EPA geplant» (geplanter Start, nur Jahr) wird von Admin erfasst: nur teilweise vorhanden. Bei einer vorhandenen kommunalen EP gilt der dort erfasste Wert.
-    const epaGeplant = ep ? (ep.epaBeratung && ep.epaBeratung.geplanterStart && ep.epaBeratung.geplanterStart !== '-' ? Number(String(ep.epaBeratung.geplanterStart).slice(-4)) : '-') : (rand() < 0.3 ? geplantJahr : '-');
+    const epaGeplant = ep ? (ep.epaBeratung && ep.epaBeratung.geplanterStart && ep.epaBeratung.geplanterStart !== '-' ? Number(String(ep.epaBeratung.geplanterStart).slice(-4)) : '-') : geplantJahr;
 
     return {
       gemeinde,

@@ -668,14 +668,6 @@ table.data-table th.col-actions, table.data-table td.col-actions{width:76px; tex
 .version-switch button:hover:not(.active){background:rgba(255,255,255,0.22);}
 .version-switch button.active{background:#fff; color:var(--blue-primary);}
 
-/* Spalte "Nächster Schritt": nur bei genügend breitem Panel */
-.planungen-table .col-next{display:none;}
-@container panel (min-width: 800px){
-  .planungen-table .col-next{display:table-cell;}
-}
-.next-step{font-weight:600; color:var(--navy);}
-.next-step.next-warn{color:var(--red); font-weight:700;}
-.next-step.next-ok{color:var(--gray-500); font-weight:600;}
 
 /* Dialog "Neue Energieplanung" */
 .modal-overlay{position:fixed; inset:0; background:rgba(20,30,45,0.45); display:flex; align-items:center; justify-content:center; z-index:3000;}
@@ -1483,3 +1475,136 @@ table.data-table.massnahmen-table.nf-ov-table td{line-height:1.3;}
 .ps-gruppe{padding:8px 12px 4px; font-size:11px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--gray-500);}
 .ps-trenner{height:1px; margin:4px 8px; background:var(--gray-200);}
 .ps-leer{padding:10px 12px; font-size:13px; color:var(--gray-500);}
+
+/* Werte müssen markier- und kopierbar sein (Business-Rules 1) */
+body, td, th, .field-value, .nf-vorher, .massnahmen-table, .planungen-table{-webkit-user-select:text; user-select:text;}
+th[data-psort], th[data-rsort], th[data-csort], th[data-sort], th[data-zsort], .nf-ptable th.nf-sort, button, summary, .sidebar-panel-header, .sidebar-legende-kopf{-webkit-user-select:none; user-select:none;}
+
+/* Schreibgeschützte Formularfelder (z. B. Geplanter Start EPA-Beratung für Nicht-Admin) sehen gesperrt aus */
+.form-field input[readonly]{background:var(--gray-100, #f3f4f6); color:var(--gray-600); cursor:not-allowed;}
+.form-field input[readonly]:focus{border-color:var(--gray-300);}
+
+
+/* Liste: farbiger Punkt am Status-Badge = Nachführung in Bearbeitung */
+.phase-badge.is-bearbeitung{position:relative;}
+.phase-badge.is-bearbeitung::after{content:''; position:absolute; top:-3px; right:-3px; width:10px; height:10px; border-radius:50%; background:var(--blue-primary); border:2px solid #fff; box-sizing:content-box;}
+
+/* Haupt-Tabs: bei schmalem Panel nur Icons, der aktive Tab behält seinen Namen */
+.panel-tabs{container-type:inline-size;}
+.panel-tab{min-width:0; white-space:nowrap;}
+.panel-tab span{overflow:hidden; text-overflow:ellipsis;}
+@container (max-width: 560px){
+  .panel-tab:not(.active){flex:0 0 auto; padding-left:16px; padding-right:16px;}
+  .panel-tab:not(.active) span{display:none;}
+  .panel-tab.active{flex:1 1 auto;}
+}
+
+/* Header responsive (nach Fensterbreite): zuerst Suche, dann Versionsumschalter, Benutzername und Titel weglassen */
+.topbar-left{min-width:0; flex:0 1 auto;}
+.topbar-right{flex:none; min-width:0;}
+.geo-logo, .logo-sep, .view-toggle{flex:none;}
+.app-title{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+@media (max-width:900px){ .topbar-search{display:none;} }
+@media (max-width:760px){ .topbar-right .version-switch{display:none;} }
+@media (max-width:900px){
+  .user-name{display:none;}
+  .avatar-btn{width:34px; padding:0; justify-content:center;}
+}
+@media (max-width:640px){
+  .logo-sep, .app-title{display:none;}
+  .topbar{padding:0 12px;}
+  .topbar-left{gap:12px;}
+}
+@media (max-width:420px){
+  .geo-test-badge{display:none;}
+  .topbar{padding:0 8px;}
+}
+/* Suchfeld schrumpft mit der Fensterbreite, damit der Header zwischen 900 und 1280 px nicht überläuft */
+.topbar-search{width:clamp(110px, 18vw, 280px); flex:0 1 auto; min-width:0;}
+.topbar-search input{min-width:0; width:100%;}
+
+/* Schritt-Tabs bei schmalem Panel: nur Nummern, der aktive Schritt behält seinen Namen */
+@container panel (max-width: 660px){
+  .subtab-row{gap:4px; flex-wrap:nowrap; overflow:hidden;}
+  .subtab-btn{flex:0 0 auto; padding-left:5px; padding-right:5px; gap:6px; font-size:13px;}
+  .subtab-btn:not(.active) .subtab-label{display:none;}
+  .subtab-btn.active{flex:1 1 auto; min-width:0;}
+  .subtab-btn.active .subtab-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
+  .subtab-btn.active .subtab-label .lbl-full{display:inline;}
+  .subtab-btn.active .subtab-label .lbl-short{display:none;}
+  .subtab-nr{width:22px; height:22px; font-size:11px;}
+  .subtab-nr.nr-sub{width:auto; min-width:22px; padding:0 4px; border-radius:11px;}
+}
+
+/* Feldzeilen (Bezeichnung | Wert): Bezeichnung nie breiter als ein Drittel, bei schmalem Panel Bezeichnung über dem Wert */
+.field-label{width:min(220px, 36%);}
+.field-value{min-width:0; overflow-wrap:anywhere;}
+@container panel (max-width: 560px){
+  .field-row:not(.stacked){flex-direction:column; align-items:stretch; gap:2px; padding:7px 0;}
+  .field-row:not(.stacked) .field-label{width:auto; font-size:12px; font-weight:600; color:var(--gray-500);}
+}
+
+/* Ziele (gestapelte Felder) folgen derselben Regel: Bezeichnung über dem Wert bei schmalem Panel */
+.field-row.stacked .field-label{width:min(220px, 36%);}
+@container panel (max-width: 560px){
+  .field-row.stacked{flex-direction:column; align-items:stretch; gap:2px; padding:7px 0;}
+  .field-row.stacked .field-label{width:auto; font-size:12px; font-weight:600; color:var(--gray-500);}
+}
+
+/* Massnahme-Details, Aktionsleiste: Bearbeiten (Hauptaktion) und Geodaten gleich breit, Löschen als leiser Icon-Knopf rechts */
+.md-actions{flex-wrap:wrap; align-items:center; gap:10px; padding-top:16px; border-top:1px solid var(--gray-200);}
+.md-actions #btn-edit-massnahme{order:1; flex:1 1 130px; background:var(--blue-primary); border:1px solid var(--blue-primary); color:#fff;}
+.md-actions #btn-edit-massnahme:hover{background:var(--blue-primary-dark); border-color:var(--blue-primary-dark);}
+.md-actions #btn-geodaten{order:2; flex:1 1 130px;}
+.md-actions .md-del{order:3; margin-left:auto; width:38px; height:38px; border:1px solid transparent; background:transparent; color:var(--gray-500); border-radius:6px; display:inline-flex; align-items:center; justify-content:center;}
+.md-actions .md-del:hover{background:var(--red); border-color:var(--red); color:#fff;}
+.md-actions .btn{min-height:38px;}
+/* Geodaten: nur Icon, gleiche Höhe und Form wie der Löschen-Knopf */
+.md-actions #btn-geodaten{flex:none; width:38px; height:38px; padding:0; justify-content:center;}
+
+/* Kontakte: Tabelle ohne seitliches Scrollen. Bei schmalem Panel entfällt die E-Mail-Spalte (sichtbar im Kontakt), Firma bricht um. */
+.contacts-table{width:100%;}
+.contacts-table td, .contacts-table th{overflow-wrap:anywhere;}
+@container panel (max-width: 560px){
+  .contacts-table .col-mail{display:none;}
+  .contacts-table{min-width:0;}
+}
+
+/* Status-Badge: bei ganz schmalem Panel Kurzformen («1. NF», «EPA», «Massn.») */
+.phase-label .pl-short{display:none;}
+@container panel (max-width: 520px){
+  .phase-label .pl-full{display:none;}
+  .phase-label .pl-short{display:inline;}
+}
+
+/* Planungsliste: bei ganz schmalem Panel entfällt die Spalte «Typ» (der Typ steht im Titel der Planung) */
+@container panel (max-width: 460px){
+  .planungen-table .col-typ{display:none;}
+}
+@container panel (max-width: 460px){
+  .planungen-table th, .planungen-table td{padding-left:6px; padding-right:6px;}
+  .planungen-table .col-actions{width:1%; white-space:nowrap;}
+  .planungen-table .row-action{width:28px; height:28px;}
+}
+
+/* Fälligkeit: «seit 481 Tagen» wird bei schmalem Panel zu «seit 481 d» */
+.tage-kurz{display:none;}
+@container panel (max-width: 520px){
+  .tage-voll{display:none;}
+  .tage-kurz{display:inline;}
+}
+
+/* Nachführung bei schmalem Panel (nach Panelbreite): Felder untereinander, Knöpfe in voller Breite */
+@container panel (max-width: 620px){
+  .nfp-grid{grid-template-columns:1fr;}
+  .form-field.is-inline{flex-direction:column; align-items:stretch;}
+  .form-field.is-inline > label{width:auto; padding-top:0; margin-bottom:6px;}
+  .nf-block-actions{flex-wrap:wrap; gap:10px;}
+  .nf-block-actions .nf-autosave{flex:1 1 100%;}
+  .nf-block-actions .btn{flex:1 1 140px; justify-content:center;}
+  .nfp-fuss{flex-direction:column; align-items:stretch; gap:10px;}
+  .nfp-aktion{order:-1; width:100%;}
+  .nfp-aktion .btn{width:100%; justify-content:center;}
+  .nfp-nav{width:100%;}
+  .nfp-nav .btn{flex:1; justify-content:center;}
+}
